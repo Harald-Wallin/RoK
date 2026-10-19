@@ -4,18 +4,41 @@ using System.Collections.Generic;
 [CreateAssetMenu(menuName = "RPG/Faction")]
 public class Faction : ScriptableObject
 {
+    [Header("Identity")]
+
+    [SerializeField]
+    public string factionName;
+
+
+    [Header("Presentation")]
+
+    [SerializeField]
+    [Tooltip(
+        "Ikonen som används när denna faction presenteras i UI, " +
+        "exempelvis på NPC-nameplates."
+    )]
+    private Sprite icon;
+
 
     [Header("Can be discovered")]
+
     public bool showInReputationWindow = true;
 
-    public string factionName;
+
+    [Header("Description")]
+
     [TextArea(3, 6)]
+    public string loreDescription;
+
+    public string factionCategory;
+
 
     public string Id =>
-    PersistentIdUtility
-        .FromDisplayName(
-            DisplayName
-        );
+        PersistentIdUtility
+            .FromDisplayName(
+                DisplayName
+            );
+
 
     public string DisplayName =>
         string.IsNullOrWhiteSpace(
@@ -24,9 +47,10 @@ public class Faction : ScriptableObject
             ? name
             : factionName;
 
-    public string loreDescription;
 
-    public string factionCategory;
+    public Sprite Icon =>
+        icon;
+
 
     [System.Serializable]
     public class FactionRelation
@@ -37,25 +61,33 @@ public class Faction : ScriptableObject
             ReputationState.Indifferent;
     }
 
+
     public List<FactionRelation> relations =
         new List<FactionRelation>();
 
-    public ReputationState GetStanding(Faction other)
+
+    public ReputationState GetStanding(
+        Faction other)
     {
         if (other == null)
-            return ReputationState.Indifferent;
-
-        foreach (var rel in relations)
         {
-            if (rel.otherFaction == other)
+            return
+                ReputationState.Indifferent;
+        }
+
+        foreach (
+            FactionRelation relation
+            in relations)
+        {
+            if (relation.otherFaction ==
+                other)
             {
-                return rel.standing;
+                return
+                    relation.standing;
             }
         }
 
-        return ReputationState.Indifferent;
+        return
+            ReputationState.Indifferent;
     }
-
 }
-
-

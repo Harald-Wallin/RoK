@@ -50,11 +50,32 @@ public class HumanoidVisualController : MonoBehaviour
 
         if (characterState == null)
         {
-            Debug.LogError(
-                $"HumanoidVisualController on '{name}' could not find " +
-                $"{nameof(CharacterStateController)} in its parent hierarchy.",
-                this
-            );
+            /*
+             * Om VisualRoot faktiskt tillhör en gameplay-karaktär
+             * med CharacterStats är detta ett riktigt setup-fel.
+             *
+             * Ett fristående visual/preview-objekt får däremot
+             * fungera utan CharacterStateController och använder
+             * då vanliga non-combat-animationer.
+             */
+            CharacterStats character =
+                GetComponentInParent<CharacterStats>(
+                    true
+                );
+
+            if (character != null)
+            {
+                Debug.LogError(
+                    $"HumanoidVisualController on '{name}' belongs to " +
+                    $"character '{character.name}', but no " +
+                    $"{nameof(CharacterStateController)} exists in its " +
+                    $"parent hierarchy.",
+                    this
+                );
+            }
+
+            inCombat =
+                false;
 
             return;
         }

@@ -1,6 +1,5 @@
 ﻿using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
 
 [DisallowMultipleComponent]
 public sealed class PlayerHealthUI :
@@ -12,18 +11,10 @@ public sealed class PlayerHealthUI :
     private PlayerStats player;
 
     [SerializeField]
-    private Image healthFill;
+    private HealthBarVisual healthBarVisual;
 
     [SerializeField]
     private TMP_Text hpText;
-
-
-    private void Awake()
-    {
-        ConfigureFillImage(
-            healthFill
-        );
-    }
 
 
     private void Start()
@@ -50,7 +41,9 @@ public sealed class PlayerHealthUI :
         player.OnHealthChanged +=
             HandleHealthChanged;
 
-        Refresh();
+        Refresh(
+            true
+        );
     }
 
 
@@ -66,33 +59,33 @@ public sealed class PlayerHealthUI :
 
     private void HandleHealthChanged()
     {
-        Refresh();
+        Refresh(
+            false
+        );
     }
 
 
-    private void Refresh()
+    private void Refresh(
+        bool immediate)
     {
         if (player == null)
             return;
 
         float maximumHealth =
             Mathf.Max(
-                0f,
+                1f,
                 player.GetStat(
                     StatType.MaxHP
                 )
             );
 
-        if (healthFill != null)
-        {
-            healthFill.fillAmount =
-                maximumHealth > 0f
-                    ? Mathf.Clamp01(
-                        player.currentHP /
-                        maximumHealth
-                    )
-                    : 0f;
-        }
+
+        healthBarVisual?.SetHealth(
+            player.currentHP,
+            maximumHealth,
+            immediate
+        );
+
 
         if (hpText != null)
         {
@@ -100,22 +93,5 @@ public sealed class PlayerHealthUI :
                 $"{Mathf.CeilToInt(player.currentHP)} / " +
                 $"{Mathf.CeilToInt(maximumHealth)}";
         }
-    }
-
-
-    private static void ConfigureFillImage(
-        Image image)
-    {
-        if (image == null)
-            return;
-
-        image.type =
-            Image.Type.Filled;
-
-        image.fillMethod =
-            Image.FillMethod.Horizontal;
-
-        image.fillOrigin =
-            (int)Image.OriginHorizontal.Left;
     }
 }

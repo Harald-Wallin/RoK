@@ -2,19 +2,26 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Tar en rå grid-path och reducerar den till ett mindre antal
-/// waypoints genom line-of-travel-tester med agentens clearance.
+/// Reducerar en rå grid-path till färre waypoints.
+///
+/// Seamless-versionen kan verifiera line-of-travel över flera
+/// NavigationRegions utan att region-borders blir waypoints.
 /// </summary>
 public static class NavigationPathSmoother
 {
+    // =========================================================
+    // SEAMLESS WORLD
+    // =========================================================
+
     public static List<Vector2> Smooth(
-    NavigationRegion region,
-    IReadOnlyList<Vector2> rawPoints)
+        NavigationWorld world,
+        NavigationRegion clearanceRegion,
+        IReadOnlyList<Vector2> rawPoints)
     {
         List<Vector2> result =
             new();
 
-        if (region == null ||
+        if (clearanceRegion == null ||
             rawPoints == null ||
             rawPoints.Count == 0)
         {
@@ -47,7 +54,9 @@ public static class NavigationPathSmoother
 
             /*
              * Börja från slutet och hitta den längsta waypoint
-             * som verkligen går att nå med full navigation-clearance.
+             * som går att nå med full navigation-clearance.
+             *
+             * Region-borders spelar ingen roll.
              */
             for (int candidate =
                      rawPoints.Count - 1;
@@ -55,15 +64,28 @@ public static class NavigationPathSmoother
                      anchorIndex;
                  candidate--)
             {
-                if (!region
-                        .IsDirectPathClear(
+                bool clear =
+                    world != null
+                        ? world.IsDirectPathClear(
                             rawPoints[
                                 anchorIndex
                             ],
                             rawPoints[
                                 candidate
-                            ]
-                        ))
+                            ],
+                            clearanceRegion
+                        )
+                        : clearanceRegion
+                            .IsDirectPathClear(
+                                rawPoints[
+                                    anchorIndex
+                                ],
+                                rawPoints[
+                                    candidate
+                                ]
+                            );
+
+                if (!clear)
                 {
                     continue;
                 }
@@ -74,12 +96,6 @@ public static class NavigationPathSmoother
                 break;
             }
 
-            /*
-             * Om inte ens nästa råa waypoint går att nå är
-             * pathen geometriskt inkonsekvent.
-             *
-             * Vi bryter istället för att skapa en unsafe segment.
-             */
             if (furthestVisible < 0)
             {
                 break;
@@ -96,13 +112,10 @@ public static class NavigationPathSmoother
                     1
                 ];
 
-            if (
-                (
-                    nextPoint -
-                    previousPoint
-                ).sqrMagnitude >
-                0.0001f
-            )
+            if ((nextPoint -
+                 previousPoint)
+                    .sqrMagnitude >
+                0.0001f)
             {
                 result.Add(
                     nextPoint
@@ -114,5 +127,21 @@ public static class NavigationPathSmoother
         }
 
         return result;
+    }
+
+
+    // =========================================================
+    // BACKWARDS COMPATIBILITY
+    // =========================================================
+
+    public static List<Vector2> Smooth(
+        NavigationRegion region,
+        IReadOnlyList<Vector2> rawPoints)
+    {
+        return Smooth(
+            null,
+            region,
+            rawPoints
+        );
     }
 }

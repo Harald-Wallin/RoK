@@ -1,0 +1,41 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6dc9be06d9a5f8640bb512aafbe586cc, type: 3}
+  m_Name: DonationNPC
+  m_EditorClassIdentifier: Assembly-CSharp::NPCDialogueTable
+  faction: {fileID: 0}
+  minReputationLevel: 0
+  lines:
+  - english: "Aid the realm and give tribute!\t"
+    swedish: Hjalp riket, skank tribut!
+  - english: Make your contribution
+    swedish: Bidra
+  - english: Offer what you can
+    swedish: Ge det du kan
+  - english: The thane farours your tribute
+    swedish: Hovdingen hedrar din tribut
+  - english: Give tribute to the realm
+    swedish: Ge tribut till riket
+  - english: You have anything useful?
+    swedish: Har du nagot anvandbart?
+  - english: Contribute to the common good
+    swedish: Bidra till det goda almanna
+  - english: Support the cause of the realm
+    swedish: Stotta rikets intresse
+  - english: Let your tribute speak for you
+    swedish: Lat din gava tala
+  - english: Bring forth your tribute
+    swedish: Led fram din tribut
+  - english: Intresting...
+    swedish: Intressant...
+  - english: Give tribute to the realm
+    swedish: Ge tribut till riket

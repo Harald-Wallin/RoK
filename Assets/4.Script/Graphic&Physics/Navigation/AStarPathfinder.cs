@@ -1,28 +1,105 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Optimerad A*-pathfinder för NavigationRegion.
+/// Seamless A* genom hela NavigationWorld.
 ///
-/// Viktiga egenskaper:
-/// - binary min-heap istället för linjär open-list
-/// - inga SearchNode-objekt per sökning
-/// - återanvänder intern search-memory mellan paths
-/// - generations-ID gör att stora arrays inte behöver nollställas
-///   inför varje sökning
-/// - behåller samma publika API som tidigare
+/// NavigationRegions är endast chunks för bakad navigation-data.
+/// En region-border är INTE en waypoint och INTE en portal.
+/// Om en granncell ligger i nästa NavigationRegion fortsätter
+/// samma A*-search helt enkelt in i den regionen.
 ///
-/// OBS:
-/// Den interna workspace:n är avsedd för synkrona path-requests
-/// på Unitys main thread.
-///
-/// När NavigationPathScheduler införs kommer requests fortfarande
-/// kunna exekveras sekventiellt genom denna pathfinder.
+/// Behåller även den gamla single-region-overloaden för kompatibilitet.
 /// </summary>
 public static class AStarPathfinder
 {
     private const float DiagonalCost =
         1.41421356f;
+
+    /*
+     * Säkerhetsgräns så en trasig/omöjlig extrem request inte
+     * kan söka obegränsat genom hela världen i samma frame.
+     *
+     * Med 80x80 cells per 32x32-region motsvarar 250 000 cells
+     * väldigt många regioner och är gott om marginal för nuvarande RöK.
+     */
+    private const int MaximumExpandedNodes =
+        250000;
+
+    private const float CellSizeTolerance =
+        0.001f;
+
+
+    // =========================================================
+    // WORLD CELL KEY
+    // =========================================================
+
+    private readonly struct WorldCellKey :
+        IEquatable<WorldCellKey>
+    {
+        public readonly NavigationRegion Region;
+        public readonly int X;
+        public readonly int Y;
+
+        public WorldCellKey(
+            NavigationRegion region,
+            int x,
+            int y)
+        {
+            Region =
+                region;
+
+            X =
+                x;
+
+            Y =
+                y;
+        }
+
+        public bool Equals(
+            WorldCellKey other)
+        {
+            return
+                Region == other.Region &&
+                X == other.X &&
+                Y == other.Y;
+        }
+
+        public override bool Equals(
+            object obj)
+        {
+            return
+                obj is WorldCellKey other &&
+                Equals(
+                    other
+                );
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                int hash =
+                    Region != null
+                        ? Region.GetInstanceID()
+                        : 0;
+
+                hash =
+                    hash *
+                    397 ^
+                    X;
+
+                hash =
+                    hash *
+                    397 ^
+                    Y;
+
+                return hash;
+            }
+        }
+    }
+
 
     // =========================================================
     // SEARCH DATA
@@ -37,8 +114,6 @@ public static class AStarPathfinder
 
         public int HeapIndex;
 
-        public int SearchGeneration;
-
         public bool Closed;
 
         public float FCost =>
@@ -46,125 +121,151 @@ public static class AStarPathfinder
             HCost;
     }
 
+
     /// <summary>
-    /// Delad runtime-memory för A*.
+    /// Återanvändbar workspace så vi behåller fördelen från
+    /// gamla pathfindern: arrays/heap återanvänds mellan searches.
     ///
-    /// Arrayerna växer endast när en större region behöver
-    /// sökas och återanvänds därefter.
+    /// Skillnaden är att ett node-index nu representerar:
+    ///
+    /// NavigationRegion + local X + local Y
+    ///
+    /// istället för bara X/Y i en enda region.
     /// </summary>
     private sealed class SearchWorkspace
     {
+        private readonly Dictionary<
+            WorldCellKey,
+            int>
+            nodeIndices =
+                new();
+
+        private WorldCellKey[] keys =
+            Array.Empty<WorldCellKey>();
+
+        private Vector2[] positions =
+            Array.Empty<Vector2>();
+
         private SearchRecord[] records =
-            System.Array.Empty<SearchRecord>();
+            Array.Empty<SearchRecord>();
 
         private int[] heap =
-            System.Array.Empty<int>();
+            Array.Empty<int>();
 
+        private int nodeCount;
         private int heapCount;
 
-        private int generation;
 
-        private int columns;
+        public int NodeCount =>
+            nodeCount;
 
         public int HeapCount =>
             heapCount;
 
-        public void BeginSearch(
-            int requiredCapacity,
-            int gridColumns)
+
+        public void BeginSearch()
         {
-            columns =
-                Mathf.Max(
-                    1,
-                    gridColumns
-                );
+            nodeIndices.Clear();
 
-            EnsureCapacity(
-                requiredCapacity
-            );
-
-            generation++;
-
-            /*
-             * Extrem edge case:
-             *
-             * Om generation skulle overflowa börjar vi om.
-             * Detta händer först efter miljarder searches,
-             * men gör systemet tekniskt robust.
-             */
-            if (generation <= 0)
-            {
-                System.Array.Clear(
-                    records,
-                    0,
-                    records.Length
-                );
-
-                generation =
-                    1;
-            }
+            nodeCount =
+                0;
 
             heapCount =
                 0;
         }
 
+
+        public int GetOrCreateNode(
+            WorldCellKey key,
+            Vector2 worldPosition)
+        {
+            if (nodeIndices.TryGetValue(
+                    key,
+                    out int existingIndex))
+            {
+                return existingIndex;
+            }
+
+            EnsureNodeCapacity(
+                nodeCount + 1
+            );
+
+            int index =
+                nodeCount;
+
+            nodeCount++;
+
+            keys[index] =
+                key;
+
+            positions[index] =
+                worldPosition;
+
+            records[index] =
+                new SearchRecord
+                {
+                    GCost =
+                        float.PositiveInfinity,
+
+                    HCost =
+                        0f,
+
+                    ParentIndex =
+                        -1,
+
+                    HeapIndex =
+                        -1,
+
+                    Closed =
+                        false
+                };
+
+            nodeIndices.Add(
+                key,
+                index
+            );
+
+            return index;
+        }
+
+
         public ref SearchRecord GetRecord(
             int index)
         {
-            ref SearchRecord record =
+            return
                 ref records[index];
-
-            if (record.SearchGeneration !=
-                generation)
-            {
-                record.GCost =
-                    float.PositiveInfinity;
-
-                record.HCost =
-                    0f;
-
-                record.ParentIndex =
-                    -1;
-
-                record.HeapIndex =
-                    -1;
-
-                record.SearchGeneration =
-                    generation;
-
-                record.Closed =
-                    false;
-            }
-
-            return ref record;
         }
 
-        public bool HasRecord(
+
+        public WorldCellKey GetKey(
             int index)
         {
             return
-                records[index]
-                    .SearchGeneration ==
-                generation;
+                keys[index];
         }
+
+
+        public Vector2 GetPosition(
+            int index)
+        {
+            return
+                positions[index];
+        }
+
 
         // =====================================================
         // HEAP
         // =====================================================
 
         public void AddOrUpdateOpen(
-            int cellIndex)
+            int nodeIndex)
         {
             ref SearchRecord record =
-                ref GetRecord(
-                    cellIndex
-                );
+                ref records[nodeIndex];
 
             /*
              * Redan i heapen:
-             * GCost kan precis ha minskat.
-             *
-             * Då behöver noden bara bubbla upp.
+             * GCost har minskat, så node behöver bara bubbla upp.
              */
             if (record.HeapIndex >= 0)
             {
@@ -183,7 +284,7 @@ public static class AStarPathfinder
                 heapCount;
 
             heap[heapIndex] =
-                cellIndex;
+                nodeIndex;
 
             record.HeapIndex =
                 heapIndex;
@@ -195,27 +296,24 @@ public static class AStarPathfinder
             );
         }
 
+
         public int PopBest()
         {
             if (heapCount <= 0)
                 return -1;
 
-            int bestCellIndex =
+            int bestNode =
                 heap[0];
 
-            ref SearchRecord bestRecord =
-                ref GetRecord(
-                    bestCellIndex
-                );
-
-            bestRecord.HeapIndex =
-                -1;
+            records[bestNode]
+                .HeapIndex =
+                    -1;
 
             heapCount--;
 
             if (heapCount <= 0)
             {
-                return bestCellIndex;
+                return bestNode;
             }
 
             int replacement =
@@ -224,20 +322,17 @@ public static class AStarPathfinder
             heap[0] =
                 replacement;
 
-            ref SearchRecord replacementRecord =
-                ref GetRecord(
-                    replacement
-                );
-
-            replacementRecord.HeapIndex =
-                0;
+            records[replacement]
+                .HeapIndex =
+                    0;
 
             BubbleDown(
                 0
             );
 
-            return bestCellIndex;
+            return bestNode;
         }
+
 
         private void BubbleUp(
             int heapIndex)
@@ -251,15 +346,15 @@ public static class AStarPathfinder
                     ) /
                     2;
 
-                int currentCell =
+                int currentNode =
                     heap[heapIndex];
 
-                int parentCell =
+                int parentNode =
                     heap[parentIndex];
 
                 if (!IsBetter(
-                        currentCell,
-                        parentCell))
+                        currentNode,
+                        parentNode))
                 {
                     break;
                 }
@@ -273,6 +368,7 @@ public static class AStarPathfinder
                     parentIndex;
             }
         }
+
 
         private void BubbleDown(
             int heapIndex)
@@ -324,19 +420,16 @@ public static class AStarPathfinder
             }
         }
 
-        private bool IsBetter(
-            int firstCellIndex,
-            int secondCellIndex)
-        {
-            ref SearchRecord first =
-                ref GetRecord(
-                    firstCellIndex
-                );
 
-            ref SearchRecord second =
-                ref GetRecord(
-                    secondCellIndex
-                );
+        private bool IsBetter(
+            int firstNodeIndex,
+            int secondNodeIndex)
+        {
+            SearchRecord first =
+                records[firstNodeIndex];
+
+            SearchRecord second =
+                records[secondNodeIndex];
 
             float firstF =
                 first.FCost;
@@ -358,85 +451,47 @@ public static class AStarPathfinder
 
             /*
              * Samma FCost:
+             * föredra lägre heuristic.
              *
-             * Föredra lägre HCost.
-             *
-             * Detta brukar ge något rakare och mer målmedvetna
-             * paths när flera alternativ är lika billiga.
+             * Samma princip som gamla pathfindern.
              */
             return
                 first.HCost <
                 second.HCost;
         }
 
+
         private void SwapHeapEntries(
             int firstHeapIndex,
             int secondHeapIndex)
         {
-            int firstCell =
+            int firstNode =
                 heap[firstHeapIndex];
 
-            int secondCell =
+            int secondNode =
                 heap[secondHeapIndex];
 
             heap[firstHeapIndex] =
-                secondCell;
+                secondNode;
 
             heap[secondHeapIndex] =
-                firstCell;
+                firstNode;
 
-            ref SearchRecord firstRecord =
-                ref GetRecord(
-                    firstCell
-                );
+            records[firstNode]
+                .HeapIndex =
+                    secondHeapIndex;
 
-            ref SearchRecord secondRecord =
-                ref GetRecord(
-                    secondCell
-                );
-
-            firstRecord.HeapIndex =
-                secondHeapIndex;
-
-            secondRecord.HeapIndex =
-                firstHeapIndex;
+            records[secondNode]
+                .HeapIndex =
+                    firstHeapIndex;
         }
 
-        // =====================================================
-        // INDEX HELPERS
-        // =====================================================
-
-        public int ToIndex(
-            int x,
-            int y)
-        {
-            return
-                y *
-                columns +
-                x;
-        }
-
-        public int GetX(
-            int index)
-        {
-            return
-                index %
-                columns;
-        }
-
-        public int GetY(
-            int index)
-        {
-            return
-                index /
-                columns;
-        }
 
         // =====================================================
         // CAPACITY
         // =====================================================
 
-        private void EnsureCapacity(
+        private void EnsureNodeCapacity(
             int requiredCapacity)
         {
             requiredCapacity =
@@ -445,25 +500,34 @@ public static class AStarPathfinder
                     requiredCapacity
                 );
 
-            if (records.Length <
+            if (records.Length >=
                 requiredCapacity)
             {
-                int newCapacity =
-                    GetExpandedCapacity(
-                        records.Length,
-                        requiredCapacity
-                    );
-
-                System.Array.Resize(
-                    ref records,
-                    newCapacity
-                );
+                return;
             }
 
-            EnsureHeapCapacity(
-                requiredCapacity
+            int newCapacity =
+                GetExpandedCapacity(
+                    records.Length,
+                    requiredCapacity
+                );
+
+            Array.Resize(
+                ref keys,
+                newCapacity
+            );
+
+            Array.Resize(
+                ref positions,
+                newCapacity
+            );
+
+            Array.Resize(
+                ref records,
+                newCapacity
             );
         }
+
 
         private void EnsureHeapCapacity(
             int requiredCapacity)
@@ -480,11 +544,12 @@ public static class AStarPathfinder
                     requiredCapacity
                 );
 
-            System.Array.Resize(
+            Array.Resize(
                 ref heap,
                 newCapacity
             );
         }
+
 
         private static int GetExpandedCapacity(
             int currentCapacity,
@@ -507,9 +572,11 @@ public static class AStarPathfinder
         }
     }
 
+
     private static readonly
         SearchWorkspace Workspace =
             new();
+
 
     // =========================================================
     // DIRECTIONS
@@ -539,6 +606,7 @@ public static class AStarPathfinder
             )
         };
 
+
     private static readonly Vector2Int[]
         DiagonalDirections =
         {
@@ -563,34 +631,130 @@ public static class AStarPathfinder
             )
         };
 
+
     // =========================================================
-    // PUBLIC API
+    // PUBLIC API - SEAMLESS WORLD
     // =========================================================
 
+    public static NavigationPath FindPath(
+        NavigationWorld world,
+        Vector2 startWorldPosition,
+        Vector2 targetWorldPosition,
+        bool allowDirectFastPath = true)
+    {
+        NavigationPath emptyPath =
+            new();
+
+        if (world == null)
+            return emptyPath;
+
+        if (!world.TryGetRegionAt(
+                startWorldPosition,
+                out NavigationRegion startRegion))
+        {
+            return emptyPath;
+        }
+
+        if (!world.TryGetRegionAt(
+                targetWorldPosition,
+                out NavigationRegion targetRegion))
+        {
+            return emptyPath;
+        }
+
+        return FindPathInternal(
+            world,
+            startRegion,
+            targetRegion,
+            startWorldPosition,
+            targetWorldPosition,
+            allowDirectFastPath
+        );
+    }
+
+
+    // =========================================================
+    // PUBLIC API - BACKWARDS COMPATIBILITY
+    // =========================================================
+
+    /// <summary>
+    /// Behåller gamla API:t för eventuell äldre kod.
+    ///
+    /// Denna overload söker endast i den angivna regionen.
+    /// NPCNavigationAgent / NavigationPathScheduler använder
+    /// den nya NavigationWorld-overloaden.
+    /// </summary>
     public static NavigationPath FindPath(
         NavigationRegion region,
         Vector2 startWorldPosition,
         Vector2 targetWorldPosition,
         bool allowDirectFastPath = true)
     {
-        NavigationPath path =
+        NavigationPath emptyPath =
             new();
 
         if (region == null)
+            return emptyPath;
+
+        if (!region.ContainsWorldPosition(
+                startWorldPosition) ||
+            !region.ContainsWorldPosition(
+                targetWorldPosition))
+        {
+            return emptyPath;
+        }
+
+        return FindPathInternal(
+            null,
+            region,
+            region,
+            startWorldPosition,
+            targetWorldPosition,
+            allowDirectFastPath
+        );
+    }
+
+
+    // =========================================================
+    // SEARCH
+    // =========================================================
+
+    private static NavigationPath FindPathInternal(
+        NavigationWorld world,
+        NavigationRegion startRegion,
+        NavigationRegion targetRegion,
+        Vector2 startWorldPosition,
+        Vector2 targetWorldPosition,
+        bool allowDirectFastPath)
+    {
+        NavigationPath path =
+            new();
+
+        if (startRegion == null ||
+            targetRegion == null)
+        {
             return path;
+        }
+
 
         // -----------------------------------------------------
         // FAST PATH
         // -----------------------------------------------------
 
-        /*
-         * Om destinationen redan går att nå direkt behövs
-         * varken grid-search eller heap.
-         */
+        bool directPathClear =
+            world != null
+                ? world.IsDirectPathClear(
+                    startWorldPosition,
+                    targetWorldPosition,
+                    startRegion
+                )
+                : startRegion.IsDirectPathClear(
+                    startWorldPosition,
+                    targetWorldPosition
+                );
+
         if (allowDirectFastPath &&
-            region.IsDirectPathClear(
-            startWorldPosition,
-            targetWorldPosition))
+            directPathClear)
         {
             Vector2[] directPoints =
             {
@@ -609,50 +773,58 @@ public static class AStarPathfinder
             return path;
         }
 
+
         // -----------------------------------------------------
         // START / TARGET CELLS
         // -----------------------------------------------------
 
-        if (!region
+        if (!startRegion
                 .TryGetClosestWalkableCell(
                     startWorldPosition,
-                    out NavigationCell start))
+                    out NavigationCell startCell))
         {
             return path;
         }
 
-        if (!region
+        if (!targetRegion
                 .TryGetClosestWalkableCell(
                     targetWorldPosition,
-                    out NavigationCell target))
+                    out NavigationCell targetCell))
         {
             return path;
         }
 
-        int totalCells =
-            region.Columns *
-            region.Rows;
 
-        Workspace.BeginSearch(
-            totalCells,
-            region.Columns
-        );
+        WorldCellKey startKey =
+            new WorldCellKey(
+                startRegion,
+                startCell.X,
+                startCell.Y
+            );
+
+        WorldCellKey targetKey =
+            new WorldCellKey(
+                targetRegion,
+                targetCell.X,
+                targetCell.Y
+            );
+
+
+        Workspace.BeginSearch();
+
 
         int startIndex =
-            Workspace.ToIndex(
-                start.X,
-                start.Y
+            Workspace.GetOrCreateNode(
+                startKey,
+                startCell.WorldPosition
             );
 
         int targetIndex =
-            Workspace.ToIndex(
-                target.X,
-                target.Y
+            Workspace.GetOrCreateNode(
+                targetKey,
+                targetCell.WorldPosition
             );
 
-        // -----------------------------------------------------
-        // INITIALIZE START
-        // -----------------------------------------------------
 
         ref SearchRecord startRecord =
             ref Workspace.GetRecord(
@@ -664,11 +836,9 @@ public static class AStarPathfinder
 
         startRecord.HCost =
             Heuristic(
-                start.X,
-                start.Y,
-                target.X,
-                target.Y,
-                region.AllowDiagonalMovement
+                startCell.WorldPosition,
+                targetCell.WorldPosition,
+                startRegion.CellSize
             );
 
         startRecord.ParentIndex =
@@ -678,14 +848,20 @@ public static class AStarPathfinder
             startIndex
         );
 
+
         // -----------------------------------------------------
-        // SEARCH
+        // A*
         // -----------------------------------------------------
 
         bool foundDestination =
             false;
 
-        while (Workspace.HeapCount > 0)
+        int expandedNodes =
+            0;
+
+        while (Workspace.HeapCount > 0 &&
+               expandedNodes <
+               MaximumExpandedNodes)
         {
             int currentIndex =
                 Workspace.PopBest();
@@ -704,6 +880,8 @@ public static class AStarPathfinder
             currentRecord.Closed =
                 true;
 
+            expandedNodes++;
+
             if (currentIndex ==
                 targetIndex)
             {
@@ -713,38 +891,34 @@ public static class AStarPathfinder
                 break;
             }
 
-            int currentX =
-                Workspace.GetX(
-                    currentIndex
-                );
-
-            int currentY =
-                Workspace.GetY(
+            WorldCellKey currentKey =
+                Workspace.GetKey(
                     currentIndex
                 );
 
             EvaluateCardinalNeighbours(
-                region,
+                world,
                 currentIndex,
-                currentX,
-                currentY,
-                target
+                currentKey,
+                targetCell.WorldPosition
             );
 
-            if (region.AllowDiagonalMovement)
+            if (currentKey.Region != null &&
+                currentKey.Region.AllowDiagonalMovement)
             {
                 EvaluateDiagonalNeighbours(
-                    region,
+                    world,
                     currentIndex,
-                    currentX,
-                    currentY,
-                    target
+                    currentKey,
+                    targetCell.WorldPosition
                 );
             }
         }
 
+
         if (!foundDestination)
             return path;
+
 
         // -----------------------------------------------------
         // BUILD RAW PATH
@@ -752,7 +926,9 @@ public static class AStarPathfinder
 
         List<Vector2> rawPoints =
             BuildWorldPath(
-                region,
+                world,
+                startRegion,
+                targetRegion,
                 startIndex,
                 targetIndex,
                 startWorldPosition,
@@ -766,38 +942,26 @@ public static class AStarPathfinder
             rawPoints
         );
 
+
         // -----------------------------------------------------
         // SMOOTH
         // -----------------------------------------------------
 
         List<Vector2> smoothed =
-    NavigationPathSmoother.Smooth(
-        region,
-        rawPoints
-    );
+            NavigationPathSmoother.Smooth(
+                world,
+                startRegion,
+                rawPoints
+            );
 
         /*
-         * En special situation kan uppstå när NPC:n fysiskt står
-         * närmare World-geometri än regionens NavigationRadius.
-         *
-         * A* kan då fortfarande hitta en korrekt grid-path från
-         * närmaste walkable startcell, men path-smoothing kan inte
-         * verifiera segmentet från NPC:ns exakta position till den
-         * första gridcellen med full navigation-clearance.
-         *
-         * Smoothern får då inte förvandla en fungerande rå A*-path
-         * till en oanvändbar enpunkts-path.
+         * Precis som tidigare:
+         * om smoothing av någon anledning inte kan skapa minst
+         * start + nästa punkt, behåll raw A*-pathen.
          */
         if (smoothed == null ||
             smoothed.Count < 2)
         {
-            /*
-             * Behåll den råa grid-pathen.
-             *
-             * NPCMovement står fortfarande för den slutliga fysiska
-             * Rigidbody-kollisionskontrollen, så NPC:n kan aldrig
-             * klippa genom World bara för att smoothing misslyckades.
-             */
             path.SetPoints(
                 rawPoints
             );
@@ -812,91 +976,123 @@ public static class AStarPathfinder
         return path;
     }
 
+
     // =========================================================
     // CARDINAL NEIGHBOURS
     // =========================================================
 
-    private static void
-        EvaluateCardinalNeighbours(
-            NavigationRegion region,
-            int currentIndex,
-            int currentX,
-            int currentY,
-            NavigationCell target)
+    private static void EvaluateCardinalNeighbours(
+        NavigationWorld world,
+        int currentIndex,
+        WorldCellKey currentKey,
+        Vector2 targetWorldPosition)
     {
         for (int i = 0;
-             i <
-             CardinalDirections.Length;
+             i < CardinalDirections.Length;
              i++)
         {
             Vector2Int offset =
                 CardinalDirections[i];
 
-            int neighbourX =
-                currentX +
-                offset.x;
-
-            int neighbourY =
-                currentY +
-                offset.y;
+            if (!TryResolveNeighbourCell(
+                    world,
+                    currentKey,
+                    offset,
+                    out WorldCellKey neighbourKey,
+                    out Vector2 neighbourWorldPosition))
+            {
+                continue;
+            }
 
             TryEvaluateNeighbour(
-                region,
                 currentIndex,
-                neighbourX,
-                neighbourY,
-                target,
+                neighbourKey,
+                neighbourWorldPosition,
+                targetWorldPosition,
                 1f
             );
         }
     }
 
+
     // =========================================================
     // DIAGONAL NEIGHBOURS
     // =========================================================
 
-    private static void
-        EvaluateDiagonalNeighbours(
-            NavigationRegion region,
-            int currentIndex,
-            int currentX,
-            int currentY,
-            NavigationCell target)
+    private static void EvaluateDiagonalNeighbours(
+        NavigationWorld world,
+        int currentIndex,
+        WorldCellKey currentKey,
+        Vector2 targetWorldPosition)
     {
         for (int i = 0;
-             i <
-             DiagonalDirections.Length;
+             i < DiagonalDirections.Length;
              i++)
         {
             Vector2Int offset =
                 DiagonalDirections[i];
 
-            int neighbourX =
-                currentX +
-                offset.x;
-
-            int neighbourY =
-                currentY +
-                offset.y;
+            if (!TryResolveNeighbourCell(
+                    world,
+                    currentKey,
+                    offset,
+                    out WorldCellKey neighbourKey,
+                    out Vector2 neighbourWorldPosition))
+            {
+                continue;
+            }
 
             /*
-             * Förhindrar att agenten "klipper" diagonalt
-             * mellan blockerade hörn.
+             * Om vi diagonalt går in i en annan region respekterar
+             * vi även den regionens diagonal-setting.
              */
-            if (region.PreventCornerCutting)
+            if (neighbourKey.Region != null &&
+                !neighbourKey.Region.AllowDiagonalMovement)
             {
-                bool horizontalClear =
-                    region.IsWalkable(
-                        currentX +
+                continue;
+            }
+
+            bool preventCornerCutting =
+                currentKey.Region != null &&
+                currentKey.Region.PreventCornerCutting;
+
+            if (neighbourKey.Region != null &&
+                neighbourKey.Region.PreventCornerCutting)
+            {
+                preventCornerCutting =
+                    true;
+            }
+
+            if (preventCornerCutting)
+            {
+                Vector2Int horizontalOffset =
+                    new Vector2Int(
                         offset.x,
-                        currentY
+                        0
+                    );
+
+                Vector2Int verticalOffset =
+                    new Vector2Int(
+                        0,
+                        offset.y
+                    );
+
+                bool horizontalClear =
+                    TryResolveNeighbourCell(
+                        world,
+                        currentKey,
+                        horizontalOffset,
+                        out _,
+                        out _
                     );
 
                 bool verticalClear =
-                    region.IsWalkable(
-                        currentX,
-                        currentY +
-                        offset.y
+                    TryResolveNeighbourCell(
+                        world,
+                        currentKey,
+                        verticalOffset,
+                        out _,
+                        out _
                     );
 
                 if (!horizontalClear ||
@@ -907,40 +1103,192 @@ public static class AStarPathfinder
             }
 
             TryEvaluateNeighbour(
-                region,
                 currentIndex,
-                neighbourX,
-                neighbourY,
-                target,
+                neighbourKey,
+                neighbourWorldPosition,
+                targetWorldPosition,
                 DiagonalCost
             );
         }
     }
 
+
+    // =========================================================
+    // NEIGHBOUR RESOLUTION
+    // =========================================================
+
+    /// <summary>
+    /// Hittar granncellen även om offseten passerar en region-border.
+    ///
+    /// Exempel:
+    ///
+    /// Region A sista X-cell + right
+    /// =>
+    /// Region B första X-cell.
+    ///
+    /// Ingen portal behövs.
+    /// </summary>
+    private static bool TryResolveNeighbourCell(
+        NavigationWorld world,
+        WorldCellKey currentKey,
+        Vector2Int offset,
+        out WorldCellKey neighbourKey,
+        out Vector2 neighbourWorldPosition)
+    {
+        neighbourKey =
+            default;
+
+        neighbourWorldPosition =
+            Vector2.zero;
+
+        NavigationRegion currentRegion =
+            currentKey.Region;
+
+        if (currentRegion == null)
+            return false;
+
+
+        int localX =
+            currentKey.X +
+            offset.x;
+
+        int localY =
+            currentKey.Y +
+            offset.y;
+
+
+        // -----------------------------------------------------
+        // SAME REGION
+        // -----------------------------------------------------
+
+        if (currentRegion.IsValidCell(
+                localX,
+                localY))
+        {
+            if (!currentRegion.IsWalkable(
+                    localX,
+                    localY))
+            {
+                return false;
+            }
+
+            neighbourKey =
+                new WorldCellKey(
+                    currentRegion,
+                    localX,
+                    localY
+                );
+
+            neighbourWorldPosition =
+                currentRegion.GridToWorld(
+                    localX,
+                    localY
+                );
+
+            return true;
+        }
+
+
+        // -----------------------------------------------------
+        // CROSS REGION BORDER
+        // -----------------------------------------------------
+
+        if (world == null)
+            return false;
+
+        /*
+         * GridToWorld fungerar även för x/y strax utanför
+         * regionen eftersom den bara gör en matematisk konvertering.
+         *
+         * Därmed får vi centrumpositionen för den cell som borde
+         * ligga precis på andra sidan bordern.
+         */
+        Vector2 expectedWorldPosition =
+            currentRegion.GridToWorld(
+                localX,
+                localY
+            );
+
+        if (!world.TryGetRegionAt(
+                expectedWorldPosition,
+                out NavigationRegion neighbourRegion))
+        {
+            return false;
+        }
+
+        if (!AreRegionsCompatible(
+                currentRegion,
+                neighbourRegion))
+        {
+            return false;
+        }
+
+        if (!neighbourRegion.TryWorldToGrid(
+                expectedWorldPosition,
+                out int neighbourX,
+                out int neighbourY))
+        {
+            return false;
+        }
+
+        if (!neighbourRegion.IsWalkable(
+                neighbourX,
+                neighbourY))
+        {
+            return false;
+        }
+
+        neighbourKey =
+            new WorldCellKey(
+                neighbourRegion,
+                neighbourX,
+                neighbourY
+            );
+
+        neighbourWorldPosition =
+            neighbourRegion.GridToWorld(
+                neighbourX,
+                neighbourY
+            );
+
+        return true;
+    }
+
+
+    private static bool AreRegionsCompatible(
+        NavigationRegion first,
+        NavigationRegion second)
+    {
+        if (first == null ||
+            second == null)
+        {
+            return false;
+        }
+
+        return
+            Mathf.Abs(
+                first.CellSize -
+                second.CellSize
+            ) <=
+            CellSizeTolerance;
+    }
+
+
     // =========================================================
     // NEIGHBOUR EVALUATION
     // =========================================================
 
-    private static void
-        TryEvaluateNeighbour(
-            NavigationRegion region,
-            int currentIndex,
-            int neighbourX,
-            int neighbourY,
-            NavigationCell target,
-            float movementCost)
+    private static void TryEvaluateNeighbour(
+        int currentIndex,
+        WorldCellKey neighbourKey,
+        Vector2 neighbourWorldPosition,
+        Vector2 targetWorldPosition,
+        float movementCost)
     {
-        if (!region.IsWalkable(
-                neighbourX,
-                neighbourY))
-        {
-            return;
-        }
-
         int neighbourIndex =
-            Workspace.ToIndex(
-                neighbourX,
-                neighbourY
+            Workspace.GetOrCreateNode(
+                neighbourKey,
+                neighbourWorldPosition
             );
 
         ref SearchRecord neighbour =
@@ -974,90 +1322,62 @@ public static class AStarPathfinder
 
         neighbour.HCost =
             Heuristic(
-                neighbourX,
-                neighbourY,
-                target.X,
-                target.Y,
-                region.AllowDiagonalMovement
+                neighbourWorldPosition,
+                targetWorldPosition,
+                neighbourKey.Region != null
+                    ? neighbourKey.Region.CellSize
+                    : 1f
             );
 
-        /*
-         * Om noden redan finns i heapen gör detta endast
-         * en decrease-key/bubble-up.
-         *
-         * Ingen List.Contains behövs.
-         */
         Workspace.AddOrUpdateOpen(
             neighbourIndex
         );
     }
 
+
     // =========================================================
     // HEURISTIC
     // =========================================================
 
+    /// <summary>
+    /// Euclidean heuristic.
+    ///
+    /// Den är admissible både med och utan diagonaler och fungerar
+    /// därför säkert även om en framtida region skulle ha andra
+    /// movement-settings än sin granne.
+    /// </summary>
     private static float Heuristic(
-        int x,
-        int y,
-        int targetX,
-        int targetY,
-        bool allowDiagonalMovement)
+        Vector2 fromWorld,
+        Vector2 targetWorld,
+        float cellSize)
     {
-        int dx =
-            Mathf.Abs(
-                targetX -
-                x
-            );
-
-        int dy =
-            Mathf.Abs(
-                targetY -
-                y
-            );
-
-        /*
-         * Utan diagonaler använder vi Manhattan distance.
-         */
-        if (!allowDiagonalMovement)
-        {
-            return
-                dx +
-                dy;
-        }
-
-        /*
-         * Med diagonaler använder vi octile distance.
-         */
-        int diagonal =
-            Mathf.Min(
-                dx,
-                dy
-            );
-
-        int straight =
+        float safeCellSize =
             Mathf.Max(
-                dx,
-                dy
-            ) -
-            diagonal;
+                0.001f,
+                cellSize
+            );
 
         return
-            diagonal *
-            DiagonalCost +
-            straight;
+            Vector2.Distance(
+                fromWorld,
+                targetWorld
+            ) /
+            safeCellSize;
     }
+
 
     // =========================================================
     // BUILD WORLD PATH
     // =========================================================
 
-    private static List<Vector2>
-        BuildWorldPath(
-            NavigationRegion region,
-            int startIndex,
-            int destinationIndex,
-            Vector2 exactStart,
-            Vector2 exactTarget)
+    private static List<Vector2> BuildWorldPath(
+        NavigationWorld world,
+        NavigationRegion startRegion,
+        NavigationRegion targetRegion,
+        int startIndex,
+        int destinationIndex,
+        Vector2 exactStart,
+        Vector2 exactTarget)
     {
         List<Vector2> reversed =
             new();
@@ -1065,13 +1385,12 @@ public static class AStarPathfinder
         int currentIndex =
             destinationIndex;
 
-        /*
-         * Säkerhetsgräns så en trasig parent-chain aldrig
-         * kan skapa en oändlig loop.
-         */
         int maximumSteps =
-            region.Columns *
-            region.Rows;
+            Mathf.Max(
+                1,
+                Workspace.NodeCount +
+                1
+            );
 
         int steps =
             0;
@@ -1080,20 +1399,9 @@ public static class AStarPathfinder
                steps <
                maximumSteps)
         {
-            int x =
-                Workspace.GetX(
-                    currentIndex
-                );
-
-            int y =
-                Workspace.GetY(
-                    currentIndex
-                );
-
             reversed.Add(
-                region.GridToWorld(
-                    x,
-                    y
+                Workspace.GetPosition(
+                    currentIndex
                 )
             );
 
@@ -1114,7 +1422,8 @@ public static class AStarPathfinder
             steps++;
         }
 
-        if (reversed.Count == 0)
+        if (reversed.Count == 0 ||
+            currentIndex < 0)
         {
             return new List<Vector2>();
         }
@@ -1157,13 +1466,8 @@ public static class AStarPathfinder
         }
 
         /*
-         * Försök använda den exakta destinationen.
-         *
-         * Om target befinner sig inne i blockerad World-geometri
-         * avslutar vi istället vid närmaste walkable cell.
-         *
-         * Det förhindrar att en NPC hittar en korrekt A*-path och
-         * sedan i sista steget försöker springa rakt in i väggen.
+         * Försök avsluta på den exakta target-positionen,
+         * precis som gamla implementationen.
          */
         Vector2 lastPoint =
             result[
@@ -1171,10 +1475,26 @@ public static class AStarPathfinder
                 1
             ];
 
-        if ((exactTarget - lastPoint).sqrMagnitude > 0.0001f &&
-            region.IsDirectPathClear(lastPoint,exactTarget))
+        bool exactTargetClear =
+            world != null
+                ? world.IsDirectPathClear(
+                    lastPoint,
+                    exactTarget,
+                    targetRegion
+                )
+                : targetRegion.IsDirectPathClear(
+                    lastPoint,
+                    exactTarget
+                );
+
+        if ((exactTarget - lastPoint)
+                .sqrMagnitude >
+            0.0001f &&
+            exactTargetClear)
         {
-            result.Add(exactTarget);
+            result.Add(
+                exactTarget
+            );
         }
 
         return result;

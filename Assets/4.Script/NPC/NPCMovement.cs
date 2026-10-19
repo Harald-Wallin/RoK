@@ -105,8 +105,7 @@ public class NPCMovement : MonoBehaviour
     private static int CharacterLayers =>
         LayerMask.GetMask(
             "NPC",
-            "Player",
-            "World"
+            "Player"
         );
 
     private readonly Collider2D[]
@@ -194,6 +193,17 @@ public class NPCMovement : MonoBehaviour
     [Min(0f)]
     protected float patrolSpeedMultiplier =
         0.75f;
+
+    [SerializeField]
+    [Min(0.05f)]
+    [Tooltip(
+    "Hur nära en vanlig patrol-node NPC:n måste komma innan " +
+    "noden betraktas som nådd. " +
+    "Hålls separat från generell Stop Distance så patrol-pathen " +
+    "inte byter mål för tidigt runt hinder."
+)]
+    private float patrolNodeReachDistance =
+    0.35f;
 
     [SerializeField]
     [Min(0f)]
@@ -360,6 +370,12 @@ public class NPCMovement : MonoBehaviour
             Mathf.Max(
                 0f,
                 patrolSpeedMultiplier
+            );
+
+        patrolNodeReachDistance =
+            Mathf.Max(
+                0.05f,
+                patrolNodeReachDistance
             );
 
         blockedPatrolNodeAcceptanceDistance =
@@ -1385,10 +1401,7 @@ public class NPCMovement : MonoBehaviour
                 useLayerMask =
                     true,
 
-                layerMask =
-                    LayerMask.GetMask(
-                        "World"
-                    ),
+                layerMask = ResolveWorldCollisionMask(),
 
                 useTriggers =
                     false
@@ -1464,6 +1477,34 @@ public class NPCMovement : MonoBehaviour
         }
 
         return Vector2.zero;
+    }
+
+    private int ResolveWorldCollisionMask()
+    {
+        if (navigationAgent != null &&
+            navigationAgent.CurrentRegion != null)
+        {
+            int navigationMask =
+                navigationAgent
+                    .CurrentRegion
+                    .ObstacleLayers
+                    .value;
+
+            if (navigationMask != 0)
+            {
+                return navigationMask;
+            }
+        }
+
+
+        /*
+         * Safe fallback för en NPC som tillfälligt befinner sig
+         * utanför en NavigationRegion.
+         */
+        return LayerMask.GetMask(
+            "World",
+            "Blocking"
+        );
     }
 
     // =========================================================
@@ -2007,7 +2048,7 @@ public class NPCMovement : MonoBehaviour
         MoveTowardsInternal(
             nodePosition,
             patrolSpeedMultiplier,
-            stopDistance,
+            patrolNodeReachDistance,
             ignoredAvoidanceCharacter: null
         );
     }
@@ -2051,7 +2092,7 @@ public class NPCMovement : MonoBehaviour
             );
 
         if (distance <=
-            stopDistance)
+            patrolNodeReachDistance)
         {
             return true;
         }

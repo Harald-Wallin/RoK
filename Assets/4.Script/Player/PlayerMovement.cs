@@ -23,7 +23,26 @@ public class PlayerMovement : MonoBehaviour
     private Rigidbody2D rb;
     private Vector2 movement;
 
+    private RoadPath currentRoad;
+
     public Vector2 FacingDirection { get; private set; } = Vector2.down;
+
+    public bool IsOnRoad =>
+        currentRoad != null;
+
+    public RoadPath CurrentRoad =>
+        currentRoad;
+
+    public RoadProfile CurrentRoadProfile =>
+        currentRoad != null
+            ? currentRoad.Profile
+            : null;
+
+    public float RoadMovementSpeedMultiplier
+    {
+        get;
+        private set;
+    } = 1f;
 
     public event Action
     MovementInputStarted;
@@ -38,7 +57,7 @@ public class PlayerMovement : MonoBehaviour
         equipment = GetComponent<HumanoidEquipment>();
         stats = GetComponent<CharacterStats>();
         stateController = GetComponent<CharacterStateController>();
-        actionController =GetComponent<CharacterActionController>();
+        actionController = GetComponent<CharacterActionController>();
     }
 
     void Start()
@@ -64,7 +83,7 @@ public class PlayerMovement : MonoBehaviour
         currentMovement = currentMovement.normalized;
 
         bool movementStarted = currentMovement !=
-        Vector2.zero &&movement ==Vector2.zero;
+        Vector2.zero && movement == Vector2.zero;
 
         movement = currentMovement;
 
@@ -167,10 +186,63 @@ public class PlayerMovement : MonoBehaviour
 
 
 
+    // =========================================================
+    // ROAD SURFACE STATE
+    // =========================================================
+
+    private void RefreshRoadState()
+    {
+        if (rb == null)
+        {
+            currentRoad =
+                null;
+
+            RoadMovementSpeedMultiplier =
+                1f;
+
+            return;
+        }
+
+
+        if (RoadPath.TryGetRoadAtWorldPoint(
+                rb.position,
+                out RoadPath road,
+                out float movementSpeedMultiplier))
+        {
+            currentRoad =
+                road;
+
+            RoadMovementSpeedMultiplier =
+                Mathf.Max(
+                    0f,
+                    movementSpeedMultiplier
+                );
+
+            return;
+        }
+
+
+        currentRoad =
+            null;
+
+        RoadMovementSpeedMultiplier =
+            1f;
+    }
+
+
     void FixedUpdate()
     {
         rb.linearVelocity =
     Vector2.zero;
+
+        /*
+         * Vägens redan genererade Surface-mesh används som
+         * gameplay-yta.
+         *
+         * Inga extra road-colliders, triggers, layers eller
+         * osynliga overlay-objekt behövs.
+         */
+        RefreshRoadState();
 
         if (stateController != null &&
             !stateController.CanMove)
@@ -203,7 +275,8 @@ public class PlayerMovement : MonoBehaviour
 
         float finalMovementSpeed =
             moveSpeedStat *
-            actionMovementMultiplier;
+            actionMovementMultiplier *
+            RoadMovementSpeedMultiplier;
 
         Vector2 desiredMove =
             movement *

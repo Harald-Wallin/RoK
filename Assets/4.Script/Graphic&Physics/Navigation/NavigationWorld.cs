@@ -663,6 +663,119 @@ public sealed class NavigationWorld :
     }
 
     // =========================================================
+    // SEAMLESS WORLD DIRECT-PATH QUERY
+    // =========================================================
+
+    /// <summary>
+    /// Kontrollerar att en rak väg:
+    ///
+    /// 1. är fri från blockerande World-geometri med samma
+    ///    navigation-clearance som en NavigationRegion använder,
+    ///
+    /// OCH
+    ///
+    /// 2. hela sträckan ligger inne i registrerade NavigationRegions.
+    ///
+    /// Det gör att direct movement och path smoothing får vara
+    /// sömlösa över region-borders utan att kunna gena genom ett
+    /// hål där ingen NavigationRegion finns.
+    /// </summary>
+    public bool IsDirectPathClear(
+        Vector2 from,
+        Vector2 to,
+        NavigationRegion clearanceRegion = null)
+    {
+        if (clearanceRegion == null)
+        {
+            if (!TryGetRegionAt(
+                    from,
+                    out clearanceRegion))
+            {
+                return false;
+            }
+        }
+
+
+        if (!clearanceRegion
+                .IsDirectPathClear(
+                    from,
+                    to))
+        {
+            return false;
+        }
+
+
+        Vector2 delta =
+            to -
+            from;
+
+        float distance =
+            delta.magnitude;
+
+
+        if (distance <=
+            0.001f)
+        {
+            return
+                TryGetRegionAt(
+                    from,
+                    out _
+                );
+        }
+
+
+        /*
+         * Halv cellstorlek gör samplet tätare än själva navigation-gridet.
+         * Då kan vi inte råka hoppa över ett smalt gap mellan regions.
+         */
+        float sampleSpacing =
+            Mathf.Max(
+                0.05f,
+                clearanceRegion.CellSize *
+                0.5f
+            );
+
+
+        int steps =
+            Mathf.Max(
+                1,
+                Mathf.CeilToInt(
+                    distance /
+                    sampleSpacing
+                )
+            );
+
+
+        for (int i = 0;
+             i <= steps;
+             i++)
+        {
+            float t =
+                i /
+                (float)steps;
+
+
+            Vector2 sample =
+                Vector2.Lerp(
+                    from,
+                    to,
+                    t
+                );
+
+
+            if (!TryGetRegionAt(
+                    sample,
+                    out _))
+            {
+                return false;
+            }
+        }
+
+
+        return true;
+    }
+
+    // =========================================================
     // PORTAL QUERY
     // =========================================================
 
@@ -1079,16 +1192,17 @@ public sealed class NavigationWorld :
     }
 
     private void CreateVerticalPortalRun(
-        NavigationRegion regionA,
-        NavigationRegion regionB,
-        Vector2Int directionFromA,
-        int startY,
-        int endY)
+    NavigationRegion regionA,
+    NavigationRegion regionB,
+    Vector2Int directionFromA,
+    int startY,
+    int endY)
     {
         int runLength =
             endY -
             startY +
             1;
+
 
         if (runLength <
             minimumPortalCells)
@@ -1096,12 +1210,6 @@ public sealed class NavigationWorld :
             return;
         }
 
-        int middleY =
-            (
-                startY +
-                endY
-            ) /
-            2;
 
         int xA =
             directionFromA ==
@@ -1109,23 +1217,48 @@ public sealed class NavigationWorld :
                 ? regionA.Columns - 1
                 : 0;
 
+
         int xB =
             directionFromA ==
             Vector2Int.right
                 ? 0
                 : regionB.Columns - 1;
 
-        Vector2 pointA =
+
+        /*
+         * Behåll HELA det sammanhängande öppna spanet.
+         *
+         * Varje position mellan startY och endY motsvarar
+         * ett cellpar som redan verifierats av
+         * IsVerticalEdgePairOpen().
+         */
+        Vector2 pointAStart =
             regionA.GridToWorld(
                 xA,
-                middleY
+                startY
             );
 
-        Vector2 pointB =
+
+        Vector2 pointAEnd =
+            regionA.GridToWorld(
+                xA,
+                endY
+            );
+
+
+        Vector2 pointBStart =
             regionB.GridToWorld(
                 xB,
-                middleY
+                startY
             );
+
+
+        Vector2 pointBEnd =
+            regionB.GridToWorld(
+                xB,
+                endY
+            );
+
 
         float width =
             runLength *
@@ -1134,13 +1267,21 @@ public sealed class NavigationWorld :
                 regionB.CellSize
             );
 
+
         AddPortal(
             new NavigationRegionPortal(
                 regionA,
                 regionB,
-                pointA,
-                pointB,
+
+                pointAStart,
+                pointAEnd,
+
+                pointBStart,
+                pointBEnd,
+
+                runLength,
                 width,
+
                 directionFromA
             )
         );
@@ -1261,16 +1402,17 @@ public sealed class NavigationWorld :
     }
 
     private void CreateHorizontalPortalRun(
-        NavigationRegion regionA,
-        NavigationRegion regionB,
-        Vector2Int directionFromA,
-        int startX,
-        int endX)
+    NavigationRegion regionA,
+    NavigationRegion regionB,
+    Vector2Int directionFromA,
+    int startX,
+    int endX)
     {
         int runLength =
             endX -
             startX +
             1;
+
 
         if (runLength <
             minimumPortalCells)
@@ -1278,12 +1420,6 @@ public sealed class NavigationWorld :
             return;
         }
 
-        int middleX =
-            (
-                startX +
-                endX
-            ) /
-            2;
 
         int yA =
             directionFromA ==
@@ -1291,23 +1427,41 @@ public sealed class NavigationWorld :
                 ? regionA.Rows - 1
                 : 0;
 
+
         int yB =
             directionFromA ==
             Vector2Int.up
                 ? 0
                 : regionB.Rows - 1;
 
-        Vector2 pointA =
+
+        Vector2 pointAStart =
             regionA.GridToWorld(
-                middleX,
+                startX,
                 yA
             );
 
-        Vector2 pointB =
+
+        Vector2 pointAEnd =
+            regionA.GridToWorld(
+                endX,
+                yA
+            );
+
+
+        Vector2 pointBStart =
             regionB.GridToWorld(
-                middleX,
+                startX,
                 yB
             );
+
+
+        Vector2 pointBEnd =
+            regionB.GridToWorld(
+                endX,
+                yB
+            );
+
 
         float width =
             runLength *
@@ -1316,13 +1470,21 @@ public sealed class NavigationWorld :
                 regionB.CellSize
             );
 
+
         AddPortal(
             new NavigationRegionPortal(
                 regionA,
                 regionB,
-                pointA,
-                pointB,
+
+                pointAStart,
+                pointAEnd,
+
+                pointBStart,
+                pointBEnd,
+
+                runLength,
                 width,
+
                 directionFromA
             )
         );
@@ -1562,6 +1724,37 @@ public sealed class NavigationWorld :
 
             if (portal == null)
                 continue;
+
+            /*
+             * Visa hela portal-spanet på båda regionsidorna.
+             */
+
+            Gizmos.DrawLine(
+                portal.PointAStart,
+                portal.PointAEnd
+            );
+
+
+            Gizmos.DrawLine(
+                portal.PointBStart,
+                portal.PointBEnd
+            );
+
+
+            /*
+             * Visa även början/slutet av den traverserbara
+             * regionövergången.
+             */
+            Gizmos.DrawLine(
+                portal.PointAStart,
+                portal.PointBStart
+            );
+
+
+            Gizmos.DrawLine(
+                portal.PointAEnd,
+                portal.PointBEnd
+            );
 
             /*
              * Visar de två säkra cellpunkterna.

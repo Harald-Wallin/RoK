@@ -25,13 +25,21 @@ public sealed class TrackedReputationUI :
     private TMP_Text reputationText;
 
 
-    [Header("Visibility")]
+    [Header("Tracked Presentation")]
 
     [Tooltip(
-        "Dynamiska reputation-objekt som ska döljas när ingen faction trackas. " +
-        "Lägg exempelvis ReputationFill, FactionNameText, TierText och ReputationText här.")]
+        "Objekt som endast ska synas när en faction trackas. " +
+        "Exempel: ReputationFill, FactionNameText, TierText och ReputationText.")]
     [SerializeField]
     private GameObject[] trackedContentObjects;
+
+
+    [Header("No Tracked Reputation")]
+
+    [Tooltip(
+        "Knappen med !-ikonen som visas när ingen reputation trackas.")]
+    [SerializeField]
+    private Button untrackedReputationButton;
 
 
     private void Awake()
@@ -39,6 +47,15 @@ public sealed class TrackedReputationUI :
         ConfigureFillImage(
             reputationFill
         );
+
+        ConfigureUntrackedButton();
+
+        /*
+         * Viktigt:
+         * vi börjar alltid från ett verkligt tomt state,
+         * oavsett vilka testvärden som ligger i Inspectorn.
+         */
+        ShowUntrackedState();
     }
 
 
@@ -59,9 +76,7 @@ public sealed class TrackedReputationUI :
                 this
             );
 
-            SetContentVisible(
-                false
-            );
+            ShowUntrackedState();
 
             return;
         }
@@ -83,12 +98,21 @@ public sealed class TrackedReputationUI :
 
     private void OnDestroy()
     {
-        if (reputationManager == null)
-            return;
+        if (reputationManager != null)
+        {
+            reputationManager
+                .OnReputationChanged -=
+                Refresh;
+        }
 
-        reputationManager
-            .OnReputationChanged -=
-            Refresh;
+        if (untrackedReputationButton != null)
+        {
+            untrackedReputationButton
+                .onClick
+                .RemoveListener(
+                    HandleUntrackedReputationClicked
+                );
+        }
     }
 
 
@@ -96,7 +120,10 @@ public sealed class TrackedReputationUI :
         FactionReputationData data)
     {
         if (reputationManager == null)
+        {
+            ShowUntrackedState();
             return;
+        }
 
         var tracked =
             reputationManager
@@ -105,16 +132,12 @@ public sealed class TrackedReputationUI :
         if (tracked == null ||
             tracked.faction == null)
         {
-            SetContentVisible(
-                false
-            );
+            ShowUntrackedState();
 
             return;
         }
 
-        SetContentVisible(
-            true
-        );
+        ShowTrackedState();
 
 
         if (factionNameText != null)
@@ -169,7 +192,71 @@ public sealed class TrackedReputationUI :
     }
 
 
-    private void SetContentVisible(
+    private void ShowTrackedState()
+    {
+        SetTrackedContentVisible(
+            true
+        );
+
+        if (untrackedReputationButton != null)
+        {
+            untrackedReputationButton
+                .gameObject
+                .SetActive(
+                    false
+                );
+        }
+    }
+
+
+    private void ShowUntrackedState()
+    {
+        ClearTrackedPresentation();
+
+        SetTrackedContentVisible(
+            false
+        );
+
+        if (untrackedReputationButton != null)
+        {
+            untrackedReputationButton
+                .gameObject
+                .SetActive(
+                    true
+                );
+        }
+    }
+
+
+    private void ClearTrackedPresentation()
+    {
+        if (reputationFill != null)
+        {
+            reputationFill.fillAmount =
+                0f;
+        }
+
+        if (factionNameText != null)
+        {
+            factionNameText.text =
+                string.Empty;
+        }
+
+        if (tierText != null)
+        {
+            tierText.text =
+                string.Empty;
+        }
+
+        if (reputationText != null)
+        {
+            reputationText.text =
+                string.Empty;
+        }
+    }
+
+
+    private void SetTrackedContentVisible(
         bool visible)
     {
         if (trackedContentObjects == null)
@@ -189,6 +276,32 @@ public sealed class TrackedReputationUI :
                 );
             }
         }
+    }
+
+
+    private void ConfigureUntrackedButton()
+    {
+        if (untrackedReputationButton == null)
+            return;
+
+        untrackedReputationButton
+            .onClick
+            .RemoveListener(
+                HandleUntrackedReputationClicked
+            );
+
+        untrackedReputationButton
+            .onClick
+            .AddListener(
+                HandleUntrackedReputationClicked
+            );
+    }
+
+
+    private void HandleUntrackedReputationClicked()
+    {
+        GlobalUIManager.Instance
+            ?.ToggleReputationWindow();
     }
 
 

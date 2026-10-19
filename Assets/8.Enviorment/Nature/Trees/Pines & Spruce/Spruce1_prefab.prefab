@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 7516338507148122411}
   - component: {fileID: 5452080954601321405}
   - component: {fileID: 8846010310194997232}
-  m_Layer: 0
+  m_Layer: 10
   m_Name: Sprite
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -129,7 +129,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 5311777666702815169}
-  m_Layer: 0
+  m_Layer: 10
   m_Name: Spruce1_prefab
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -163,7 +163,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4358068197912442295}
   - component: {fileID: 7993739204181708411}
-  m_Layer: 0
+  m_Layer: 10
   m_Name: Collider
   m_TagString: Untagged
   m_Icon: {fileID: 0}

@@ -1,0 +1,67 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 61ccb632c5ad0504ea0a71c62cc8662b, type: 3}
+  m_Name: RoadProfile_1
+  m_EditorClassIdentifier: Assembly-CSharp::RoadProfile
+  baseWidth: 2.5
+  horizontalWidthScale: 0.4
+  edgeRoughness: 0.04
+  edgeNoiseLength: 0.8
+  surfaceMaterial: {fileID: 0}
+  surfaceTexture: {fileID: 2800000, guid: a231a1b6307aa0a4f88f85105ee0eb92, type: 3}
+  surfacePixelsPerUnit: 32
+  enableEdgeErosion: 1
+  edgeErosionDepthPixels: 16
+  edgeErosionStrength: 1
+  horizontalErosionScale: 0.224
+  innerPinholeChance: 0.2
+  innerPinholeDepthPixels: 3.91
+  enableShoulder: 1
+  shoulderWidthPixels: 12
+  shoulderColor: {r: 0, g: 0, b: 0, a: 1}
+  upperShoulderStrength: 0.85
+  lowerShoulderStrength: 0.632
+  enableSplatter: 0
+  splatterSprites:
+  - {fileID: 21300000, guid: e0779e38065922b449586dc728f71edf, type: 3}
+  splatterDensity: 2
+  splatterMinEdgeOffset: 0.01
+  splatterMaxEdgeOffset: 0.02
+  upperEdgeSplatterOffsetScale: 0
+  upperEdgeSplatterScale: 0.4
+  splatterScaleRange: {x: 0.85, y: 1.15}
+  enableEdgeDoodads: 1
+  edgeDoodadSprites:
+  - {fileID: 21300000, guid: 7fe140fe751f4084697fb4cf075ef503, type: 3}
+  - {fileID: 21300000, guid: 96a0e3a2fc3e91448b44e5be926722ce, type: 3}
+  - {fileID: 21300000, guid: ede09b51969df5640a08101bab2509fd, type: 3}
+  - {fileID: 21300000, guid: 7f5ad1a5291318f4b9edbbfab247423f, type: 3}
+  - {fileID: 21300000, guid: 28d4958345382364c97887900c4649d4, type: 3}
+  - {fileID: 21300000, guid: a41835f6ffa739a49b9cd7a6e8154d9d, type: 3}
+  - {fileID: 21300000, guid: 32352d5dbc767a641ba50c5eb5497984, type: 3}
+  - {fileID: 21300000, guid: ef17523cf92bfd14b8e648cc57aff6e6, type: 3}
+  - {fileID: 21300000, guid: 68959b5c89cab2e47aa40dae593d8d4d, type: 3}
+  - {fileID: 21300000, guid: ab04d02d7a8b3854b9e814334362602e, type: 3}
+  edgeDoodadDensity: 8
+  edgeDoodadMinEdgeOffset: -0.2
+  edgeDoodadMaxEdgeOffset: 0.06
+  edgeDoodadScaleRange: {x: 0.85, y: 1.15}
+  upperEdgeDoodadOffsetScale: 0.5
+  lowerEdgeDoodadOffsetScale: 0
+  upperEdgeDoodadScale: 0.75
+  edgeDoodadRandomFlipX: 1
+  edgeDoodadRandomQuarterTurns: 0
+  playerMovementSpeedMultiplier: 1.15
+  clearGroundClutter: 1
+  groundClutterClearWidthScale: 0.613
+  sortingLayerName: Ground
+  sortingOrder: 10

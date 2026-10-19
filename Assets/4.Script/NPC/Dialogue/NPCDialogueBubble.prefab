@@ -63,7 +63,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: -7614040898404652691, guid: 41fa48e27824f8746aba64e9595cf40d, type: 2}
+  - {fileID: -330056106542063606, guid: 4a2d6614dc40bb847a653419a0068eb4, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -109,8 +109,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: Sample text
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 41fa48e27824f8746aba64e9595cf40d, type: 2}
-  m_sharedMaterial: {fileID: -7614040898404652691, guid: 41fa48e27824f8746aba64e9595cf40d, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 4a2d6614dc40bb847a653419a0068eb4, type: 2}
+  m_sharedMaterial: {fileID: -330056106542063606, guid: 4a2d6614dc40bb847a653419a0068eb4, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -134,8 +134,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 2
-  m_fontSizeBase: 2
+  m_fontSize: 3
+  m_fontSizeBase: 3
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -197,4 +197,4 @@ MonoBehaviour:
   lifetime: 7
   offset: {x: 0, y: 2, z: 0}
   runeFont: {fileID: 11400000, guid: e2efba55b274dc44994513f9ae3d1354, type: 2}
-  englishFont: {fileID: 11400000, guid: 41fa48e27824f8746aba64e9595cf40d, type: 2}
+  englishFont: {fileID: 11400000, guid: 4a2d6614dc40bb847a653419a0068eb4, type: 2}

@@ -3,26 +3,21 @@ using UnityEngine;
 /// <summary>
 /// Runtime-navigation för en NPC.
 ///
-/// Navigation sker i två nivåer:
+/// NavigationRegion är nu endast en chunk av samma sammanhängande
+/// navigation-grid.
 ///
-/// WORLD NAVIGATION:
-/// NavigationRegion -> Portal -> NavigationRegion.
+/// NPC:n navigerar med EN A*-path från sin riktiga startposition
+/// till sin riktiga slutdestination, även när pathen korsar flera
+/// NavigationRegions.
 ///
-/// LOCAL NAVIGATION:
-/// A* inne i den region NPC:n för närvarande befinner sig i.
-///
-/// NPCMovement behöver aldrig känna till skillnaden.
-/// Den frågar endast efter en movement-direction.
+/// Region-borders är alltså inte waypoints och inga portals används.
 ///
 /// Ansvar:
 /// - hålla reda på aktuell NavigationRegion
-/// - planera world-route mellan regions
-/// - välja nästa portal
-/// - begära lokal A* till nästa navigationmål
-/// - korsa portals
+/// - begära seamless A* genom NavigationWorld
 /// - följa smoothade waypoints
-/// - repatha när navigationen förändras
-/// - recovera från fysisk blockage
+/// - repatha när target flyttar sig
+/// - recovera från fysisk blockage / stuck
 ///
 /// Ansvarar INTE för:
 /// - Rigidbody2D movement
@@ -44,86 +39,46 @@ public sealed class NPCNavigationAgent :
     [SerializeField]
     private NavigationRegion navigationRegion;
 
+
     // =========================================================
-    // LOCAL PATHFINDING
+    // PATHFINDING
     // =========================================================
 
-    [Header("Local Pathfinding")]
+    [Header("Pathfinding")]
 
     [SerializeField]
     [Min(0.05f)]
     private float waypointReachDistance =
         0.35f;
 
+
     [SerializeField]
     [Min(0.05f)]
     [Tooltip(
-        "Minsta tid mellan lokala A*-sökningar."
+        "Minsta tid mellan A*-sökningar."
     )]
     private float repathInterval =
         0.25f;
 
+
     [SerializeField]
     [Min(0f)]
     [Tooltip(
-        "Hur långt det lokala navigationmålet måste ha flyttats " +
-        "innan den befintliga pathen betraktas som gammal."
+        "Hur långt slutmålet måste ha flyttats innan " +
+        "den befintliga pathen betraktas som gammal."
     )]
     private float targetMoveThreshold =
         0.75f;
 
+
     [SerializeField]
     [Tooltip(
         "Om agenten får använda direkt movement när ingen " +
-        "lokal A*-path redan är aktiv."
+        "A*-path redan är aktiv."
     )]
     private bool preferDirectMovement =
         true;
 
-    // =========================================================
-    // WORLD NAVIGATION
-    // =========================================================
-
-    [Header("World Navigation")]
-
-    [SerializeField]
-    [Min(0.05f)]
-    [Tooltip(
-        "Hur nära portalens säkra punkt NPC:n behöver komma " +
-        "innan själva regionövergången börjar."
-    )]
-    private float portalReachDistance =
-        0.35f;
-
-    /*
-     * High-level path:
-     *
-     * Region A
-     *   ↓
-     * Portal 0
-     *   ↓
-     * Region B
-     *   ↓
-     * Portal 1
-     *   ↓
-     * Region C
-     */
-    private NavigationWorldPath
-        currentWorldPath;
-
-    /*
-     * Portalindex motsvarar vilken transition NPC:n står inför.
-     *
-     * Om NPC:n befinner sig i Regions[0]
-     * används Portals[0].
-     *
-     * När NPC:n kommer till Regions[1]
-     * används Portals[1].
-     */
-    private int worldPortalIndex;
-
-    private NavigationRegion
-        worldDestinationRegion;
 
     // =========================================================
     // STUCK RECOVERY
@@ -135,10 +90,11 @@ public sealed class NPCNavigationAgent :
     [Min(0.1f)]
     [Tooltip(
         "Hur länge NPC:n får försöka följa navigationen utan " +
-        "att göra tydlig progress innan en ny lokal path begärs."
+        "tydlig progress innan en ny path begärs."
     )]
     private float stuckCheckDuration =
         0.75f;
+
 
     [SerializeField]
     [Min(0.001f)]
@@ -147,6 +103,7 @@ public sealed class NPCNavigationAgent :
     )]
     private float minimumProgressDistance =
         0.12f;
+
 
     [SerializeField]
     [Min(0.1f)]
@@ -157,11 +114,13 @@ public sealed class NPCNavigationAgent :
     private float physicalBlockPathDuration =
         1.5f;
 
+
     private Vector2 progressCheckPosition;
 
     private float progressTimer;
 
     private float forcedPathTimer;
+
 
     // =========================================================
     // DEBUG
@@ -173,46 +132,43 @@ public sealed class NPCNavigationAgent :
     private bool drawCurrentPath =
         true;
 
+
     [SerializeField]
     private bool drawRawPath;
+
 
     [SerializeField]
     private bool drawCurrentWaypoint =
         true;
 
-    [SerializeField]
-    private bool drawWorldRoute =
-        true;
 
     [SerializeField]
     private bool navigationDebugLogs;
 
+
     // =========================================================
-    // LOCAL PATH RUNTIME
+    // PATH RUNTIME
     // =========================================================
 
     private NavigationPath currentPath;
 
     private int waypointIndex;
 
+
     /*
-     * Den slutgiltiga destination AI:n har bett om.
-     *
-     * Exempel:
-     * spelarens position.
+     * AI:ns slutgiltiga destination.
      */
     private Vector2 requestedDestination;
 
+
     /*
-     * Destinationen som den nuvarande LOKALA A*-pathen
-     * beräknades för.
+     * Destinationen som nuvarande/pending A*-path beräknades för.
      *
-     * Detta kan vara:
-     * - final target
-     * - portal PointA
-     * - portal PointB
+     * Till skillnad från gamla portal-systemet är detta alltid
+     * den riktiga slutdestinationen.
      */
     private Vector2 pathDestination;
+
 
     private float repathTimer;
 
@@ -222,6 +178,14 @@ public sealed class NPCNavigationAgent :
 
     private int pathRequestVersion;
 
+
+    /*
+     * Sparas främst för Inspector/API/debug.
+     * Den styr inte längre någon portal-route.
+     */
+    private NavigationRegion worldDestinationRegion;
+
+
     // =========================================================
     // PUBLIC
     // =========================================================
@@ -229,26 +193,42 @@ public sealed class NPCNavigationAgent :
     public bool HasDestination =>
         hasDestination;
 
+
     public bool HasPath =>
         currentPath != null &&
         currentPath.IsValid;
 
+
+    /*
+     * Behålls för kompatibilitet med eventuell kod som redan
+     * läser properties från den gamla agenten.
+     *
+     * "World path" betyder nu helt enkelt att den aktiva
+     * seamless-pathen går mot en annan region.
+     */
     public bool HasWorldPath =>
-        currentWorldPath != null &&
-        currentWorldPath.IsValid;
+        HasPath &&
+        IsCrossRegionNavigating;
+
 
     public bool IsCrossRegionNavigating =>
-        HasWorldPath &&
-        currentWorldPath.RequiresRegionTransition;
+        navigationRegion != null &&
+        worldDestinationRegion != null &&
+        navigationRegion !=
+            worldDestinationRegion;
+
 
     public NavigationRegion CurrentRegion =>
         navigationRegion;
 
+
     public NavigationRegion DestinationRegion =>
         worldDestinationRegion;
 
+
     public Vector2 Destination =>
         requestedDestination;
+
 
     // =========================================================
     // UNITY
@@ -261,6 +241,7 @@ public sealed class NPCNavigationAgent :
 
         ResolveNavigationRegion();
     }
+
 
     private void Update()
     {
@@ -285,6 +266,7 @@ public sealed class NPCNavigationAgent :
         }
     }
 
+
     private void OnValidate()
     {
         waypointReachDistance =
@@ -303,12 +285,6 @@ public sealed class NPCNavigationAgent :
             Mathf.Max(
                 0f,
                 targetMoveThreshold
-            );
-
-        portalReachDistance =
-            Mathf.Max(
-                0.05f,
-                portalReachDistance
             );
 
         stuckCheckDuration =
@@ -330,6 +306,7 @@ public sealed class NPCNavigationAgent :
             );
     }
 
+
     // =========================================================
     // MOVEMENT DIRECTION
     // =========================================================
@@ -337,13 +314,9 @@ public sealed class NPCNavigationAgent :
     /// <summary>
     /// Huvudingången för NPCMovement.
     ///
-    /// destination är alltid AI:ns SLUTGILTIGA destination.
+    /// destination är alltid AI:ns riktiga slutdestination.
     ///
-    /// Metoden avgör själv om NPC:n:
-    /// - kan gå direkt
-    /// - behöver lokal A*
-    /// - behöver gå till en portal
-    /// - behöver korsa regiongränsen
+    /// Samma path kan korsa valfritt antal NavigationRegions.
     /// </summary>
     public bool TryGetMovementDirection(
         Vector2 destination,
@@ -361,18 +334,21 @@ public sealed class NPCNavigationAgent :
         Vector2 currentPosition =
             transform.position;
 
+
+        /*
+         * Utanför NavigationWorld behåller vi gamla säkra fallbacken.
+         */
         if (!ResolveNavigationRegion())
         {
-            /*
-             * Utanför NavigationWorld.
-             *
-             * Behåll gammal safe fallback.
-             */
+            worldDestinationRegion =
+                null;
+
             return TryGetDirectDirection(
                 destination,
                 out direction
             );
         }
+
 
         NavigationWorld world =
             NavigationWorld.Instance;
@@ -380,597 +356,201 @@ public sealed class NPCNavigationAgent :
         if (world == null)
             return false;
 
-        // -----------------------------------------------------
-        // DESTINATION REGION
-        // -----------------------------------------------------
 
         if (!world.TryGetRegionAt(
                 destination,
                 out NavigationRegion destinationRegion))
         {
-            /*
-             * Destinationen ligger utanför registrerad
-             * navigation.
-             *
-             * Vi försöker inte göra lokal A* mot en punkt
-             * som inte tillhör någon region.
-             */
-            return false;
-        }
-
-        worldDestinationRegion =
-            destinationRegion;
-
-        // -----------------------------------------------------
-        // SAME REGION
-        // -----------------------------------------------------
-
-        if (destinationRegion ==
-            navigationRegion)
-        {
-            /*
-             * NPC:n har nått samma region som final target.
-             *
-             * World-navigation behövs inte längre.
-             */
-            ClearWorldPathOnly();
-
-            return TryGetLocalMovementDirection(
-                currentPosition,
-                destination,
-                out direction
-            );
-        }
-
-        // -----------------------------------------------------
-        // DIFFERENT REGION
-        // -----------------------------------------------------
-
-        if (!EnsureWorldRoute(
-                world,
-                currentPosition,
-                destination,
-                destinationRegion))
-        {
-            return false;
-        }
-
-        /*
-         * World-routen kan ha synkroniserats med en ny region.
-         *
-         * Om NPC:n exempelvis precis korsat portal A->B ska
-         * worldPortalIndex nu peka på nästa transition.
-         */
-        if (!TryGetCurrentPortal(
-                out NavigationRegionPortal portal,
-                out NavigationRegion nextRegion))
-        {
-            /*
-             * Något förändrades i world-grafen.
-             *
-             * Invalidera routen så nästa frame kan bygga om den.
-             */
-            ClearWorldPathOnly();
-
-            return false;
-        }
-
-        Vector2 portalPointCurrent =
-            portal.GetPointForRegion(
-                navigationRegion
-            );
-
-        Vector2 portalPointNext =
-            portal.GetPointForRegion(
-                nextRegion
-            );
-
-        float distanceToPortal =
-            Vector2.Distance(
-                currentPosition,
-                portalPointCurrent
-            );
-
-        // -----------------------------------------------------
-        // REACH CURRENT SIDE OF PORTAL
-        // -----------------------------------------------------
-
-        if (distanceToPortal >
-            portalReachDistance)
-        {
-            return TryGetLocalMovementDirection(
-                currentPosition,
-                portalPointCurrent,
-                out direction
-            );
-        }
-
-        // -----------------------------------------------------
-        // CROSS PORTAL
-        // -----------------------------------------------------
-
-        /*
-         * Vi är framme vid den säkra cellpunkten på vår sida.
-         *
-         * Lokal A* behövs inte för själva halva cell-steget
-         * över regiongränsen.
-         *
-         * Portalen byggdes endast om PointA <-> PointB
-         * verifierades som traverserbar.
-         */
-        ClearLocalNavigationForPortalCrossing();
-
-        Vector2 crossingDelta =
-            portalPointNext -
-            currentPosition;
-
-        if (crossingDelta.sqrMagnitude <=
-            0.0001f)
-        {
-            return false;
-        }
-
-        direction =
-            crossingDelta.normalized;
-
-        return true;
-    }
-
-    // =========================================================
-    // WORLD ROUTE
-    // =========================================================
-
-    private bool EnsureWorldRoute(
-        NavigationWorld world,
-        Vector2 currentPosition,
-        Vector2 destination,
-        NavigationRegion destinationRegion)
-    {
-        if (world == null ||
-            navigationRegion == null ||
-            destinationRegion == null)
-        {
-            return false;
-        }
-
-        /*
-         * Försök först återanvända den existerande world-routen.
-         *
-         * Spelaren kan röra sig mycket INNE I samma region utan
-         * att hela high-level-routen behöver räknas om.
-         */
-        if (TrySynchronizeExistingWorldRoute(
-                navigationRegion,
-                destinationRegion))
-        {
-            return true;
-        }
-
-        NavigationWorldPath newPath =
-            NavigationWorldPathfinder
-                .FindPath(
-                    world,
-                    currentPosition,
-                    destination
-                );
-
-        if (newPath == null ||
-            !newPath.IsValid ||
-            !newPath.RequiresRegionTransition)
-        {
-            if (navigationDebugLogs)
-            {
-                Debug.LogWarning(
-                    $"[NAV WORLD] {name} kunde inte hitta world-route | " +
-                    $"from={navigationRegion.name} | " +
-                    $"to={destinationRegion.name}",
-                    this
-                );
-            }
-
-            ClearWorldPathOnly();
-
-            return false;
-        }
-
-        /*
-         * En ny high-level-route kan välja en annan första portal.
-         *
-         * Den gamla lokala pathen är därför inte längre säker att
-         * följa.
-         */
-        InvalidateLocalPath();
-
-        currentWorldPath =
-            newPath;
-
-        worldDestinationRegion =
-            destinationRegion;
-
-        worldPortalIndex =
-            0;
-
-        /*
-         * Hitta vår faktiska position i routen.
-         *
-         * Normalt index 0, men detta gör systemet robust även om
-         * routen skapades precis när agenten passerade en border.
-         */
-        SynchronizeWorldPortalIndex(
-            navigationRegion
-        );
-
-        if (navigationDebugLogs)
-        {
-            Debug.Log(
-                $"[NAV WORLD] {name} WORLD ROUTE | " +
-                $"regions={currentWorldPath.RegionCount} | " +
-                $"portals={currentWorldPath.PortalCount} | " +
-                $"currentRegion={navigationRegion.name} | " +
-                $"targetRegion={destinationRegion.name}",
-                this
-            );
-        }
-
-        return true;
-    }
-
-    /// <summary>
-    /// Försöker behålla nuvarande world-route.
-    ///
-    /// Returnerar false om:
-    /// - target bytt region
-    /// - current region inte längre finns i routen
-    /// - routen blivit ogiltig
-    /// </summary>
-    private bool TrySynchronizeExistingWorldRoute(
-        NavigationRegion currentRegion,
-        NavigationRegion destinationRegion)
-    {
-        if (!HasWorldPath)
-            return false;
-
-        if (currentRegion == null ||
-            destinationRegion == null)
-        {
-            return false;
-        }
-
-        NavigationRegion routeDestination =
-            currentWorldPath.GetRegion(
-                currentWorldPath.RegionCount -
-                1
-            );
-
-        if (routeDestination !=
-            destinationRegion)
-        {
-            return false;
-        }
-
-        return SynchronizeWorldPortalIndex(
-            currentRegion
-        );
-    }
-
-    /// <summary>
-    /// Synkar worldPortalIndex mot den region NPC:n faktiskt
-    /// befinner sig i.
-    ///
-    /// Regions:
-    ///
-    /// 0 = A
-    /// 1 = B
-    /// 2 = C
-    ///
-    /// Portals:
-    ///
-    /// 0 = A -> B
-    /// 1 = B -> C
-    ///
-    /// Om NPC:n nu är i B ska portalIndex alltså vara 1.
-    /// </summary>
-    private bool SynchronizeWorldPortalIndex(
-        NavigationRegion currentRegion)
-    {
-        if (!HasWorldPath ||
-            currentRegion == null)
-        {
-            return false;
-        }
-
-        int foundRegionIndex =
-            -1;
-
-        for (int i = 0;
-             i < currentWorldPath.RegionCount;
-             i++)
-        {
-            if (currentWorldPath.GetRegion(i) !=
-                currentRegion)
-            {
-                continue;
-            }
-
-            foundRegionIndex =
-                i;
-
-            break;
-        }
-
-        if (foundRegionIndex < 0)
-        {
-            return false;
-        }
-
-        int previousPortalIndex =
-            worldPortalIndex;
-
-        worldPortalIndex =
-            foundRegionIndex;
-
-        /*
-         * Vi har korsat minst en regiongräns.
-         *
-         * Den gamla lokala pathen pekade på föregående portal
-         * och ska kastas bort.
-         */
-        if (worldPortalIndex !=
-            previousPortalIndex)
-        {
-            InvalidateLocalPath();
-
-            ResetProgressTracking(
-                transform.position
-            );
-        }
-
-        return true;
-    }
-
-    private bool TryGetCurrentPortal(
-        out NavigationRegionPortal portal,
-        out NavigationRegion nextRegion)
-    {
-        portal =
-            null;
-
-        nextRegion =
-            null;
-
-        if (!HasWorldPath ||
-            navigationRegion == null)
-        {
-            return false;
-        }
-
-        /*
-         * Sista regionen har ingen ytterligare portal.
-         */
-        if (worldPortalIndex < 0 ||
-            worldPortalIndex >=
-            currentWorldPath.PortalCount)
-        {
-            return false;
-        }
-
-        portal =
-            currentWorldPath.GetPortal(
-                worldPortalIndex
-            );
-
-        if (portal == null ||
-            !portal.Connects(
-                navigationRegion))
-        {
-            portal =
+            worldDestinationRegion =
                 null;
 
             return false;
         }
 
-        nextRegion =
-            portal.GetOtherRegion(
-                navigationRegion
-            );
 
-        return
-            nextRegion != null;
+        worldDestinationRegion =
+            destinationRegion;
+
+
+        return TryGetPathMovementDirection(
+            world,
+            currentPosition,
+            destination,
+            out direction
+        );
     }
 
+
     // =========================================================
-    // LOCAL MOVEMENT
+    // PATH MOVEMENT
     // =========================================================
 
-    /// <summary>
-    /// Hanterar movement till ETT mål inne i den aktuella regionen.
-    ///
-    /// Målet kan vara:
-    /// - slutdestinationen
-    /// - aktuell portals PointA/PointB
-    /// </summary>
-    private bool TryGetLocalMovementDirection(
-    Vector2 currentPosition,
-    Vector2 localDestination,
-    out Vector2 direction)
+    private bool TryGetPathMovementDirection(
+        NavigationWorld world,
+        Vector2 currentPosition,
+        Vector2 destination,
+        out Vector2 direction)
     {
         direction =
             Vector2.zero;
 
-        if (navigationRegion == null)
-            return false;
-
-        /*
-         * ---------------------------------------------------------
-         * PROACTIVE DIRECT-PATH TEST
-         * ---------------------------------------------------------
-         *
-         * Innan NPC:n börjar röra sig mot ett lokalt mål testar vi
-         * hela sträckan med NavigationRegionens fulla clearance.
-         *
-         * Om ett statiskt hinder ligger mellan NPC:n och målet ska
-         * vi alltså veta det INNAN NPC:n går fram till hindret.
-         */
-        bool directPathClear =
-            navigationRegion
-                .IsDirectPathClear(
-                    currentPosition,
-                    localDestination
-                );
-
-        bool mayUseDirectMovement =
-            preferDirectMovement &&
-            forcedPathTimer <= 0f &&
-            directPathClear;
-
-        // =========================================================
-        // DIRECT MOVEMENT
-        // =========================================================
-
-        if (mayUseDirectMovement)
+        if (world == null ||
+            navigationRegion == null)
         {
-            /*
-             * Om NPC:n tidigare behövde A*, men nu har fått fri
-             * line-of-travel till målet, behövs pathen inte längre.
-             *
-             * Exempel:
-             *
-             * NPC
-             *   \
-             *    \       STAKET
-             *     o    ###########
-             *      \
-             *       \________ TARGET
-             *
-             * När NPC:n har rundat staketets ände kan den alltså
-             * lämna waypoint-pathen och gå naturligt direkt mot
-             * slutmålet.
-             */
-            if (HasPath ||
-                pathRequestPending)
-            {
-                InvalidateLocalPath();
-            }
-
-            ResetProgressTracking(
-                currentPosition
-            );
-
-            return TryGetDirectionToPoint(
-                currentPosition,
-                localDestination,
-                out direction
-            );
+            return false;
         }
 
-        // =========================================================
-        // ACTIVE LOCAL PATH
-        // =========================================================
 
+        // -----------------------------------------------------
+        // ACTIVE PATH
+        // -----------------------------------------------------
+
+        /*
+         * En fungerande path får företräde.
+         *
+         * Detta behåller "path commitment"-förbättringen:
+         * NPC:n byter inte sida runt ett hinder bara för att en
+         * ny direct line råkar bli möjlig en kort stund.
+         */
         if (HasPath)
         {
-            /*
-             * Om target har flyttat sig tillräckligt mycket får den
-             * existerande pathen uppdateras enligt vanlig throttling.
-             */
             TryScheduleUpdatedPath(
+                world,
                 currentPosition,
-                localDestination
+                destination
             );
+
 
             AdvanceReachedWaypoints(
                 currentPosition
             );
 
-            if (waypointIndex >=
+
+            if (waypointIndex <
                 currentPath.PointCount)
             {
-                ClearPathOnly();
-            }
-            else
-            {
-                /*
-                 * Hoppa gärna över onödiga waypoints, men endast om
-                 * hela segmentet till den senare waypointen är fritt
-                 * med NavigationRegionens clearance.
-                 */
                 AdvanceVisibleWaypoints(
+                    world,
                     currentPosition
                 );
+
 
                 if (TryGetCurrentWaypointDirection(
                         currentPosition,
                         out direction))
                 {
                     UpdateStuckDetection(
+                        world,
                         currentPosition,
-                        localDestination
+                        destination
                     );
 
                     return true;
                 }
             }
+
+
+            ClearPathOnly();
         }
 
-        // =========================================================
-        // NO USABLE PATH
-        // =========================================================
+
+        // -----------------------------------------------------
+        // DIRECT MOVEMENT
+        // -----------------------------------------------------
+
+        bool directPathClear =
+            world.IsDirectPathClear(
+                currentPosition,
+                destination,
+                navigationRegion
+            );
+
+
+        bool mayUseDirectMovement =
+            preferDirectMovement &&
+            forcedPathTimer <= 0f &&
+            directPathClear;
+
+
+        if (mayUseDirectMovement)
+        {
+            /*
+             * Om en gammal request väntar men direct path nu är
+             * fullt säker behöver vi inte längre resultatet.
+             */
+            if (pathRequestPending)
+            {
+                InvalidatePath();
+            }
+
+
+            ResetProgressTracking(
+                currentPosition
+            );
+
+
+            return TryGetDirectionToPoint(
+                currentPosition,
+                destination,
+                out direction
+            );
+        }
+
+
+        // -----------------------------------------------------
+        // NEED A*
+        // -----------------------------------------------------
 
         ResetProgressTracking(
             currentPosition
         );
 
-        /*
-         * Om vi kommer hit vet vi en viktig sak:
-         *
-         * Direct movement används INTE.
-         *
-         * Det kan bero på:
-         * - ett hinder ligger mellan NPC och destination
-         * - physical blockage har temporärt tvingat grid-path
-         * - preferDirectMovement är avstängt
-         *
-         * I samtliga fall ska navigationen begära en riktig lokal
-         * grid-path istället för att låta Rigidbody:n upptäcka
-         * hindret genom att gå in i det.
-         */
+
         if (ShouldRequestPath(
-                localDestination))
+                destination))
         {
             RequestPath(
+                world,
                 currentPosition,
-                localDestination,
-                forceGridPath: true
+                destination,
+                forceGridPath:
+                    true
             );
         }
 
+
         /*
-         * NavigationPathScheduler levererar resultatet asynkront.
-         * NPC:n väntar därför still den korta stund requesten tar
-         * istället för att börja gå rakt mot hindret.
+         * Schedulern levererar resultatet senare.
          */
         return false;
     }
+
 
     // =========================================================
     // PHYSICAL BLOCK FEEDBACK
     // =========================================================
 
-    /// <summary>
-    /// NPCMovement anropar detta när navigationen gav en riktning
-    /// men Rigidbody:n faktiskt inte kunde röra sig.
-    ///
-    /// destination är AI:ns SLUTGILTIGA target-position.
-    /// Agenten översätter själv detta till rätt lokalt mål.
-    /// </summary>
     public void NotifyPhysicalMovementBlocked(
         Vector2 destination)
     {
+        if (navigationDebugLogs)
+        {
+            Debug.LogWarning(
+                $"[NAV REPATH] {name} PHYSICAL BLOCK | " +
+                $"position={transform.position} | " +
+                $"destination={destination} | " +
+                $"hadPath={HasPath}",
+                this
+            );
+        }
+
+
         requestedDestination =
             destination;
 
         hasDestination =
             true;
+
 
         forcedPathTimer =
             Mathf.Max(
@@ -978,130 +558,52 @@ public sealed class NPCNavigationAgent :
                 physicalBlockPathDuration
             );
 
-        if (!ResolveNavigationRegion())
-            return;
-
-        /*
-         * Väntande request får först komma tillbaka.
-         *
-         * Annars kan vi återintroducera den gamla buggen där
-         * agenten cancellerade sin egen request varje FixedUpdate.
-         */
-        if (pathRequestPending)
-            return;
-
-        Vector2 localGoal;
-
-        bool portalCrossing;
-
-        if (!TryResolveCurrentLocalGoal(
-                destination,
-                out localGoal,
-                out portalCrossing))
-        {
-            return;
-        }
-
-        /*
-         * Under själva portal-crossingen ska vi INTE försöka köra
-         * lokal A* till PointB, eftersom PointB ligger i nästa region.
-         */
-        if (portalCrossing)
-        {
-            return;
-        }
-
-        repathTimer =
-            0f;
-
-        RequestPath(
-            transform.position,
-            localGoal,
-            forceGridPath: true
-        );
-    }
-
-    /// <summary>
-    /// Räknar ut vilket lokalt mål som motsvarar final destination
-    /// just nu.
-    /// </summary>
-    private bool TryResolveCurrentLocalGoal(
-        Vector2 finalDestination,
-        out Vector2 localGoal,
-        out bool portalCrossing)
-    {
-        localGoal =
-            finalDestination;
-
-        portalCrossing =
-            false;
 
         if (!ResolveNavigationRegion())
-            return false;
+            return;
+
 
         NavigationWorld world =
             NavigationWorld.Instance;
 
-        if (world == null ||
-            !world.TryGetRegionAt(
-                finalDestination,
-                out NavigationRegion targetRegion))
+        if (world == null)
+            return;
+
+
+        if (!world.TryGetRegionAt(
+                destination,
+                out NavigationRegion destinationRegion))
         {
-            return false;
+            return;
         }
 
-        if (targetRegion ==
-            navigationRegion)
-        {
-            return true;
-        }
 
-        if (!EnsureWorldRoute(
-                world,
-                transform.position,
-                finalDestination,
-                targetRegion))
-        {
-            return false;
-        }
+        worldDestinationRegion =
+            destinationRegion;
 
-        if (!TryGetCurrentPortal(
-                out NavigationRegionPortal portal,
-                out NavigationRegion nextRegion))
-        {
-            return false;
-        }
 
-        Vector2 currentSide =
-            portal.GetPointForRegion(
-                navigationRegion
-            );
+        /*
+         * Låt en redan väntande request bli klar.
+         * Annars kan NPCMovement råka cancella sin egen request
+         * varje FixedUpdate när den står blockerad.
+         */
+        if (pathRequestPending)
+            return;
 
-        float distance =
-            Vector2.Distance(
-                transform.position,
-                currentSide
-            );
 
-        if (distance <=
-            portalReachDistance)
-        {
-            localGoal =
-                portal.GetPointForRegion(
-                    nextRegion
-                );
+        repathTimer =
+            0f;
 
-            portalCrossing =
-                true;
 
-            return true;
-        }
-
-        localGoal =
-            currentSide;
-
-        return true;
+        RequestPath(
+            world,
+            transform.position,
+            destination,
+            forceGridPath:
+                true
+        );
     }
+
 
     // =========================================================
     // CURRENT WAYPOINT
@@ -1122,10 +624,12 @@ public sealed class NPCNavigationAgent :
             return false;
         }
 
+
         Vector2 waypoint =
             currentPath.GetPoint(
                 waypointIndex
             );
+
 
         return TryGetDirectionToPoint(
             currentPosition,
@@ -1133,6 +637,7 @@ public sealed class NPCNavigationAgent :
             out direction
         );
     }
+
 
     private static bool TryGetDirectionToPoint(
         Vector2 from,
@@ -1158,18 +663,19 @@ public sealed class NPCNavigationAgent :
         return true;
     }
 
+
     // =========================================================
     // PATH REQUEST
     // =========================================================
 
     private bool ShouldRequestPath(
-        Vector2 localDestination)
+        Vector2 destination)
     {
         if (pathRequestPending)
         {
             float destinationChange =
                 Vector2.Distance(
-                    localDestination,
+                    destination,
                     pathDestination
                 );
 
@@ -1179,17 +685,20 @@ public sealed class NPCNavigationAgent :
                 repathTimer <= 0f;
         }
 
+
         if (!HasPath)
         {
             return
                 repathTimer <= 0f;
         }
 
+
         float targetMovement =
             Vector2.Distance(
-                localDestination,
+                destination,
                 pathDestination
             );
+
 
         if (targetMovement >=
             targetMoveThreshold)
@@ -1198,6 +707,7 @@ public sealed class NPCNavigationAgent :
                 repathTimer <= 0f;
         }
 
+
         if (waypointIndex >=
             currentPath.PointCount)
         {
@@ -1205,16 +715,19 @@ public sealed class NPCNavigationAgent :
                 repathTimer <= 0f;
         }
 
+
         return false;
     }
 
+
     private void TryScheduleUpdatedPath(
+        NavigationWorld world,
         Vector2 currentPosition,
-        Vector2 localDestination)
+        Vector2 destination)
     {
         float targetMovement =
             Vector2.Distance(
-                localDestination,
+                destination,
                 pathDestination
             );
 
@@ -1227,23 +740,39 @@ public sealed class NPCNavigationAgent :
         if (repathTimer > 0f)
             return;
 
+
+        if (navigationDebugLogs)
+        {
+            Debug.LogWarning(
+                $"[NAV REPATH] {name} TARGET MOVED | " +
+                $"oldDestination={pathDestination} | " +
+                $"newDestination={destination} | " +
+                $"movement={targetMovement:F3}",
+                this
+            );
+        }
+
+
         RequestPath(
+            world,
             currentPosition,
-            localDestination
+            destination
         );
     }
 
+
     private void RequestPath(
+        NavigationWorld world,
         Vector2 start,
-        Vector2 localDestination,
+        Vector2 destination,
         bool forceGridPath = false)
     {
-        if (navigationRegion == null)
+        if (world == null)
         {
             if (navigationDebugLogs)
             {
                 Debug.LogWarning(
-                    $"[NAV DEBUG] {name} REQUEST FAILED: NO REGION",
+                    $"[NAV DEBUG] {name} REQUEST FAILED: NO WORLD",
                     this
                 );
             }
@@ -1251,36 +780,56 @@ public sealed class NPCNavigationAgent :
             return;
         }
 
-        /*
-         * Säkerhetsregel:
-         *
-         * Lokal A* får ALDRIG söka mot en punkt utanför den
-         * region som requesten körs på.
-         */
-        if (!navigationRegion
-                .ContainsWorldPosition(
-                    localDestination))
+
+        if (!world.TryGetRegionAt(
+                start,
+                out NavigationRegion startRegion))
         {
             if (navigationDebugLogs)
             {
                 Debug.LogWarning(
-                    $"[NAV DEBUG] {name} LOCAL REQUEST OUTSIDE REGION | " +
-                    $"region={navigationRegion.name} | " +
-                    $"destination={localDestination}",
+                    $"[NAV DEBUG] {name} REQUEST FAILED: START OUTSIDE NAV WORLD | " +
+                    $"start={start}",
                     this
                 );
             }
 
             return;
         }
+
+
+        if (!world.TryGetRegionAt(
+                destination,
+                out NavigationRegion destinationRegion))
+        {
+            if (navigationDebugLogs)
+            {
+                Debug.LogWarning(
+                    $"[NAV DEBUG] {name} REQUEST FAILED: DESTINATION OUTSIDE NAV WORLD | " +
+                    $"destination={destination}",
+                    this
+                );
+            }
+
+            return;
+        }
+
+
+        navigationRegion =
+            startRegion;
+
+        worldDestinationRegion =
+            destinationRegion;
+
 
         pathRequestVersion++;
 
         int version =
             pathRequestVersion;
 
+
         pathDestination =
-            localDestination;
+            destination;
 
         pathRequestPending =
             true;
@@ -1288,31 +837,35 @@ public sealed class NPCNavigationAgent :
         repathTimer =
             repathInterval;
 
+
         if (navigationDebugLogs)
         {
             Debug.Log(
-                $"[NAV DEBUG] {name} REQUEST LOCAL PATH | " +
+                $"[NAV DEBUG] {name} REQUEST PATH | " +
                 $"version={version} | " +
-                $"region={navigationRegion.name} | " +
+                $"startRegion={startRegion.name} | " +
+                $"targetRegion={destinationRegion.name} | " +
                 $"start={start} | " +
-                $"destination={localDestination} | " +
+                $"destination={destination} | " +
                 $"forceGrid={forceGridPath} | " +
                 $"hadPath={HasPath}",
                 this
             );
         }
 
+
         NavigationPathScheduler
             .Instance
             .RequestPath(
                 this,
-                navigationRegion,
+                world,
                 start,
-                localDestination,
+                destination,
                 version,
                 forceGridPath
             );
     }
+
 
     // =========================================================
     // SCHEDULED RESULT
@@ -1339,11 +892,13 @@ public sealed class NPCNavigationAgent :
             return;
         }
 
+
         pathRequestPending =
             false;
 
         pathDestination =
             destination;
+
 
         if (path == null ||
             !path.IsValid)
@@ -1351,8 +906,8 @@ public sealed class NPCNavigationAgent :
             if (navigationDebugLogs)
             {
                 Debug.LogWarning(
-                    $"[NAV DEBUG] {name} LOCAL PATH INVALID | " +
-                    $"region={navigationRegion?.name} | " +
+                    $"[NAV DEBUG] {name} PATH INVALID | " +
+                    $"currentRegion={navigationRegion?.name} | " +
                     $"destination={destination}",
                     this
                 );
@@ -1361,11 +916,13 @@ public sealed class NPCNavigationAgent :
             return;
         }
 
+
         currentPath =
             path;
 
         waypointIndex =
             0;
+
 
         /*
          * Punkt 0 är requestens exakta startposition.
@@ -1376,25 +933,39 @@ public sealed class NPCNavigationAgent :
                 1;
         }
 
+
         Vector2 currentPosition =
             transform.position;
+
 
         AdvanceReachedWaypoints(
             currentPosition
         );
 
-        AdvanceVisibleWaypoints(
-            currentPosition
-        );
+
+        NavigationWorld world =
+            NavigationWorld.HasInstance
+                ? NavigationWorld.Instance
+                : null;
+
+        if (world != null)
+        {
+            AdvanceVisibleWaypoints(
+                world,
+                currentPosition
+            );
+        }
+
 
         ResetProgressTracking(
             currentPosition
         );
 
+
         if (navigationDebugLogs)
         {
             Debug.Log(
-                $"[NAV DEBUG] {name} LOCAL PATH ACCEPTED | " +
+                $"[NAV DEBUG] {name} PATH ACCEPTED | " +
                 $"points={currentPath.PointCount} | " +
                 $"waypoint={waypointIndex} | " +
                 $"destination={destination}",
@@ -1402,6 +973,7 @@ public sealed class NPCNavigationAgent :
             );
         }
     }
+
 
     // =========================================================
     // WAYPOINT ADVANCEMENT
@@ -1413,9 +985,11 @@ public sealed class NPCNavigationAgent :
         if (!HasPath)
             return;
 
+
         float reachDistanceSqr =
             waypointReachDistance *
             waypointReachDistance;
+
 
         while (waypointIndex <
                currentPath.PointCount)
@@ -1441,14 +1015,18 @@ public sealed class NPCNavigationAgent :
         }
     }
 
+
     private void AdvanceVisibleWaypoints(
+        NavigationWorld world,
         Vector2 currentPosition)
     {
         if (!HasPath ||
+            world == null ||
             navigationRegion == null)
         {
             return;
         }
+
 
         if (waypointIndex < 0 ||
             waypointIndex >=
@@ -1456,6 +1034,7 @@ public sealed class NPCNavigationAgent :
         {
             return;
         }
+
 
         for (int candidate =
                  currentPath.PointCount - 1;
@@ -1468,14 +1047,15 @@ public sealed class NPCNavigationAgent :
                     candidate
                 );
 
-            if (!navigationRegion
-                    .IsDirectPathClear(
-                        currentPosition,
-                        candidatePoint
-                    ))
+
+            if (!world.IsDirectPathClear(
+                    currentPosition,
+                    candidatePoint,
+                    navigationRegion))
             {
                 continue;
             }
+
 
             waypointIndex =
                 candidate;
@@ -1484,19 +1064,22 @@ public sealed class NPCNavigationAgent :
         }
     }
 
+
     // =========================================================
     // STUCK RECOVERY
     // =========================================================
 
     private void UpdateStuckDetection(
+        NavigationWorld world,
         Vector2 currentPosition,
-        Vector2 localDestination)
+        Vector2 destination)
     {
         float movedDistance =
             Vector2.Distance(
                 currentPosition,
                 progressCheckPosition
             );
+
 
         if (movedDistance >=
             minimumProgressDistance)
@@ -1508,8 +1091,10 @@ public sealed class NPCNavigationAgent :
             return;
         }
 
+
         progressTimer +=
             Time.fixedDeltaTime;
+
 
         if (progressTimer <
             stuckCheckDuration)
@@ -1517,11 +1102,13 @@ public sealed class NPCNavigationAgent :
             return;
         }
 
+
         progressTimer =
             0f;
 
         progressCheckPosition =
             currentPosition;
+
 
         if (repathTimer > 0f ||
             pathRequestPending)
@@ -1529,12 +1116,28 @@ public sealed class NPCNavigationAgent :
             return;
         }
 
+
+        if (navigationDebugLogs)
+        {
+            Debug.LogWarning(
+                $"[NAV REPATH] {name} STUCK RECOVERY | " +
+                $"position={currentPosition} | " +
+                $"destination={destination} | " +
+                $"hadPath={HasPath}",
+                this
+            );
+        }
+
+
         RequestPath(
+            world,
             currentPosition,
-            localDestination,
-            forceGridPath: true
+            destination,
+            forceGridPath:
+                true
         );
     }
+
 
     private void ResetProgressTracking(
         Vector2 currentPosition)
@@ -1546,8 +1149,9 @@ public sealed class NPCNavigationAgent :
             0f;
     }
 
+
     // =========================================================
-    // DIRECT MOVEMENT
+    // DIRECT FALLBACK
     // =========================================================
 
     private bool TryGetDirectDirection(
@@ -1561,6 +1165,7 @@ public sealed class NPCNavigationAgent :
         );
     }
 
+
     // =========================================================
     // REGION
     // =========================================================
@@ -1569,6 +1174,7 @@ public sealed class NPCNavigationAgent :
     {
         Vector2 currentPosition =
             transform.position;
+
 
         if (navigationRegion != null &&
             navigationRegion.isActiveAndEnabled &&
@@ -1579,17 +1185,21 @@ public sealed class NPCNavigationAgent :
             return true;
         }
 
+
         NavigationRegion previousRegion =
             navigationRegion;
 
+
         navigationRegion =
             null;
+
 
         NavigationWorld world =
             NavigationWorld.Instance;
 
         if (world == null)
             return false;
+
 
         if (!world.TryGetRegionAt(
                 currentPosition,
@@ -1598,31 +1208,35 @@ public sealed class NPCNavigationAgent :
             return false;
         }
 
+
         navigationRegion =
             region;
 
+
         /*
-         * En riktig regionövergång har inträffat.
+         * VIKTIGT:
          *
-         * Synka world-routen omedelbart.
+         * En regionövergång invaliderar INTE längre pathen.
+         * Samma path är skapad över hela NavigationWorld och ska
+         * fortsätta sömlöst över bordern.
          */
         if (previousRegion !=
                 navigationRegion &&
-            HasWorldPath)
+            previousRegion !=
+                null &&
+            navigationDebugLogs)
         {
-            if (!SynchronizeWorldPortalIndex(
-                    navigationRegion))
-            {
-                /*
-                 * NPC:n hamnade i en region som inte längre
-                 * tillhör den planerade routen.
-                 */
-                ClearWorldPathOnly();
-            }
+            Debug.Log(
+                $"[NAV REGION] {name} | " +
+                $"{previousRegion.name} -> {navigationRegion.name}",
+                this
+            );
         }
+
 
         return true;
     }
+
 
     // =========================================================
     // RESET
@@ -1642,39 +1256,38 @@ public sealed class NPCNavigationAgent :
         worldDestinationRegion =
             null;
 
-        InvalidateLocalPath();
 
-        ClearWorldPathOnly();
+        InvalidatePath();
+
 
         ResetProgressTracking(
             transform.position
         );
     }
+
 
     public void ForceRepath()
     {
         repathTimer =
             0f;
 
-        InvalidateLocalPath();
 
-        ClearWorldPathOnly();
+        InvalidatePath();
+
 
         ResetProgressTracking(
             transform.position
         );
     }
 
-    /// <summary>
-    /// Avbryter lokal request/path men behåller final destination
-    /// och eventuell world-route.
-    /// </summary>
-    private void InvalidateLocalPath()
+
+    private void InvalidatePath()
     {
         pathRequestVersion++;
 
         pathRequestPending =
             false;
+
 
         NavigationPathScheduler
             .Instance
@@ -1682,27 +1295,10 @@ public sealed class NPCNavigationAgent :
                 this
             );
 
+
         ClearPathOnly();
     }
 
-    /// <summary>
-    /// Används precis under en portalövergång.
-    ///
-    /// Vi behöver kasta lokal path men ska inte kasta
-    /// high-level world-routen.
-    /// </summary>
-    private void ClearLocalNavigationForPortalCrossing()
-    {
-        if (HasPath ||
-            pathRequestPending)
-        {
-            InvalidateLocalPath();
-        }
-
-        ResetProgressTracking(
-            transform.position
-        );
-    }
 
     private void ClearPathOnly()
     {
@@ -1713,17 +1309,6 @@ public sealed class NPCNavigationAgent :
             0;
     }
 
-    private void ClearWorldPathOnly()
-    {
-        currentWorldPath =
-            null;
-
-        worldPortalIndex =
-            0;
-
-        worldDestinationRegion =
-            null;
-    }
 
 #if UNITY_EDITOR
 
@@ -1733,15 +1318,15 @@ public sealed class NPCNavigationAgent :
 
     private void OnDrawGizmosSelected()
     {
-        DrawLocalPathGizmos();
-
-        DrawWorldPathGizmos();
+        DrawPathGizmos();
     }
 
-    private void DrawLocalPathGizmos()
+
+    private void DrawPathGizmos()
     {
         if (currentPath == null)
             return;
+
 
         if (drawRawPath &&
             currentPath.RawPoints != null)
@@ -1751,6 +1336,7 @@ public sealed class NPCNavigationAgent :
             );
         }
 
+
         if (drawCurrentPath &&
             currentPath.Points != null)
         {
@@ -1758,6 +1344,7 @@ public sealed class NPCNavigationAgent :
                 currentPath.Points
             );
         }
+
 
         if (drawCurrentWaypoint &&
             currentPath.IsValid &&
@@ -1770,10 +1357,12 @@ public sealed class NPCNavigationAgent :
                     waypointIndex
                 );
 
+
             Gizmos.DrawWireSphere(
                 waypoint,
                 waypointReachDistance
             );
+
 
             Gizmos.DrawLine(
                 transform.position,
@@ -1782,60 +1371,6 @@ public sealed class NPCNavigationAgent :
         }
     }
 
-    private void DrawWorldPathGizmos()
-    {
-        if (!drawWorldRoute ||
-            currentWorldPath == null ||
-            !currentWorldPath.IsValid)
-        {
-            return;
-        }
-
-        Vector2 previous =
-            transform.position;
-
-        for (int i =
-                 Mathf.Clamp(
-                     worldPortalIndex,
-                     0,
-                     currentWorldPath.PortalCount
-                 );
-             i < currentWorldPath.PortalCount;
-             i++)
-        {
-            NavigationRegionPortal portal =
-                currentWorldPath.GetPortal(
-                    i
-                );
-
-            if (portal == null)
-                continue;
-
-            Gizmos.DrawWireSphere(
-                portal.WorldCenter,
-                portalReachDistance
-            );
-
-            Gizmos.DrawLine(
-                previous,
-                portal.WorldCenter
-            );
-
-            previous =
-                portal.WorldCenter;
-        }
-
-        Gizmos.DrawLine(
-            previous,
-            requestedDestination
-        );
-
-        Gizmos.DrawWireSphere(
-            requestedDestination,
-            portalReachDistance *
-            0.75f
-        );
-    }
 
     private static void DrawPath(
         System.Collections.Generic
@@ -1846,6 +1381,7 @@ public sealed class NPCNavigationAgent :
         {
             return;
         }
+
 
         for (int i = 0;
              i < points.Count - 1;

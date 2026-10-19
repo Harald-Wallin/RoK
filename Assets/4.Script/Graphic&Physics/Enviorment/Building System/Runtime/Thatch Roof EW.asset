@@ -1,0 +1,67 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f584c8a235023fd40b33019f5d02fa42, type: 3}
+  m_Name: Thatch Roof EW
+  m_EditorClassIdentifier: Assembly-CSharp::BuildingRoofProfile
+  sortingLayerName: World
+  eastWest:
+    tileLengthPixels: 64
+    rowAdvancePixels: 32
+    surfaceVariants:
+      variants:
+      - {fileID: 21300000, guid: 948f18175afd5b04c9eab7e31477fe2f, type: 3}
+    ridgeVariants:
+      variants:
+      - {fileID: 21300000, guid: 38b77ed1bf7ed0c429809c8dbfc41162, type: 3}
+    ridgeOverlapPixels: 2
+    gableOrnamentVariants:
+      variants:
+      - {fileID: 21300000, guid: e2bff7142b6a6cf429078673b032e039, type: 3}
+    frontOverhangVariants:
+      variants:
+      - {fileID: 21300000, guid: 0b493b469d7468d46b182741eab08d6e, type: 3}
+    sideOverhangVariants:
+      variants:
+      - {fileID: 21300000, guid: 6168935e43f3d0649823672f0bfd535f, type: 3}
+    sideOverhangBottomVariants:
+      variants:
+      - {fileID: 21300000, guid: 477cf3b2c0d5e1049941ea344d18437c, type: 3}
+    baseSortingOrder: 10
+  northSouth:
+    surfaceVariants:
+      variants:
+      - {fileID: 21300000, guid: 3d8e68116afd098429dbe9670fdcca49, type: 3}
+    ridgeVariants:
+      variants:
+      - {fileID: 21300000, guid: 201e9144415df7149b8b103e3e112b11, type: 3}
+    bottomOverhangVariants:
+      variants:
+      - {fileID: 21300000, guid: 700aec2383b0cdb47af3e03c5d6d907f, type: 3}
+    gableFillVariants:
+      variants:
+      - {fileID: 21300000, guid: 9d547265162c0104fac00ea3ef4cd051, type: 3}
+    gableSlopeVariants:
+      variants:
+      - {fileID: 21300000, guid: 83343faa578ec994fa7a19fc3bacbe09, type: 3}
+    gableBottomOverhangVariants:
+      variants:
+      - {fileID: 21300000, guid: b5461006e66a14543a71c7975f4856b4, type: 3}
+    windboardTopVariants:
+      variants:
+      - {fileID: 21300000, guid: 8b554e50a09b8ce4f95c37f11b8629c7, type: 3}
+    windboardMiddleVariants:
+      variants:
+      - {fileID: 21300000, guid: eee03e7d2b65eee4ba7136614ac80b32, type: 3}
+    windboardBottomVariants:
+      variants:
+      - {fileID: 21300000, guid: 964702301ad71834cac2578d1baed5cf, type: 3}
+    baseSortingOrder: 10

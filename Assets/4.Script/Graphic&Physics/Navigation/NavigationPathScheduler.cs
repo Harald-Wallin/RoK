@@ -4,14 +4,8 @@ using UnityEngine;
 /// <summary>
 /// Central scheduler för navigation-pathfinding.
 ///
-/// NPCNavigationAgent begär paths härifrån istället för
-/// att köra AStarPathfinder direkt.
-///
-/// Syftet är att:
-/// - begränsa antal A*-sökningar per frame
-/// - undvika stora CPU-spikes när många NPC:er repathar samtidigt
-/// - slå ihop flera väntande requests från samma NPC
-/// - skapa en central punkt för framtida pathfinding-budgetering
+/// Requests körs nu mot hela NavigationWorld.
+/// NavigationRegions är bara chunks i samma sammanhängande grid.
 /// </summary>
 public sealed class NavigationPathScheduler :
     MonoBehaviour
@@ -49,6 +43,7 @@ public sealed class NavigationPathScheduler :
         }
     }
 
+
     // =========================================================
     // SETTINGS
     // =========================================================
@@ -73,10 +68,12 @@ public sealed class NavigationPathScheduler :
     private float maximumMillisecondsPerFrame =
         2f;
 
+
     [Header("Debug")]
 
     [SerializeField]
     private bool showDebugInfo;
+
 
     // =========================================================
     // REQUEST
@@ -85,8 +82,10 @@ public sealed class NavigationPathScheduler :
     private sealed class PathRequest
     {
         public NPCNavigationAgent Agent;
+
+        public NavigationWorld World;
+
         public bool ForceGridPath;
-        public NavigationRegion Region;
 
         public Vector2 Start;
         public Vector2 Destination;
@@ -94,15 +93,7 @@ public sealed class NavigationPathScheduler :
         public int Version;
     }
 
-    /*
-     * Queuen innehåller endast agenten.
-     *
-     * Själva senaste requesten ligger i pendingRequests.
-     *
-     * Om samma NPC ändrar destination medan den väntar
-     * ersätter vi alltså request-data istället för att lägga
-     * ännu en post i kön.
-     */
+
     private readonly Queue<
         NPCNavigationAgent>
         requestQueue =
@@ -113,6 +104,7 @@ public sealed class NavigationPathScheduler :
         PathRequest>
         pendingRequests =
             new();
+
 
     // =========================================================
     // UNITY
@@ -134,6 +126,7 @@ public sealed class NavigationPathScheduler :
             this;
     }
 
+
     private void OnDestroy()
     {
         if (instance == this)
@@ -142,6 +135,7 @@ public sealed class NavigationPathScheduler :
                 null;
         }
     }
+
 
     private void OnValidate()
     {
@@ -158,10 +152,12 @@ public sealed class NavigationPathScheduler :
             );
     }
 
+
     private void Update()
     {
         ProcessRequests();
     }
+
 
     // =========================================================
     // REQUEST API
@@ -169,14 +165,14 @@ public sealed class NavigationPathScheduler :
 
     public void RequestPath(
         NPCNavigationAgent agent,
-        NavigationRegion region,
+        NavigationWorld world,
         Vector2 start,
         Vector2 destination,
         int version,
         bool forceGridPath = false)
     {
         if (agent == null ||
-            region == null)
+            world == null)
         {
             return;
         }
@@ -189,33 +185,28 @@ public sealed class NavigationPathScheduler :
         PathRequest request =
             new PathRequest
             {
-                Agent = agent,
+                Agent =
+                    agent,
 
-                Region = region,
+                World =
+                    world,
 
-                Start = start,
+                Start =
+                    start,
 
-                Destination = destination,
+                Destination =
+                    destination,
 
-                Version = version, 
+                Version =
+                    version,
 
-                ForceGridPath = forceGridPath
+                ForceGridPath =
+                    forceGridPath
             };
 
         /*
-         * Viktigt:
-         *
-         * Finns NPC:n redan i kön ersätter vi bara requesten.
-         *
-         * Exempel:
-         *
-         * target position 10,5
-         * target position 10.5,5
-         * target position 11,5
-         *
-         * innan schedulern hunnit processa NPC:n
-         *
-         * => bara den senaste destinationen används.
+         * Samma NPC får bara en väntande request.
+         * Ny destination ersätter den gamla request-datan.
          */
         pendingRequests[
             agent
@@ -230,22 +221,18 @@ public sealed class NavigationPathScheduler :
         }
     }
 
+
     public void CancelRequests(
         NPCNavigationAgent agent)
     {
         if (agent == null)
             return;
 
-        /*
-         * Vi behöver inte försöka ta bort agenten ur Queue<T>.
-         *
-         * När den senare poppas finns ingen request kvar
-         * i dictionaryn och posten ignoreras.
-         */
         pendingRequests.Remove(
             agent
         );
     }
+
 
     // =========================================================
     // PROCESSING
@@ -274,9 +261,7 @@ public sealed class NavigationPathScheduler :
                 1000f;
 
             /*
-             * Kör alltid åtminstone en request om kön innehåller
-             * arbete.
-             *
+             * Kör alltid åtminstone en request om kön innehåller jobb.
              * Därefter respekteras tidsbudgeten.
              */
             if (processed > 0 &&
@@ -333,24 +318,25 @@ public sealed class NavigationPathScheduler :
         }
     }
 
+
     private static void ProcessRequest(
         PathRequest request)
     {
         if (request == null ||
             request.Agent == null ||
-            request.Region == null)
+            request.World == null)
         {
             return;
         }
 
         NavigationPath path =
             AStarPathfinder.FindPath(
-            request.Region,
-            request.Start,
-            request.Destination,
-            allowDirectFastPath:
-            !request.ForceGridPath
-        );
+                request.World,
+                request.Start,
+                request.Destination,
+                allowDirectFastPath:
+                    !request.ForceGridPath
+            );
 
         request.Agent
             .ReceiveScheduledPath(
@@ -359,6 +345,7 @@ public sealed class NavigationPathScheduler :
                 request.Version
             );
     }
+
 
     // =========================================================
     // DEBUG

@@ -1,0 +1,125 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6dc9be06d9a5f8640bb512aafbe586cc, type: 3}
+  m_Name: FoodVendorGeneralDialogue
+  m_EditorClassIdentifier: Assembly-CSharp::NPCDialogueTable
+  faction: {fileID: 11400000, guid: c5488bdfa9793df41979c93540acac0b, type: 2}
+  minReputationLevel: 1
+  lines:
+  - english: 'Let us make your purse lighter '
+    swedish: lat oss latta din penningpung
+  - english: That purse looks awfully heavy!
+    swedish: Penningpungen ser sannerligen tung ut!
+  - english: No haggling? What a blessed day!
+    swedish: Inget prutande? Valsignade dag!
+  - english: A wise wanderer travels well-stocked
+    swedish: En vis vandrare fardas val forsedd
+  - english: Fit for hall, hunt, or hinterland
+    swedish: For hall, hard, eller himlafard
+  - english: Rotten meat? Sure, I will buy it..
+    swedish: Ruttet kott? Ja jag koper val det...
+  - english: Let me show you something fine
+    swedish: Lat mig visa dig nagot fint
+  - english: No refunds after sunset
+    swedish: Inga aterkap efter skymning
+  - english: Tested by professionals. Mostly
+    swedish: Beprovade av proffs. For det mesta
+  - english: Practically new wares! By specific standards
+    swedish: Sa gott som nya varor! Om man fragar vissa
+  - english: Items, barely used!
+    swedish: Foremal, knappt anvanda!
+  - english: Even chosen ones need spare socks
+    swedish: Aven de utvalda behover extra sockor
+  - english: My bad feeling rises- so do my prices
+    swedish: Mina onda aningar stiger- liksom mina priser
+  - english: No loitering without purchasing
+    swedish: Sta inte bara har utan att kopa nagot
+  - english: A wonderful day for doing business!
+    swedish: En stralande dag far affarer!
+  - english: I would explain the warranty, but there is none
+    swedish: Jag hade kunnat forklara garantin, om den fanns
+  - english: No curses. No refunds
+    swedish: Inga forbannelser. Inga aterkop
+  - english: A suspiciously fine deal!
+    swedish: En misstanksamt bra affar!
+  - english: Crafted by masters, sold by me!
+    swedish: Skapad av mastare, sald av mig!
+  - english: Spend like a king, live like a peasant
+    swedish: Spendera som en kung, lev som en bonde
+  - english: A fair trade is good art, as I say
+    swedish: En god affar ar likt konst, som jag brukar saga
+  - english: All has a price!
+    swedish: Allt har ett pris!
+  - english: Honest goods, honest prices!
+    swedish: Arliga varor, arliga priser!
+  - english: My goods are sound and true
+    swedish: Mina varor ar goda och sanna
+  - english: 
+    swedish: 
+  - english: Fine things for hardy travels
+    swedish: Utmarkta ting for hardiga resor
+  - english: A wise hand keeps a full pack!
+    swedish: En vis hand haller god packning
+  - english: Better bought than begged
+    swedish: Battre betala an att be
+  - english: "The road favours the well-equipped\t"
+    swedish: Vagen gynnar den valforsadde
+  - english: Here, goods from afar!
+    swedish: Har, varor fran fjarran!
+  - english: Bronze may buy what glory can not
+    swedish: Brons ma kopa det ara kan icke
+  - english: One mans trash makes anothers treasure
+    swedish: En mans skrap ar den andres skatt
+  - english: Maybe you should wash your hands..
+    swedish: Du kanske bor tvaga dina hander...
+  - english: I have goods for hands and hearth
+    swedish: Jag har varor for hander och hard
+  - english: I do not deal in shoddy goods
+    swedish: Jag handlar inte med snava varor
+  - english: I stand by every price I sell
+    swedish: Jag star for mina priser
+  - english: I have provisions for long roads
+    swedish: Jag forser for longa vagar
+  - english: You? Have coin? If you say so...
+    swedish: Du? Har mynt? Om du sager det...
+  - english: I smella a bargain in the air...
+    swedish: Jag fornimmer ett kap...
+  - english: A tight purse never won a battle
+    swedish: Ett slag vanns aldrig av en sluten penningpung
+  - english: Let me show you my wares
+    swedish: Lat mig visa mina varor
+  - english: Your coin for fine products!
+    swedish: Dina mynt for fina varor!
+  - english: Come, and barter
+    swedish: Kom narmre, och forhandla
+  - english: See anything you like?
+    swedish: Nagot som faller i smaken?
+  - english: Browse, and you will be pleased
+    swedish: Skada, och du kommer fornojas
+  - english: Make your pick, traveler
+    swedish: Gor ditt val, vandrare
+  - english: Have you coin to spend?
+    swedish: Har du mynt att handla med?
+  - english: Come, let us trade
+    swedish: Kom, lat oss kopsla
+  - english: 
+    swedish: 
+  - english: Let us trade justly
+    swedish: Lat oss kapsla rattvist
+  - english: Come hither, and name your needs
+    swedish: Kom harat, och fortalj dina behov
+  - english: The freshest goods I have
+    swedish: De farskaste varor har jag
+  - english: Bronze for goods, as is proper
+    swedish: Brons for varor, som det ska vara
+  - english: Your coin, my ware
+    swedish: Ditt mynt, min vara

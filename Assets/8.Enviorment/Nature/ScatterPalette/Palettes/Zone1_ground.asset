@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Zone1_ground
   m_EditorClassIdentifier: Assembly-CSharp::WorldScatterPalette
   groups:
-  - enabled: 1
+  - enabled: 0
     groupName: Grass
     density: 0.829
     prefabs:
@@ -33,7 +33,7 @@ MonoBehaviour:
     randomFlipX: 1
   - enabled: 1
     groupName: Pebbles
-    density: 0.01
+    density: 0.031
     prefabs:
     - {fileID: 6779459021559935253, guid: a2426cd3514858f4d91d7d9859b81e0c, type: 3}
     - {fileID: 2662448666119700023, guid: 0edb34c1dd448cf48a94a148a0809efa, type: 3}
@@ -85,9 +85,9 @@ MonoBehaviour:
     minScale: 0.9
     maxScale: 1.1
     randomFlipX: 1
-  - enabled: 1
+  - enabled: 0
     groupName: Heather
-    density: 0.039
+    density: 0.908
     prefabs:
     - {fileID: 5374240595379422226, guid: 9916ecd850f61a941989acf5e5f1fa6d, type: 3}
     - {fileID: 8758124007264464616, guid: 0a3307611e946a74c9b5cca23e4dbf18, type: 3}
@@ -99,6 +99,24 @@ MonoBehaviour:
     - {fileID: 1242755719272409630, guid: 472e9e0493df7854fab2008f0e03c5ab, type: 3}
     - {fileID: 5808186792535440708, guid: 985ed803b5f15434fa8cb093f3e8e89a, type: 3}
     - {fileID: 38180173155720586, guid: 2a9d8ecc42934ef4c9c5834bcd68747b, type: 3}
+    randomizeScale: 1
+    minScale: 0.9
+    maxScale: 1.1
+    randomFlipX: 1
+  - enabled: 1
+    groupName: New grass
+    density: 0.898
+    prefabs:
+    - {fileID: 1103122999670778995, guid: caaca8dfb8228f044b80f4f0598b5a0e, type: 3}
+    - {fileID: 195674955918948782, guid: 1d9a54e1852049a409f878f02b06095a, type: 3}
+    - {fileID: 5713547268641589379, guid: eacef23e4a06cac4daaf02c32cb7daf5, type: 3}
+    - {fileID: 1963301816329429344, guid: 9c979a3b1a1251f42b1d0a8e625f1603, type: 3}
+    - {fileID: 8144875761220722701, guid: abb750486ebf68e4eab92b711ef0cee1, type: 3}
+    - {fileID: 5136472163713984024, guid: 9c637a3ef7f49ac438bd005248813918, type: 3}
+    - {fileID: 935545250679892383, guid: f6b045d5bd21bc6459c0fcdb756aae69, type: 3}
+    - {fileID: 423986610518930947, guid: 09f171040095b12438d771ffeecda161, type: 3}
+    - {fileID: 1149069279851631690, guid: 7c6591708dc3f3441b70d6af0246d6fc, type: 3}
+    - {fileID: 2928268351064616068, guid: f094b2782cd115846a486c023e2fefab, type: 3}
     randomizeScale: 1
     minScale: 0.9
     maxScale: 1.1

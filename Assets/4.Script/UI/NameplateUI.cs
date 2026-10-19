@@ -1,14 +1,28 @@
 ﻿using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
+using UnityEngine.Serialization;
 
 /// <summary>
 /// Presentation controller för en karaktärs nameplate.
 ///
-/// NameplateUI äger inte gameplaydata. Den läser CharacterStats,
-/// CharacterStateController och BuffSystem och presenterar deras
-/// aktuella tillstånd.
+/// Layout:
+///
+/// Rad 1:
+/// - Namn
+///
+/// Rad 2:
+/// - Level
+/// - Healthbar
+/// - StatusText
+///     Default = NPC-titel
+///     Hover/Combat = aktuell HP
+/// - FactionIcon
+///
+/// Rad 3:
+/// - Buff/debuff-display
+///
+/// NameplateUI äger inte gameplaydata.
 /// </summary>
 public sealed class NameplateUI :
     MonoBehaviour
@@ -18,10 +32,20 @@ public sealed class NameplateUI :
         NameplateUI> Registry =
             new();
 
+
+    // =========================================================
+    // TARGET
+    // =========================================================
+
     [Header("Target")]
 
     [SerializeField]
     private CharacterStats target;
+
+
+    // =========================================================
+    // IDENTITY
+    // =========================================================
 
     [Header("Identity")]
 
@@ -31,39 +55,58 @@ public sealed class NameplateUI :
     [SerializeField]
     private TMP_Text levelText;
 
-    [SerializeField]
-    private TMP_Text roleText;
+
+    // =========================================================
+    // HEALTH / STATUS
+    // =========================================================
+
+    [Header("Health / Status")]
 
     [SerializeField]
-    private TMP_Text factionText;
-
-    [Header("Health")]
+    private HealthBarVisual healthBarVisual;
 
     [SerializeField]
-    private GameObject healthBarRoot;
+    [FormerlySerializedAs("hpText")]
+    private TMP_Text statusText;
+
+
+    // =========================================================
+    // FACTION
+    // =========================================================
+
+    [Header("Faction")]
 
     [SerializeField]
-    private Image healthFill;
+    private FactionIconUI factionIcon;
 
-    [SerializeField]
-    private TMP_Text hpText;
+
+    // =========================================================
+    // BUFFS
+    // =========================================================
 
     [Header("Buffs")]
 
     [SerializeField]
-    private GameObject buffRowRoot;
-
-    [SerializeField]
     private NameplateBuffDisplay buffDisplay;
+
+
+    // =========================================================
+    // FUTURE STYLING
+    // =========================================================
 
     [Header("Future Styling")]
 
     [SerializeField]
     [Tooltip(
-        "Valfri rot för framtida ramar, bossmarkörer och " +
-        "andra dekorationer."
+        "Valfri rot för framtida ramar, bossmarkörer " +
+        "och andra dekorationer."
     )]
     private GameObject decorationRoot;
+
+
+    // =========================================================
+    // REFRESH
+    // =========================================================
 
     [Header("Refresh")]
 
@@ -72,7 +115,13 @@ public sealed class NameplateUI :
     private float passiveRefreshInterval =
         0.25f;
 
+
+    // =========================================================
+    // RUNTIME
+    // =========================================================
+
     private PlayerStats player;
+
     private PlayerReputationManager
         reputationManager;
 
@@ -90,17 +139,29 @@ public sealed class NameplateUI :
 
     private float passiveRefreshTimer;
 
+
+    // =========================================================
+    // PUBLIC
+    // =========================================================
+
     public CharacterStats Target =>
         target;
+
 
     public NameplatePresentationState
         CurrentState =>
             currentState;
 
+
+    // =========================================================
+    // UNITY
+    // =========================================================
+
     private void Awake()
     {
         ResolveReferences();
     }
+
 
     private void Start()
     {
@@ -113,8 +174,10 @@ public sealed class NameplateUI :
             >();
 
         BindBuffDisplay();
+
         RefreshAll();
     }
+
 
     private void OnEnable()
     {
@@ -127,11 +190,13 @@ public sealed class NameplateUI :
         Subscribe();
     }
 
+
     private void OnDisable()
     {
         Unsubscribe();
         Unregister();
     }
+
 
     private void Update()
     {
@@ -145,13 +210,17 @@ public sealed class NameplateUI :
             passiveRefreshInterval;
 
         /*
-         * Faction reputation och temporary hostility saknar
-         * ännu egna events. En billig periodisk refresh fångar
-         * därför dessa förändringar utan att uppdatera varje frame.
+         * Temporary hostility och reputation
+         * saknar ännu full event-driven presentation.
          */
         RefreshState();
         RefreshHealthColor();
     }
+
+
+    // =========================================================
+    // REGISTRY
+    // =========================================================
 
     public static bool TryGet(
         CharacterStats character,
@@ -169,6 +238,38 @@ public sealed class NameplateUI :
         );
     }
 
+
+    private void Register()
+    {
+        if (target == null)
+            return;
+
+        Registry[target] =
+            this;
+    }
+
+
+    private void Unregister()
+    {
+        if (target == null)
+            return;
+
+        if (Registry.TryGetValue(
+                target,
+                out NameplateUI registered) &&
+            registered == this)
+        {
+            Registry.Remove(
+                target
+            );
+        }
+    }
+
+
+    // =========================================================
+    // EXTERNAL STATE
+    // =========================================================
+
     public void SetHovered(
         bool hovered)
     {
@@ -181,31 +282,31 @@ public sealed class NameplateUI :
         RefreshState();
     }
 
-    private bool ShouldShowFactionOnHover()
-    {
-        if (target == null ||
-            target.faction == null)
-        {
-            return false;
-        }
-
-        if (!target.faction.showInReputationWindow)
-            return false;
-
-        return !string.IsNullOrWhiteSpace(
-            target.FactionName
-        );
-    }
 
     public void SetCorpseMode()
     {
-        isCorpse = true;
+        if (isCorpse)
+            return;
+
+        isCorpse =
+            true;
+
+        healthBarVisual?.SetHealth(
+            0f,
+            1f,
+            true
+        );
 
         ApplyState(
             NameplatePresentationState
                 .Corpse
         );
     }
+
+
+    // =========================================================
+    // REFERENCES
+    // =========================================================
 
     private void ResolveReferences()
     {
@@ -231,40 +332,21 @@ public sealed class NameplateUI :
             >();
     }
 
+
     private void BindBuffDisplay()
     {
-        if (buffDisplay != null)
-        {
-            buffDisplay.Bind(
-                buffSystem
-            );
-        }
-    }
-
-    private void Register()
-    {
-        if (target == null)
+        if (buffDisplay == null)
             return;
 
-        Registry[target] =
-            this;
+        buffDisplay.Bind(
+            buffSystem
+        );
     }
 
-    private void Unregister()
-    {
-        if (target == null)
-            return;
 
-        if (Registry.TryGetValue(
-                target,
-                out NameplateUI registered) &&
-            registered == this)
-        {
-            Registry.Remove(
-                target
-            );
-        }
-    }
+    // =========================================================
+    // SUBSCRIPTIONS
+    // =========================================================
 
     private void Subscribe()
     {
@@ -296,8 +378,10 @@ public sealed class NameplateUI :
                 HandlePlayerLevelChanged;
         }
 
-        subscribed = true;
+        subscribed =
+            true;
     }
+
 
     private void Unsubscribe()
     {
@@ -329,13 +413,20 @@ public sealed class NameplateUI :
                 HandlePlayerLevelChanged;
         }
 
-        subscribed = false;
+        subscribed =
+            false;
     }
+
+
+    // =========================================================
+    // EVENT HANDLERS
+    // =========================================================
 
     private void HandlePlayerLevelChanged()
     {
         RefreshIdentity();
     }
+
 
     private void HandleHealthChanged()
     {
@@ -343,11 +434,13 @@ public sealed class NameplateUI :
         RefreshState();
     }
 
+
     private void HandleStatsChanged()
     {
         RefreshIdentity();
         RefreshHealth();
     }
+
 
     private void HandleDied(
         CharacterStats deadCharacter)
@@ -355,11 +448,17 @@ public sealed class NameplateUI :
         SetCorpseMode();
     }
 
+
     private void HandleCombatStateChanged(
         bool inCombat)
     {
         RefreshState();
     }
+
+
+    // =========================================================
+    // REFRESH
+    // =========================================================
 
     private void RefreshAll()
     {
@@ -367,9 +466,14 @@ public sealed class NameplateUI :
             return;
 
         RefreshIdentity();
-        RefreshHealth();
+
+        RefreshHealth(
+            true
+        );
+
         RefreshState();
     }
+
 
     private void RefreshIdentity()
     {
@@ -400,20 +504,19 @@ public sealed class NameplateUI :
             }
         }
 
-        if (roleText != null)
+        if (factionIcon != null)
         {
-            roleText.text =
-                target.RoleName;
+            factionIcon.Bind(
+                target.faction
+            );
         }
 
-        if (factionText != null)
-        {
-            factionText.text =
-                target.FactionName;
-        }
+        RefreshStatusText();
     }
 
-    private void RefreshHealth()
+
+    private void RefreshHealth(
+        bool immediate = false)
     {
         if (target == null)
             return;
@@ -424,38 +527,65 @@ public sealed class NameplateUI :
                 target.GetMaxHP()
             );
 
-        float normalizedHealth =
-            Mathf.Clamp01(
-                target.currentHP /
-                (float)maximumHealth
-            );
+        healthBarVisual?.SetHealth(
+            target.currentHP,
+            maximumHealth,
+            immediate
+        );
 
-        if (healthFill != null)
-        {
-            healthFill.rectTransform
-                .localScale =
-                new Vector3(
-                    normalizedHealth,
-                    1f,
-                    1f
-                );
-        }
-
-        if (hpText != null &&
-            !isCorpse)
-        {
-            hpText.text =
-                $"{target.currentHP} / " +
-                $"{maximumHealth}";
-        }
-
+        RefreshStatusText();
         RefreshHealthColor();
     }
+
+
+    private void RefreshStatusText()
+    {
+        if (statusText == null ||
+            target == null)
+        {
+            return;
+        }
+
+        if (isCorpse ||
+            !target.IsAlive)
+        {
+            statusText.text =
+                "Corpse";
+
+            return;
+        }
+
+        bool showHealth =
+            currentState ==
+                NameplatePresentationState.Hover ||
+            currentState ==
+                NameplatePresentationState.Combat ||
+            !target.HasRole;
+
+        if (showHealth)
+        {
+            int maximumHealth =
+                Mathf.Max(
+                    1,
+                    target.GetMaxHP()
+                );
+
+            statusText.text =
+                $"{target.currentHP} / " +
+                $"{maximumHealth}";
+
+            return;
+        }
+
+        statusText.text =
+            target.RoleName;
+    }
+
 
     private void RefreshHealthColor()
     {
         if (target == null ||
-            healthFill == null)
+            healthBarVisual == null)
         {
             return;
         }
@@ -484,7 +614,9 @@ public sealed class NameplateUI :
         {
             fillColor =
                 ReputationColorUtility
-                    .GetColor(1);
+                    .GetColor(
+                        1
+                    );
         }
         else if (
             reputationManager != null &&
@@ -508,9 +640,18 @@ public sealed class NameplateUI :
                     );
         }
 
-        healthFill.color =
-            fillColor;
+        fillColor.a =
+            1f;
+
+        healthBarVisual.SetHealthColor(
+            fillColor
+        );
     }
+
+
+    // =========================================================
+    // PRESENTATION STATE
+    // =========================================================
 
     private void RefreshState()
     {
@@ -522,6 +663,7 @@ public sealed class NameplateUI :
             resolvedState
         );
     }
+
 
     private NameplatePresentationState
         ResolveState()
@@ -555,183 +697,85 @@ public sealed class NameplateUI :
                 .Default;
     }
 
+
     private void ApplyState(
-    NameplatePresentationState state)
+        NameplatePresentationState state)
     {
         currentState =
             state;
 
-        switch (state)
-        {
-            case NameplatePresentationState.Default:
-
-                bool hasRole =
-                    target != null &&
-                    target.HasRole;
-
-                /*
-                 * NPC:er med role visar sin titel i idle.
-                 * NPC:er utan role använder samma utrymme till healthbaren.
-                 */
-                SetActive(
-                    roleText,
-                    hasRole
-                );
-
-                SetActive(
-                    healthBarRoot,
-                    !hasRole
-                );
-
-                SetActive(
-                    factionText,
-                    false
-                );
-
-                SetActive(
-                    buffRowRoot,
-                    false
-                );
-                break;
-
-            case NameplatePresentationState.Hover:
-
-                SetActive(
-                    roleText,
-                    false
-                );
-
-                SetActive(
-                    healthBarRoot,
-                    true
-                );
-
-                SetActive(
-                    factionText,
-                    ShouldShowFactionOnHover()
-                );
-
-                SetActive(
-                    buffRowRoot,
-                    false
-                );
-                break;
-
-            case NameplatePresentationState.Combat:
-
-                SetActive(
-                    roleText,
-                    false
-                );
-
-                SetActive(
-                    healthBarRoot,
-                    true
-                );
-
-                SetActive(
-                    factionText,
-                    false
-                );
-
-                SetActive(
-                    buffRowRoot,
-                    true
-                );
-                break;
-
-            case NameplatePresentationState.Corpse:
-
-                SetActive(
-                    roleText,
-                    false
-                );
-
-                SetActive(
-                    healthBarRoot,
-                    true
-                );
-
-                SetActive(
-                    factionText,
-                    false
-                );
-
-                SetActive(
-                    buffRowRoot,
-                    false
-                );
-
-                if (hpText != null)
-                {
-                    hpText.text =
-                        "Corpse";
-                }
-
-                if (healthFill != null)
-                {
-                    healthFill
-                        .rectTransform
-                        .localScale =
-                        new Vector3(
-                            0f,
-                            1f,
-                            1f
-                        );
-                }
-                break;
-        }
+        /*
+         * Den nya nameplaten har en stabil layout.
+         *
+         * Vi slår därför inte längre av/på:
+         * - healthbar
+         * - title
+         * - faction
+         * - buff row
+         *
+         * State bestämmer endast vilket innehåll
+         * StatusText visar.
+         */
+        RefreshStatusText();
     }
 
-    private static void SetActive(
-        Component component,
-        bool active)
-    {
-        if (component != null)
-        {
-            component.gameObject
-                .SetActive(active);
-        }
-    }
 
-    private static void SetActive(
-        GameObject targetObject,
-        bool active)
-    {
-        if (targetObject != null)
-        {
-            targetObject.SetActive(
-                active
-            );
-        }
-    }
+    // =========================================================
+    // COLOURS
+    // =========================================================
 
     private static Color
         GetDifficultyColor(
             int difference)
     {
         if (difference >= 5)
-            return Hex("#D51512");
+        {
+            return
+                Hex(
+                    "#D51512"
+                );
+        }
 
         if (difference >= 3)
-            return Hex("#D55912");
+        {
+            return
+                Hex(
+                    "#D55912"
+                );
+        }
 
         if (difference >= -2)
-            return Hex("#F5F207");
+        {
+            return
+                Hex(
+                    "#F5F207"
+                );
+        }
 
         if (difference >= -5)
-            return Hex("#4D9927");
+        {
+            return
+                Hex(
+                    "#4D9927"
+                );
+        }
 
-        return Hex("#9E9E9E");
+        return
+            Hex(
+                "#9E9E9E"
+            );
     }
+
 
     private static Color Hex(
         string hex)
     {
-        return ColorUtility
-            .TryParseHtmlString(
-                hex,
-                out Color color)
+        return
+            ColorUtility
+                .TryParseHtmlString(
+                    hex,
+                    out Color color
+                )
                 ? color
                 : Color.white;
     }

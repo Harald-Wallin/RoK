@@ -31,3 +31,7 @@ MonoBehaviour:
     outputs:
     - stat: 4
       value: 1
+  - source: 1
+    outputs:
+    - stat: 15
+      value: 0.01
