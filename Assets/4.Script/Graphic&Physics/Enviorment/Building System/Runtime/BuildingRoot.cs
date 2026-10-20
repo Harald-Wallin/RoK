@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 
 #if UNITY_EDITOR
@@ -27,6 +27,13 @@ public sealed class BuildingRoot :
     [Header("Generation")]
 
     [SerializeField]
+    private bool generateStructure =
+        true;
+
+    [SerializeField]
+    private BuildingStructureStyle structureStyle;
+
+    [SerializeField]
     private bool generateRoofs =
         true;
 
@@ -42,15 +49,16 @@ public sealed class BuildingRoot :
     private int wallCollisionThicknessPixels =
         8;
 
-
     [SerializeField]
     private string collisionLayerName =
         "World";
 
-
     [SerializeField]
+    [Tooltip(
+        "Structure V1 och perimeter-collision använder samma level. " +
+        "Behåll 0 tills multi-story-systemet byggs ut."
+    )]
     private int collisionStructureLevel;
-
 
     [SerializeField]
     private bool generateCollision =
@@ -67,7 +75,6 @@ public sealed class BuildingRoot :
     private bool drawFootprint =
         true;
 
-
     [SerializeField]
     private bool drawExteriorEdges =
         true;
@@ -81,11 +88,9 @@ public sealed class BuildingRoot :
         sections =
             new();
 
-
     private readonly BuildingFootprint
         footprint =
             new();
-
 
     private bool isRebuilding;
 
@@ -104,19 +109,26 @@ public sealed class BuildingRoot :
     public BuildingFootprint Footprint =>
         footprint;
 
-
     public IReadOnlyList<BuildingSection>
         Sections =>
             sections;
 
+    public BuildingStructureStyle StructureStyle =>
+        structureStyle;
+
+    /// <summary>
+    /// Structure V1 använder samma level som perimeter-collisionen.
+    /// Detta undviker dubbla Inspector-fält tills multi-story faktiskt
+    /// behöver separata generation levels.
+    /// </summary>
+    public int StructureLevel =>
+        collisionStructureLevel;
 
     public int CollisionStructureLevel =>
         collisionStructureLevel;
 
-
     public string CollisionLayerName =>
         collisionLayerName;
-
 
     public float WallCollisionThickness =>
         wallCollisionThicknessPixels /
@@ -139,7 +151,6 @@ public sealed class BuildingRoot :
 
 #endif
 
-
         RebuildModel();
     }
 
@@ -152,13 +163,11 @@ public sealed class BuildingRoot :
                 wallCollisionThicknessPixels
             );
 
-
         collisionStructureLevel =
             Mathf.Max(
                 0,
                 collisionStructureLevel
             );
-
 
 #if UNITY_EDITOR
 
@@ -169,7 +178,6 @@ public sealed class BuildingRoot :
         }
 
 #endif
-
 
         RebuildModel();
     }
@@ -189,10 +197,8 @@ public sealed class BuildingRoot :
             return;
         }
 
-
         rebuildQueued =
             true;
-
 
         EditorApplication.delayCall +=
             ExecuteQueuedEditorRebuild;
@@ -204,18 +210,14 @@ public sealed class BuildingRoot :
         rebuildQueued =
             false;
 
-
         if (this == null)
             return;
 
-
         RebuildModel();
-
 
         EditorUtility.SetDirty(
             this
         );
-
 
         SceneView.RepaintAll();
     }
@@ -232,38 +234,51 @@ public sealed class BuildingRoot :
         if (isRebuilding)
             return;
 
-
         isRebuilding =
             true;
 
-
-        CollectSections();
-
-
-        footprint.BuildFrom(
-            sections
-        );
-
-
-        if (generateCollision)
+        try
         {
-            BuildingColliderBuilder.Rebuild(
-                this,
-                footprint
+            CollectSections();
+
+            footprint.BuildFrom(
+                sections
             );
+
+            if (generateStructure)
+            {
+                BuildingStructureRenderer.Rebuild(
+                    this,
+                    footprint
+                );
+            }
+            else
+            {
+                BuildingStructureRenderer.Clear(
+                    this
+                );
+            }
+
+            if (generateCollision)
+            {
+                BuildingColliderBuilder.Rebuild(
+                    this,
+                    footprint
+                );
+            }
+
+            if (generateRoofs)
+            {
+                BuildingRoofRenderer.Rebuild(
+                    this
+                );
+            }
         }
-
-
-        if (generateRoofs)
+        finally
         {
-            BuildingRoofRenderer.Rebuild(
-                this
-            );
+            isRebuilding =
+                false;
         }
-
-
-        isRebuilding =
-            false;
     }
 
 
@@ -271,12 +286,10 @@ public sealed class BuildingRoot :
     {
         sections.Clear();
 
-
         BuildingSection[] found =
             GetComponentsInChildren<
                 BuildingSection
             >(true);
-
 
         for (int i = 0;
              i < found.Length;
@@ -285,17 +298,14 @@ public sealed class BuildingRoot :
             BuildingSection section =
                 found[i];
 
-
             if (section == null)
                 continue;
-
 
             if (section.Root !=
                 this)
             {
                 continue;
             }
-
 
             sections.Add(
                 section
@@ -340,22 +350,18 @@ public sealed class BuildingRoot :
                 rootName
             );
 
-
         if (existing != null)
             return existing;
-
 
         GameObject child =
             new GameObject(
                 rootName
             );
 
-
         child.transform.SetParent(
             transform,
             false
         );
-
 
         return child.transform;
     }
@@ -374,12 +380,10 @@ public sealed class BuildingRoot :
             RebuildModel();
         }
 
-
         if (drawFootprint)
         {
             DrawFootprintGizmos();
         }
-
 
         if (drawExteriorEdges)
         {
@@ -393,21 +397,17 @@ public sealed class BuildingRoot :
         Matrix4x4 previousMatrix =
             Gizmos.matrix;
 
-
         Gizmos.matrix =
             transform.localToWorldMatrix;
 
-
         float step =
             BuildingGrid.StructuralStep;
-
 
         foreach (BuildingCell cell
                  in footprint.Cells)
         {
             if (cell.Level != 0)
                 continue;
-
 
             Vector3 center =
                 new Vector3(
@@ -426,7 +426,6 @@ public sealed class BuildingRoot :
                     0f
                 );
 
-
             Gizmos.DrawWireCube(
                 center,
                 new Vector3(
@@ -436,7 +435,6 @@ public sealed class BuildingRoot :
                 )
             );
         }
-
 
         Gizmos.matrix =
             previousMatrix;
@@ -448,10 +446,8 @@ public sealed class BuildingRoot :
         Matrix4x4 previousMatrix =
             Gizmos.matrix;
 
-
         Gizmos.matrix =
             transform.localToWorldMatrix;
-
 
         for (int i = 0;
              i <
@@ -461,17 +457,14 @@ public sealed class BuildingRoot :
             BuildingEdge edge =
                 footprint.ExteriorEdges[i];
 
-
             if (edge.Cell.Level != 0)
                 continue;
-
 
             Gizmos.DrawLine(
                 edge.LocalStart,
                 edge.LocalEnd
             );
         }
-
 
         Gizmos.matrix =
             previousMatrix;

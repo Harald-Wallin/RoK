@@ -1,4 +1,4 @@
-﻿#if UNITY_EDITOR
+#if UNITY_EDITOR
 
 using UnityEditor;
 using UnityEngine;
@@ -34,11 +34,14 @@ public sealed class BuildingRootEditor : Editor
         EditorGUILayout.HelpBox(
             "BuildingRoot may be placed freely in world space.\n\n" +
             "BuildingSections use the root-local 32px structural grid.\n\n" +
-            "This first pass builds the union footprint, exterior " +
-            "perimeter and merged perimeter colliders.",
+            "Structure V1 generates union-footprint floors, exterior walls, " +
+            "pillar/shadow details and N/S rear gables under Generated/Structure.\n\n" +
+            "Openings/doors and final player/world sorting are intentionally " +
+            "left for the next passes.",
             MessageType.Info
         );
     }
+
 
     private static void CreateSection(
         BuildingRoot root)

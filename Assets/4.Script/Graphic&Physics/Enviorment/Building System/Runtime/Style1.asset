@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 68d15f8207dd32d469c7cf853332b966, type: 3}
+  m_Name: Style1
+  m_EditorClassIdentifier: Assembly-CSharp::BuildingStructureStyle
+  sortingLayerName: Gjerdu building
+  floorSprite: {fileID: 21300000, guid: 5ed425015a33e1f44beab672eaa6c9b8, type: 3}
+  exteriorWall64: {fileID: 21300000, guid: ad641d875be29f24c943530de026c44c, type: 3}
+  exteriorWall128: {fileID: 0}
+  interiorWall64: {fileID: 21300000, guid: 32d733f23477c7247b516888b68531f3, type: 3}
+  interiorWall128: {fileID: 0}
+  sideWallSegment: {fileID: 21300000, guid: 42167219a4fb657428200be0c34f673d, type: 3}
+  flipSideWallOnEast: 1
+  pillarSprite: {fileID: 21300000, guid: 4d1aaa2684001ed40b852800032ac418, type: 3}
+  horizontalPillarDropPixels: 7
+  sidePillarLiftPixels: 16
+  sidePillarSpacingCells: 2
+  beamShadowSprite: {fileID: 21300000, guid: e5b239ac18b64214e8a913f5ee8bdc1c, type: 3}
+  beamShadowOffsetPixels: 11
+  rearGableFill64x32: {fileID: 21300000, guid: 50409eafd4431474e8aeeb3a66915382, type: 3}
+  rearGableSlope32x32: {fileID: 21300000, guid: 363103301a08f894ab2d56d5a71d91a3, type: 3}
+  rearGableBaseTrim32x7: {fileID: 21300000, guid: c2b014f4e39fe564e9c5bf5b27d13683, type: 3}
+  floorSortingOrder: 1
+  rearWallSortingOrder: 2
+  sideWallBackSortingOrder: 3
+  sideWallFrontSortingOrder: 6
+  frontWallSortingOrder: 7
