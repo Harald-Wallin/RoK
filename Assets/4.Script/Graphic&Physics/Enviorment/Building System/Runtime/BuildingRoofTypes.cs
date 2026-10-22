@@ -21,9 +21,14 @@ public enum BuildingRoofPieceRole
     GableFill,
     GableSlope,
     GableBottomOverhang,
+
     WindboardTop,
     WindboardMiddle,
-    WindboardBottom
+    WindboardBottom,
+
+    RearWindboardTop,
+    RearWindboardMiddle,
+    RearWindboardBottom
 }
 
 public enum BuildingSpriteAnchor

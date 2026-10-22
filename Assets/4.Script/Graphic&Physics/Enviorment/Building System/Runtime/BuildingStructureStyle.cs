@@ -79,6 +79,51 @@ public sealed class BuildingStructureStyle : ScriptableObject
 
 
     // =========================================================
+    // DOORS / OPENINGS
+    // =========================================================
+
+    [Header("Doors - North / South")]
+
+    [SerializeField]
+    private Sprite southDoorSprite;
+
+    [SerializeField]
+    [Tooltip(
+        "Optional rear/North door sprite. If empty, South Door Sprite is reused."
+    )]
+    private Sprite northDoorSprite;
+
+    [SerializeField]
+    private Sprite southDoorThresholdSprite;
+
+    [SerializeField]
+    private Sprite northDoorThresholdSprite;
+
+    [SerializeField]
+    [Min(0)]
+    [Tooltip(
+        "South/front door artwork is visually lowered by this many pixels. " +
+        "The logical/sorting anchor stays on the real wall baseline."
+    )]
+    private int southDoorVisualDropPixels = 2;
+
+
+    [Header("Doors - East / West")]
+
+    [SerializeField]
+    [Tooltip(
+        "Vertical 16px-outward x 64px-high threshold/entrance marker used on side doors."
+    )]
+    private Sprite sideDoorThresholdSprite;
+
+    [SerializeField]
+    [Tooltip(
+        "Mirror the same side-threshold artwork automatically on the East wall."
+    )]
+    private bool flipSideDoorThresholdOnEast = true;
+
+
+    // =========================================================
     // PILLARS + SHADOWS
     // =========================================================
 
@@ -180,6 +225,28 @@ public sealed class BuildingStructureStyle : ScriptableObject
 
     public int SideWallVisualLiftPixels =>
         Mathf.Max(0, sideWallVisualLiftPixels);
+
+    public Sprite SouthDoorSprite => southDoorSprite;
+
+    public Sprite NorthDoorSprite =>
+        northDoorSprite != null
+            ? northDoorSprite
+            : southDoorSprite;
+
+    public Sprite SouthDoorThresholdSprite =>
+        southDoorThresholdSprite;
+
+    public Sprite NorthDoorThresholdSprite =>
+        northDoorThresholdSprite;
+
+    public int SouthDoorVisualDropPixels =>
+        Mathf.Max(0, southDoorVisualDropPixels);
+
+    public Sprite SideDoorThresholdSprite =>
+        sideDoorThresholdSprite;
+
+    public bool FlipSideDoorThresholdOnEast =>
+        flipSideDoorThresholdOnEast;
 
     public Sprite PillarSprite => pillarSprite;
 

@@ -20,6 +20,14 @@ MonoBehaviour:
   interiorWall128: {fileID: 0}
   sideWallSegment: {fileID: 21300000, guid: 42167219a4fb657428200be0c34f673d, type: 3}
   flipSideWallOnEast: 1
+  sideWallVisualLiftPixels: 64
+  southDoorSprite: {fileID: 21300000, guid: d8e893ba0c9bbf248ac4a5365b756499, type: 3}
+  northDoorSprite: {fileID: 0}
+  southDoorThresholdSprite: {fileID: 21300000, guid: 3f4a5c6c0e1a1674ebc61ec4223b09df, type: 3}
+  northDoorThresholdSprite: {fileID: 0}
+  southDoorVisualDropPixels: 2
+  sideDoorThresholdSprite: {fileID: 0}
+  flipSideDoorThresholdOnEast: 1
   pillarSprite: {fileID: 21300000, guid: 4d1aaa2684001ed40b852800032ac418, type: 3}
   horizontalPillarDropPixels: 7
   sidePillarLiftPixels: 16

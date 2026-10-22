@@ -13,6 +13,7 @@ using UnityEngine.Rendering;
 /// - samma träpelare på sidoväggar med separat side-placement
 /// - beam shadows runt horisontella pelare
 /// - rear/interior gable för N/S-roof sections
+/// - generated door/threshold overlays från BuildingOpening authoring markers
 ///
 /// Colliders ägs fortfarande av BuildingColliderBuilder.
 /// </summary>
@@ -35,6 +36,9 @@ public static class BuildingStructureRenderer
 
     private const string RearGablesRootName =
         "RearGables";
+
+    private const string DoorsRootName =
+        "Doors";
 
     private const int HorizontalModulePixels = 64;
     private const int GableFillPixels = 64;
@@ -63,6 +67,7 @@ public static class BuildingStructureRenderer
         public readonly Transform Shadows;
         public readonly Transform Pillars;
         public readonly Transform RearGables;
+        public readonly Transform Doors;
 
         public GeneratedRoots(
             Transform structure,
@@ -70,7 +75,8 @@ public static class BuildingStructureRenderer
             Transform walls,
             Transform shadows,
             Transform pillars,
-            Transform rearGables)
+            Transform rearGables,
+            Transform doors)
         {
             Structure = structure;
             Floors = floors;
@@ -78,6 +84,7 @@ public static class BuildingStructureRenderer
             Shadows = shadows;
             Pillars = pillars;
             RearGables = rearGables;
+            Doors = doors;
         }
     }
 
@@ -171,6 +178,13 @@ public static class BuildingStructureRenderer
             wallRuns,
             roots,
             fullPillarPoints
+        );
+
+        BuildDoorVisuals(
+            root,
+            footprint,
+            style,
+            roots.Doors
         );
 
         BuildRearGables(
@@ -938,6 +952,227 @@ public static class BuildingStructureRenderer
 
 
     // =========================================================
+    // DOORS / OPENINGS
+    // =========================================================
+
+    private static void BuildDoorVisuals(
+        BuildingRoot root,
+        BuildingFootprint footprint,
+        BuildingStructureStyle style,
+        Transform doorsRoot)
+    {
+        if (root == null ||
+            footprint == null ||
+            style == null ||
+            doorsRoot == null ||
+            root.Openings == null)
+        {
+            return;
+        }
+
+        for (int i = 0;
+             i < root.Openings.Count;
+             i++)
+        {
+            BuildingOpening opening =
+                root.Openings[i];
+
+            if (opening == null ||
+                !opening.isActiveAndEnabled)
+            {
+                continue;
+            }
+
+            if (!BuildingOpeningResolver.TryResolve(
+                    opening,
+                    root,
+                    footprint,
+                    out BuildingResolvedOpening resolved))
+            {
+                continue;
+            }
+
+            Transform openingRoot =
+                FindOrCreateChild(
+                    doorsRoot,
+                    $"Door_{resolved.Direction}_{i:00}_{opening.name}"
+                );
+
+            /*
+             * IMPORTANT SORT ANCHOR:
+             *
+             * The generated opening root stays exactly on the TRUE wall
+             * baseline. South-door artwork may be drawn 2px lower, but that
+             * visual shift happens only on the child SpriteRenderer.
+             *
+             * When the later world/building Y-sort pass uses this openingRoot
+             * as its sort reference, the player therefore has to move those
+             * extra 2px north before going behind the door. We do not bake the
+             * visual drop into the logical sort line.
+             */
+            openingRoot.localPosition =
+                new Vector3(
+                    resolved.LocalCenter.x,
+                    resolved.LocalCenter.y,
+                    0f
+                );
+
+            openingRoot.localRotation =
+                Quaternion.identity;
+
+            openingRoot.localScale =
+                Vector3.one;
+
+            if (resolved.Direction ==
+                    BuildingEdgeDirection.South ||
+                resolved.Direction ==
+                    BuildingEdgeDirection.North)
+            {
+                BuildHorizontalDoorVisual(
+                    style,
+                    openingRoot,
+                    resolved.Direction
+                );
+            }
+            else
+            {
+                BuildSideDoorVisual(
+                    style,
+                    openingRoot,
+                    resolved.Direction
+                );
+            }
+        }
+    }
+
+
+    private static void BuildHorizontalDoorVisual(
+        BuildingStructureStyle style,
+        Transform openingRoot,
+        BuildingEdgeDirection direction)
+    {
+        bool south =
+            direction ==
+            BuildingEdgeDirection.South;
+
+        Sprite doorSprite =
+            south
+                ? style.SouthDoorSprite
+                : style.NorthDoorSprite;
+
+        Sprite thresholdSprite =
+            south
+                ? style.SouthDoorThresholdSprite
+                : style.NorthDoorThresholdSprite;
+
+        int wallSorting =
+            south
+                ? style.FrontWallSortingOrder
+                : style.RearWallSortingOrder;
+
+        int thresholdSorting =
+            wallSorting + 1;
+
+        int doorSorting =
+            wallSorting + 2;
+
+        if (thresholdSprite != null)
+        {
+            /*
+             * 64x16 threshold:
+             * its TOP edge is anchored to the wall's bottom/baseline,
+             * so the artwork extends downward from the doorway.
+             */
+            CreateSpritePiece(
+                openingRoot,
+                "Threshold",
+                thresholdSprite,
+                Vector2.zero,
+                StructureSpriteAnchor.TopCenter,
+                false,
+                false,
+                style.SortingLayerName,
+                thresholdSorting
+            );
+        }
+
+        if (doorSprite == null)
+            return;
+
+        float visualDrop =
+            south
+                ? style.SouthDoorVisualDropPixels /
+                  (float)BuildingGrid.PixelsPerUnit
+                : 0f;
+
+        /*
+         * Door artwork is 64x96 and remains a pure overlay.
+         * The wall sprite behind it is intentionally NOT removed.
+         *
+         * South/front artwork is visually dropped 2px by default while the
+         * parent openingRoot (our logical sort anchor) stays on the wall line.
+         */
+        CreateSpritePiece(
+            openingRoot,
+            "DoorVisual",
+            doorSprite,
+            new Vector2(
+                0f,
+                -visualDrop
+            ),
+            StructureSpriteAnchor.BottomCenter,
+            false,
+            false,
+            style.SortingLayerName,
+            doorSorting
+        );
+    }
+
+
+    private static void BuildSideDoorVisual(
+        BuildingStructureStyle style,
+        Transform openingRoot,
+        BuildingEdgeDirection direction)
+    {
+        Sprite thresholdSprite =
+            style.SideDoorThresholdSprite;
+
+        if (thresholdSprite == null)
+            return;
+
+        bool east =
+            direction ==
+            BuildingEdgeDirection.East;
+
+        bool flipX =
+            east &&
+            style.FlipSideDoorThresholdOnEast;
+
+        /*
+         * Side-door V1 deliberately keeps ALL vertical wall sprites.
+         * Only the collider receives a 64px gap.
+         *
+         * The 16px-outward x 64px-high threshold is centred on the real
+         * structural doorway. West anchors its RIGHT edge to the wall;
+         * East anchors its LEFT edge and may mirror the same artwork.
+         */
+        CreateSpritePiece(
+            openingRoot,
+            "SideThreshold",
+            thresholdSprite,
+            Vector2.zero,
+            east
+                ? StructureSpriteAnchor.MiddleLeft
+                : StructureSpriteAnchor.MiddleRight,
+            flipX,
+            false,
+            style.SortingLayerName,
+            style.SideWallFrontSortingOrder + 1
+        );
+    }
+
+
+    // =========================================================
     // REAR / INTERIOR GABLE
     // =========================================================
 
@@ -1276,13 +1511,20 @@ public static class BuildingStructureRenderer
                 RearGablesRootName
             );
 
+        Transform doors =
+            FindOrCreateChild(
+                structureRoot,
+                DoorsRootName
+            );
+
         return new GeneratedRoots(
             structureRoot,
             floors,
             walls,
             shadows,
             pillars,
-            rearGables
+            rearGables,
+            doors
         );
     }
 
@@ -1531,10 +1773,11 @@ public static class BuildingStructureRenderer
 
 
     private static void ClearChildren(
-        Transform parent)
+    Transform parent)
     {
         if (parent == null)
             return;
+
 
         for (int i = parent.childCount - 1;
              i >= 0;
@@ -1543,7 +1786,9 @@ public static class BuildingStructureRenderer
             Transform child =
                 parent.GetChild(i);
 
+
 #if UNITY_EDITOR
+
             if (!Application.isPlaying)
             {
                 Object.DestroyImmediate(
@@ -1552,7 +1797,34 @@ public static class BuildingStructureRenderer
 
                 continue;
             }
+
 #endif
+
+
+            /*
+             * Runtime:
+             *
+             * Object.Destroy() sker först vid slutet av framen.
+             * Om objektet lämnas kvar under parent kommer
+             * FindOrCreateChild() därför hitta samma gamla objekt
+             * igen och bygga det nya huset under ett objekt som
+             * redan väntar på destruction.
+             *
+             * Lösningen är att:
+             *
+             * 1. stänga av gamla objektet direkt
+             * 2. koppla loss det från generated hierarchy
+             * 3. schemalägga destruction
+             *
+             * Då kan generatorn skapa nya Floors/Walls/Pillars
+             * omedelbart under samma frame.
+             */
+            child.gameObject.SetActive(false);
+
+            child.SetParent(
+                null,
+                false
+            );
 
             Object.Destroy(
                 child.gameObject

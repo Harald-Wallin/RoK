@@ -347,6 +347,21 @@ public sealed class IndoorZone :
         }
     }
 
+    public void SetOcclusionFaders(
+    params OcclusionFader[] faders)
+    {
+        occlusionFaders =
+            faders;
+    }
+
+
+    public void RefreshSetup()
+    {
+        CacheZoneColliders();
+
+        ValidateZoneColliders();
+    }
+
     // =========================================================
     // PLAYER
     // =========================================================

@@ -202,6 +202,40 @@ public sealed class OcclusionFader :
         );
     }
 
+    public void ConfigureFade(
+    float occludedAlpha,
+    float duration)
+    {
+        occludedAlphaMultiplier =
+            Mathf.Clamp01(
+                occludedAlpha
+            );
+
+
+        fadeDuration =
+            Mathf.Max(
+                0f,
+                duration
+            );
+
+
+        targetVisibility =
+            IsOccluded
+                ? occludedAlphaMultiplier
+                : 1f;
+    }
+
+    public void RefreshRenderers()
+    {
+        ResolveRenderers();
+
+        CacheOriginalAlpha();
+
+        ApplyVisibility(
+            currentVisibility
+        );
+    }
+
     private void ResolveRenderers()
     {
         if (!includeChildren &&

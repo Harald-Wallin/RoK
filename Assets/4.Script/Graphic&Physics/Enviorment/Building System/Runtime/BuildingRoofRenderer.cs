@@ -1,7 +1,24 @@
 ﻿using UnityEngine;
 
 /// <summary>
-/// SpriteRenderer-backend för det förenklade roofsystmet.
+/// SpriteRenderer-backend för buildings roofs.
+///
+/// Roof presentation delas i tre policies:
+///
+/// Main:
+/// - själva stora Surface-spritesen
+/// - fade:ar kraftigt indoors
+///
+/// Details:
+/// - ridge
+/// - overhangs
+/// - front gable
+/// - front windboards
+/// - fade:ar mindre indoors
+///
+/// Persistent:
+/// - rear windboards
+/// - fade:ar aldrig
 ///
 /// Placement använder automatiska sprite-kanter/corners.
 /// Unity-pivotens läge spelar ingen roll.
@@ -12,11 +29,46 @@ public static class BuildingRoofRenderer
         "Roofs";
 
 
-    public static void Rebuild(
+    private const string FadeRootName =
+        "Fade";
+
+    private const string MainFadeRootName =
+        "Main";
+
+    private const string DetailsFadeRootName =
+        "Details";
+
+    private const string PersistentRootName =
+        "Persistent";
+
+
+    // =========================================================
+    // FADE SETTINGS
+    // =========================================================
+
+    private const float MainRoofOccludedAlpha =
+        0.005f;
+
+    private const float RoofDetailsOccludedAlpha =
+        0.03f;
+
+    private const float RoofFadeDuration =
+        0.50f;
+
+
+    // =========================================================
+    // ENTRY
+    // =========================================================
+
+    public static OcclusionFader[] Rebuild(
         BuildingRoot root)
     {
         if (root == null)
-            return;
+        {
+            return
+                System.Array.Empty<
+                    OcclusionFader>();
+        }
 
 
         Transform generatedRoot =
@@ -30,10 +82,120 @@ public static class BuildingRoofRenderer
             );
 
 
-        ClearChildren(
-            roofsRoot
+        // =====================================================
+        // PRESENTATION ROOTS
+        // =====================================================
+
+        Transform fadeRoot =
+            FindOrCreateChild(
+                roofsRoot,
+                FadeRootName
+            );
+
+
+        Transform mainRoot =
+            FindOrCreateChild(
+                fadeRoot,
+                MainFadeRootName
+            );
+
+
+        Transform detailsRoot =
+            FindOrCreateChild(
+                fadeRoot,
+                DetailsFadeRootName
+            );
+
+
+        Transform persistentRoot =
+            FindOrCreateChild(
+                roofsRoot,
+                PersistentRootName
+            );
+
+
+        // =====================================================
+        // MIGRATION / CLEANUP
+        // =====================================================
+
+        /*
+         * Tar bort gamla roof-roots som låg direkt
+         * under Roofs innan Fade/Persistent-arkitekturen.
+         *
+         * Fade och Persistent själva sparas.
+         */
+        ClearChildrenExcept(
+            roofsRoot,
+            fadeRoot,
+            persistentRoot
         );
 
+
+        /*
+         * Tar bort gammalt genererat content som tidigare
+         * låg direkt under Fade.
+         *
+         * Main och Details sparas.
+         */
+        ClearChildrenExcept(
+            fadeRoot,
+            mainRoot,
+            detailsRoot
+        );
+
+
+        /*
+         * Gamla implementationen hade en OcclusionFader
+         * direkt på Fade.
+         *
+         * Den FÅR INTE finnas kvar nu eftersom den annars
+         * skulle fada både Main och Details en extra gång.
+         */
+        RemoveLocalOcclusionFader(
+            fadeRoot
+        );
+
+
+        /*
+         * Själva policy-rootsen behålls mellan rebuilds,
+         * men deras genererade innehåll byggs om.
+         */
+        ClearChildren(
+            mainRoot
+        );
+
+
+        ClearChildren(
+            detailsRoot
+        );
+
+
+        ClearChildren(
+            persistentRoot
+        );
+
+
+        // =====================================================
+        // FADERS
+        // =====================================================
+
+        OcclusionFader mainFader =
+            GetOrCreateOcclusionFader(
+                mainRoot,
+                MainRoofOccludedAlpha
+            );
+
+
+        OcclusionFader detailsFader =
+            GetOrCreateOcclusionFader(
+                detailsRoot,
+                RoofDetailsOccludedAlpha
+            );
+
+
+        // =====================================================
+        // SECTIONS
+        // =====================================================
 
         for (int i = 0;
              i < root.Sections.Count;
@@ -85,35 +247,70 @@ public static class BuildingRoofRenderer
 
 
             RenderSectionPlan(
-                roofsRoot,
+                mainRoot,
+                detailsRoot,
+                persistentRoot,
                 section,
                 settings.Profile,
                 plan
             );
         }
+
+
+        // =====================================================
+        // REFRESH FADERS
+        // =====================================================
+
+        /*
+         * SpriteRenderers har skapats EFTER att faders
+         * skapades.
+         *
+         * Läs därför om deras renderer-listor nu.
+         */
+        mainFader.RefreshRenderers();
+
+        detailsFader.RefreshRenderers();
+
+
+        return new[]
+        {
+            mainFader,
+            detailsFader
+        };
     }
 
 
+    // =========================================================
+    // SECTION RENDERING
+    // =========================================================
+
     private static void RenderSectionPlan(
-        Transform roofsRoot,
+        Transform mainRoot,
+        Transform detailsRoot,
+        Transform persistentRoot,
         BuildingSection section,
         BuildingRoofProfile profile,
         BuildingRoofBuildPlan plan)
     {
-        GameObject sectionRootObject =
-            new GameObject(
-                $"Roof_{section.name}"
+        Transform mainSectionRoot =
+            CreateSectionRoot(
+                mainRoot,
+                section
             );
 
 
-        Transform sectionRoot =
-            sectionRootObject.transform;
+        Transform detailsSectionRoot =
+            CreateSectionRoot(
+                detailsRoot,
+                section
+            );
 
 
-        sectionRoot.SetParent(
-            roofsRoot,
-            false
-        );
+        Transform persistentSectionRoot =
+            CreateSectionRoot(
+                persistentRoot,
+                section
+            );
 
 
         for (int i = 0;
@@ -126,6 +323,45 @@ public static class BuildingRoofRenderer
 
             if (piece.Sprite == null)
                 continue;
+
+
+            Transform sectionRoot;
+
+
+            /*
+             * Rear windboards ligger alltid kvar.
+             */
+            if (IsPersistentRoofPiece(
+                    piece.Role))
+            {
+                sectionRoot =
+                    persistentSectionRoot;
+            }
+            /*
+             * Själva stora roof-surface-spritesen
+             * får stark fade.
+             */
+            else if (IsMainRoofPiece(
+                         piece.Role))
+            {
+                sectionRoot =
+                    mainSectionRoot;
+            }
+            /*
+             * All övrig roof presentation:
+             *
+             * ridge
+             * overhang
+             * front gable
+             * front windboards
+             *
+             * får mildare fade.
+             */
+            else
+            {
+                sectionRoot =
+                    detailsSectionRoot;
+            }
 
 
             Transform roleRoot =
@@ -188,6 +424,157 @@ public static class BuildingRoofRenderer
     }
 
 
+    private static Transform CreateSectionRoot(
+        Transform parent,
+        BuildingSection section)
+    {
+        GameObject sectionObject =
+            new GameObject(
+                $"Roof_{section.name}"
+            );
+
+
+        Transform sectionRoot =
+            sectionObject.transform;
+
+
+        sectionRoot.SetParent(
+            parent,
+            false
+        );
+
+
+        return sectionRoot;
+    }
+
+
+    // =========================================================
+    // PRESENTATION POLICY
+    // =========================================================
+
+    private static bool IsMainRoofPiece(
+        BuildingRoofPieceRole role)
+    {
+        /*
+         * Endast själva stora roof-surface-spritesen
+         * räknas som Main.
+         */
+        return
+            role ==
+            BuildingRoofPieceRole.Surface;
+    }
+
+
+    private static bool IsPersistentRoofPiece(
+        BuildingRoofPieceRole role)
+    {
+        /*
+         * Rear windboards ska ligga kvar ovanpå
+         * rear structural gable även när resten
+         * av roof presentation fade:ar.
+         */
+        return
+            role ==
+                BuildingRoofPieceRole.RearWindboardTop ||
+            role ==
+                BuildingRoofPieceRole.RearWindboardMiddle ||
+            role ==
+                BuildingRoofPieceRole.RearWindboardBottom;
+    }
+
+
+    // =========================================================
+    // FADERS
+    // =========================================================
+
+    private static OcclusionFader GetOrCreateOcclusionFader(
+    Transform target,
+    float defaultOccludedAlpha)
+    {
+        OcclusionFader fader =
+            target.GetComponent<
+                OcclusionFader>();
+
+
+        /*
+         * Finns fadern redan ska vi INTE konfigurera om den.
+         *
+         * Då får användaren själv justera:
+         * - Occluded Alpha Multiplier
+         * - Fade Duration
+         *
+         * i Inspectorn utan att Building rebuild skriver
+         * över värdena.
+         */
+        if (fader != null)
+        {
+            return fader;
+        }
+
+
+        /*
+         * Endast en helt ny fader får våra generator-defaults.
+         */
+        fader =
+            target.gameObject
+                .AddComponent<
+                    OcclusionFader>();
+
+
+        fader.ConfigureFade(
+            defaultOccludedAlpha,
+            RoofFadeDuration
+        );
+
+
+        return fader;
+    }
+
+
+    private static void RemoveLocalOcclusionFader(
+        Transform target)
+    {
+        if (target == null)
+            return;
+
+
+        OcclusionFader fader =
+            target.GetComponent<
+                OcclusionFader>();
+
+
+        if (fader == null)
+            return;
+
+
+        /*
+         * OnDisable återställer alpha på de renderers
+         * den gamla fadern eventuellt ägde.
+         */
+        fader.enabled =
+            false;
+
+
+#if UNITY_EDITOR
+
+        if (!Application.isPlaying)
+        {
+            Object.DestroyImmediate(
+                fader
+            );
+
+            return;
+        }
+
+#endif
+
+
+        Object.Destroy(
+            fader
+        );
+    }
+
+
     // =========================================================
     // AUTOMATIC ANCHOR PLACEMENT
     // =========================================================
@@ -216,8 +603,8 @@ public static class BuildingRoofRenderer
 
         /*
          * SpriteRenderer flippar geometrin runt sprite-pivoten.
-         * Därför måste även offset-vektorn speglas innan vi räknar
-         * baklänges till Transform-positionen.
+         * Därför måste även offset-vektorn speglas innan vi
+         * räknar baklänges till Transform-positionen.
          */
         if (piece.FlipX)
         {
@@ -320,6 +707,7 @@ public static class BuildingRoofRenderer
                     height
                 );
 
+
             case BuildingSpriteAnchor.TopCenter:
                 return new Vector2(
                     width *
@@ -327,11 +715,13 @@ public static class BuildingRoofRenderer
                     height
                 );
 
+
             case BuildingSpriteAnchor.TopRight:
                 return new Vector2(
                     width,
                     height
                 );
+
 
             case BuildingSpriteAnchor.MiddleLeft:
                 return new Vector2(
@@ -339,6 +729,7 @@ public static class BuildingRoofRenderer
                     height *
                     0.5f
                 );
+
 
             case BuildingSpriteAnchor.Center:
                 return new Vector2(
@@ -348,6 +739,7 @@ public static class BuildingRoofRenderer
                     0.5f
                 );
 
+
             case BuildingSpriteAnchor.MiddleRight:
                 return new Vector2(
                     width,
@@ -355,8 +747,10 @@ public static class BuildingRoofRenderer
                     0.5f
                 );
 
+
             case BuildingSpriteAnchor.BottomLeft:
                 return Vector2.zero;
+
 
             case BuildingSpriteAnchor.BottomCenter:
                 return new Vector2(
@@ -364,6 +758,7 @@ public static class BuildingRoofRenderer
                     0.5f,
                     0f
                 );
+
 
             case BuildingSpriteAnchor.BottomRight:
                 return new Vector2(
@@ -411,8 +806,13 @@ public static class BuildingRoofRenderer
     }
 
 
-    private static void ClearChildren(
-        Transform parent)
+    /// <summary>
+    /// Tar bort alla barn förutom de uttryckligen angivna.
+    /// Används vid migration mellan generated-hierarkier.
+    /// </summary>
+    private static void ClearChildrenExcept(
+        Transform parent,
+        params Transform[] keep)
     {
         if (parent == null)
             return;
@@ -424,9 +824,33 @@ public static class BuildingRoofRenderer
              i--)
         {
             Transform child =
-                parent.GetChild(
-                    i
-                );
+                parent.GetChild(i);
+
+
+            bool shouldKeep =
+                false;
+
+
+            if (keep != null)
+            {
+                for (int k = 0;
+                     k < keep.Length;
+                     k++)
+                {
+                    if (child != keep[k])
+                        continue;
+
+
+                    shouldKeep =
+                        true;
+
+                    break;
+                }
+            }
+
+
+            if (shouldKeep)
+                continue;
 
 
 #if UNITY_EDITOR
@@ -441,6 +865,72 @@ public static class BuildingRoofRenderer
             }
 
 #endif
+
+
+            child.gameObject.SetActive(
+                false
+            );
+
+
+            child.SetParent(
+                null,
+                false
+            );
+
+
+            Object.Destroy(
+                child.gameObject
+            );
+        }
+    }
+
+
+    /// <summary>
+    /// Runtime-safe clear.
+    ///
+    /// Vi lossar children före Destroy så att en rebuild
+    /// under samma frame aldrig råkar återanvända ett objekt
+    /// som redan väntar på destruction.
+    /// </summary>
+    private static void ClearChildren(
+        Transform parent)
+    {
+        if (parent == null)
+            return;
+
+
+        for (int i =
+                 parent.childCount - 1;
+             i >= 0;
+             i--)
+        {
+            Transform child =
+                parent.GetChild(i);
+
+
+#if UNITY_EDITOR
+
+            if (!Application.isPlaying)
+            {
+                Object.DestroyImmediate(
+                    child.gameObject
+                );
+
+                continue;
+            }
+
+#endif
+
+
+            child.gameObject.SetActive(
+                false
+            );
+
+
+            child.SetParent(
+                null,
+                false
+            );
 
 
             Object.Destroy(

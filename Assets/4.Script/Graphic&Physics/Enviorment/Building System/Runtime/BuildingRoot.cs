@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -45,9 +46,47 @@ public sealed class BuildingRoot :
     [Header("Collision")]
 
     [SerializeField]
+    [FormerlySerializedAs("wallCollisionThicknessPixels")]
     [Min(1)]
-    private int wallCollisionThicknessPixels =
-        8;
+    [Tooltip(
+    "Collision thickness for East / West perimeter edges."
+)]
+    private int eastWestCollisionThicknessPixels =
+    8;
+
+
+    [SerializeField]
+    [Min(1)]
+    [Tooltip(
+        "Collision thickness for North / South perimeter edges."
+    )]
+    private int northSouthCollisionThicknessPixels =
+        1;
+
+
+    [Header("Pillar Foot Collision")]
+
+    [SerializeField]
+    private bool generatePillarFootColliders =
+        true;
+
+
+    [SerializeField]
+    [Min(1)]
+    [Tooltip(
+        "Width of the small collider generated at each visible pillar foot."
+    )]
+    private int pillarFootColliderWidthPixels =
+        20;
+
+
+    [SerializeField]
+    [Min(1)]
+    [Tooltip(
+        "Height of the small collider generated at each visible pillar foot."
+    )]
+    private int pillarFootColliderHeightPixels =
+        12;
 
     [SerializeField]
     private string collisionLayerName =
@@ -88,6 +127,10 @@ public sealed class BuildingRoot :
         sections =
             new();
 
+    private readonly List<BuildingOpening>
+        openings =
+            new();
+
     private readonly BuildingFootprint
         footprint =
             new();
@@ -113,6 +156,10 @@ public sealed class BuildingRoot :
         Sections =>
             sections;
 
+    public IReadOnlyList<BuildingOpening>
+        Openings =>
+            openings;
+
     public BuildingStructureStyle StructureStyle =>
         structureStyle;
 
@@ -130,8 +177,27 @@ public sealed class BuildingRoot :
     public string CollisionLayerName =>
         collisionLayerName;
 
-    public float WallCollisionThickness =>
-        wallCollisionThicknessPixels /
+    public float EastWestWallCollisionThickness =>
+    eastWestCollisionThicknessPixels /
+    (float)BuildingGrid.PixelsPerUnit;
+
+
+    public float NorthSouthWallCollisionThickness =>
+        northSouthCollisionThicknessPixels /
+        (float)BuildingGrid.PixelsPerUnit;
+
+
+    public bool GeneratePillarFootColliders =>
+        generatePillarFootColliders;
+
+
+    public float PillarFootColliderWidth =>
+        pillarFootColliderWidthPixels /
+        (float)BuildingGrid.PixelsPerUnit;
+
+
+    public float PillarFootColliderHeight =>
+        pillarFootColliderHeightPixels /
         (float)BuildingGrid.PixelsPerUnit;
 
 
@@ -157,10 +223,31 @@ public sealed class BuildingRoot :
 
     private void OnValidate()
     {
-        wallCollisionThicknessPixels =
+        eastWestCollisionThicknessPixels =
+    Mathf.Max(
+        1,
+        eastWestCollisionThicknessPixels
+    );
+
+
+        northSouthCollisionThicknessPixels =
             Mathf.Max(
                 1,
-                wallCollisionThicknessPixels
+                northSouthCollisionThicknessPixels
+            );
+
+
+        pillarFootColliderWidthPixels =
+            Mathf.Max(
+                1,
+                pillarFootColliderWidthPixels
+            );
+
+
+        pillarFootColliderHeightPixels =
+            Mathf.Max(
+                1,
+                pillarFootColliderHeightPixels
             );
 
         collisionStructureLevel =
@@ -234,16 +321,28 @@ public sealed class BuildingRoot :
         if (isRebuilding)
             return;
 
+
         isRebuilding =
             true;
+
 
         try
         {
             CollectSections();
+            CollectOpenings();
+
 
             footprint.BuildFrom(
                 sections
             );
+
+
+            SnapOpeningsToFootprint();
+
+
+            // =========================================================
+            // STRUCTURE
+            // =========================================================
 
             if (generateStructure)
             {
@@ -259,6 +358,11 @@ public sealed class BuildingRoot :
                 );
             }
 
+
+            // =========================================================
+            // COLLISION
+            // =========================================================
+
             if (generateCollision)
             {
                 BuildingColliderBuilder.Rebuild(
@@ -267,12 +371,34 @@ public sealed class BuildingRoot :
                 );
             }
 
+
+            // =========================================================
+            // ROOF
+            // =========================================================
+
+            OcclusionFader[] roofFaders =
+                System.Array.Empty<
+                    OcclusionFader>();
+
+
             if (generateRoofs)
             {
-                BuildingRoofRenderer.Rebuild(
-                    this
-                );
+                roofFaders =
+                    BuildingRoofRenderer.Rebuild(
+                        this
+                    );
             }
+
+
+            // =========================================================
+            // INDOOR ZONE
+            // =========================================================
+
+            BuildingIndoorZoneBuilder.Rebuild(
+                this,
+                footprint,
+                roofFaders
+            );
         }
         finally
         {
@@ -309,6 +435,63 @@ public sealed class BuildingRoot :
 
             sections.Add(
                 section
+            );
+        }
+    }
+
+
+    private void CollectOpenings()
+    {
+        openings.Clear();
+
+        BuildingOpening[] found =
+            GetComponentsInChildren<
+                BuildingOpening
+            >(true);
+
+        for (int i = 0;
+             i < found.Length;
+             i++)
+        {
+            BuildingOpening opening =
+                found[i];
+
+            if (opening == null ||
+                !opening.isActiveAndEnabled)
+            {
+                continue;
+            }
+
+            if (opening.Root !=
+                this)
+            {
+                continue;
+            }
+
+            openings.Add(
+                opening
+            );
+        }
+    }
+
+
+    private void SnapOpeningsToFootprint()
+    {
+        for (int i = 0;
+             i < openings.Count;
+             i++)
+        {
+            BuildingOpening opening =
+                openings[i];
+
+            if (opening == null ||
+                !opening.isActiveAndEnabled)
+            {
+                continue;
+            }
+
+            opening.SnapToFootprint(
+                footprint
             );
         }
     }

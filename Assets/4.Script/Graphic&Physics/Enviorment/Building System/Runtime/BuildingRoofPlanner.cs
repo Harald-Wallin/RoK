@@ -926,7 +926,8 @@ public static class BuildingRoofPlanner
             backWallY,
             ridgeBack,
             gableCourseCount,
-            rearWindboardSorting
+            rearWindboardSorting,
+            true
         );
 
 
@@ -1315,7 +1316,8 @@ public static class BuildingRoofPlanner
             frontWallY,
             ridgeFront,
             slopeCourseCount,
-            gableSorting + 2
+            gableSorting + 2,
+            false
         );
     }
 
@@ -1533,8 +1535,24 @@ public static class BuildingRoofPlanner
     float wallY,
     Vector2 ridgePoint,
     int slopeCourseCount,
-    int sortingOrder)
+    int sortingOrder,
+    bool rear)
     {
+        BuildingRoofPieceRole middleRole =
+    rear
+        ? BuildingRoofPieceRole.RearWindboardMiddle
+        : BuildingRoofPieceRole.WindboardMiddle;
+
+        BuildingRoofPieceRole bottomRole =
+            rear
+                ? BuildingRoofPieceRole.RearWindboardBottom
+                : BuildingRoofPieceRole.WindboardBottom;
+
+        BuildingRoofPieceRole topRole =
+            rear
+                ? BuildingRoofPieceRole.RearWindboardTop
+                : BuildingRoofPieceRole.WindboardTop;
+
         Vector2 leftEave =
             new Vector2(
                 minX,
@@ -1648,7 +1666,7 @@ public static class BuildingRoofPlanner
                 // LEFT
                 plan.Add(
                     new BuildingRoofBuildPiece(
-                        BuildingRoofPieceRole.WindboardMiddle,
+                        middleRole,
                         middleSprite,
                         leftTarget,
                         BuildingSpriteAnchor.BottomLeft,
@@ -1666,7 +1684,7 @@ public static class BuildingRoofPlanner
                 // RIGHT
                 plan.Add(
                     new BuildingRoofBuildPiece(
-                        BuildingRoofPieceRole.WindboardMiddle,
+                        middleRole,
                         middleSprite,
                         rightTarget,
                         BuildingSpriteAnchor.BottomRight,
@@ -1711,7 +1729,7 @@ public static class BuildingRoofPlanner
                 // LEFT
                 plan.Add(
                     new BuildingRoofBuildPiece(
-                        BuildingRoofPieceRole.WindboardBottom,
+                        bottomRole,
                         bottomSprite,
                         leftEave,
                         BuildingSpriteAnchor.TopRight,
@@ -1725,7 +1743,7 @@ public static class BuildingRoofPlanner
                 // RIGHT
                 plan.Add(
                     new BuildingRoofBuildPiece(
-                        BuildingRoofPieceRole.WindboardBottom,
+                        bottomRole,
                         bottomSprite,
                         rightEave,
                         BuildingSpriteAnchor.TopLeft,
@@ -1797,7 +1815,7 @@ public static class BuildingRoofPlanner
                 // LEFT
                 plan.Add(
                     new BuildingRoofBuildPiece(
-                        BuildingRoofPieceRole.WindboardTop,
+                        topRole,
                         topSprite,
                         leftTopTarget,
                         BuildingSpriteAnchor.BottomLeft,
@@ -1811,7 +1829,7 @@ public static class BuildingRoofPlanner
                 // RIGHT
                 plan.Add(
                     new BuildingRoofBuildPiece(
-                        BuildingRoofPieceRole.WindboardTop,
+                        topRole,
                         topSprite,
                         rightTopTarget,
                         BuildingSpriteAnchor.BottomRight,
