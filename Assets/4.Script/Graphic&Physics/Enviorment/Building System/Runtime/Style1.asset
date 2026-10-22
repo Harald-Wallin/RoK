@@ -26,7 +26,7 @@ MonoBehaviour:
   southDoorThresholdSprite: {fileID: 21300000, guid: 3f4a5c6c0e1a1674ebc61ec4223b09df, type: 3}
   northDoorThresholdSprite: {fileID: 0}
   southDoorVisualDropPixels: 2
-  sideDoorThresholdSprite: {fileID: 0}
+  sideDoorThresholdSprite: {fileID: 21300000, guid: 89bf14d55c2f29e41b8563e113f51fc9, type: 3}
   flipSideDoorThresholdOnEast: 1
   pillarSprite: {fileID: 21300000, guid: 4d1aaa2684001ed40b852800032ac418, type: 3}
   horizontalPillarDropPixels: 7

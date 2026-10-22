@@ -1,18 +1,17 @@
+
 using UnityEngine;
 using UnityEngine.Rendering;
 
 [RequireComponent(typeof(SortingGroup))]
 public class YSorter : MonoBehaviour
 {
-    private const float SortingPrecision = 100f;
-
-    private SortingGroup sortingGroup;
-
     [SerializeField]
     private int sortingOrderOffset = 0;
 
     [SerializeField]
     private float yOffset = 0f;
+
+    private SortingGroup sortingGroup;
 
     private int lastSortingOrder =
         int.MinValue;
@@ -33,7 +32,7 @@ public class YSorter : MonoBehaviour
     private void RefreshSortingOrder()
     {
         int newSortingOrder =
-            CalculateSortingOrder(
+            WorldSorting.CalculateOrder(
                 transform.position.y,
                 yOffset,
                 sortingOrderOffset
@@ -52,17 +51,21 @@ public class YSorter : MonoBehaviour
             newSortingOrder;
     }
 
+    /// <summary>
+    /// Legacy-compatible API.
+    ///
+    /// Existing systems, including WorldScatter,
+    /// can continue calling this method.
+    /// </summary>
     public static int CalculateSortingOrder(
         float worldY,
         float yOffset = 0f,
         int sortingOrderOffset = 0)
     {
-        return
-            Mathf.RoundToInt(
-                (-worldY - yOffset) *
-                SortingPrecision
-            )
-            +
-            sortingOrderOffset;
+        return WorldSorting.CalculateOrder(
+            worldY,
+            yOffset,
+            sortingOrderOffset
+        );
     }
 }
