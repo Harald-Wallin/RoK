@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 public class WorldScatterWindow :
     EditorWindow
@@ -918,36 +919,134 @@ public class WorldScatterWindow :
     // STATIC Y SORTING
     // =========================================================
 
+
     private void ApplyStaticYSorting(
         GameObject instance)
     {
         if (instance == null)
             return;
 
-        int baseSortingOrder =
-            YSorter.CalculateSortingOrder(
+        // =====================================================
+        // EXISTING YSORTER
+        // =====================================================
+
+        YSorter[] sorters =
+            instance.GetComponentsInChildren<YSorter>(
+                true
+            );
+
+        if (sorters.Length > 0)
+        {
+            foreach (YSorter sorter in sorters)
+            {
+                if (sorter == null)
+                    continue;
+
+
+                sorter.ConfigureStaticSorting();
+
+                PrefabUtility
+                    .RecordPrefabInstancePropertyModifications(
+                        sorter
+                    );
+
+
+                SortingGroup group =
+                    sorter.GetComponent<SortingGroup>();
+
+                if (group == null)
+                    continue;
+
+                PrefabUtility
+                    .RecordPrefabInstancePropertyModifications(
+                        group
+                    );
+            }
+
+            // Do NOT add global sorting to child sprites.
+            return;
+        }
+
+        // =====================================================
+        // STATIC PREFAB WITHOUT YSORTER
+        // =====================================================
+
+        int baseOrder =
+            WorldSorting.CalculateOrder(
                 instance.transform.position.y
             );
 
-        SpriteRenderer[] renderers =
-            instance.GetComponentsInChildren<
-                SpriteRenderer
-            >(true);
+        SortingGroup[] groups =
+            instance.GetComponentsInChildren<SortingGroup>(
+                true
+            );
 
-        foreach (SpriteRenderer renderer
-                 in renderers)
+        if (groups.Length > 0)
+        {
+            foreach (SortingGroup group in groups)
+            {
+                if (group == null)
+                    continue;
+
+                // Nested groups retain their local ordering.
+                bool isNested = false;
+
+                Transform parent =
+                    group.transform.parent;
+
+                while (parent != null &&
+                       parent.IsChildOf(instance.transform))
+                {
+                    if (parent.GetComponent<SortingGroup>() != null)
+                    {
+                        isNested = true;
+                        break;
+                    }
+
+                    parent = parent.parent;
+                }
+
+                if (isNested)
+                    continue;
+
+                // Applied once to the newly created instance.
+                group.sortingOrder += baseOrder;
+
+                PrefabUtility
+                    .RecordPrefabInstancePropertyModifications(
+                        group
+                    );
+            }
+
+            return;
+        }
+
+        // =====================================================
+        // LEGACY SPRITE-ONLY PREFABS
+        // =====================================================
+
+        // Preserve the previous behaviour for simple
+        // static prefabs without SortingGroup/YSorter.
+
+        SpriteRenderer[] renderers =
+            instance.GetComponentsInChildren<SpriteRenderer>(
+                true
+            );
+
+        foreach (SpriteRenderer renderer in renderers)
         {
             if (renderer == null)
                 continue;
 
-            int relativeOrder =
-                renderer.sortingOrder;
+            renderer.sortingOrder += baseOrder;
 
-            renderer.sortingOrder =
-                baseSortingOrder +
-                relativeOrder;
+            PrefabUtility
+                .RecordPrefabInstancePropertyModifications(
+                    renderer
+                );
         }
     }
+
 
     // =========================================================
     // ERASE

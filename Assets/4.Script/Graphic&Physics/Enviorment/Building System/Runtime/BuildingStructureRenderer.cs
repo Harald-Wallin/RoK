@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Rendering;
 
 /// <summary>
 /// Structure V1 renderer.
@@ -102,6 +101,13 @@ public static class BuildingStructureRenderer
         Transform generatedRoot =
             root.GetOrCreateGeneratedRoot();
 
+        // When structure is disabled, roof registration must still start fresh.
+        BuildingWorldSorting worldSorting =
+            generatedRoot.GetComponent<BuildingWorldSorting>();
+
+        if (worldSorting != null)
+            worldSorting.BeginRebuild(root.transform);
+
         Transform existing =
             generatedRoot.Find(
                 StructureRootName
@@ -136,6 +142,17 @@ public static class BuildingStructureRenderer
         ClearChildren(
             structureRoot
         );
+
+        BuildingWorldSorting worldSorting =
+            generatedRoot.GetComponent<BuildingWorldSorting>();
+
+        if (worldSorting == null)
+        {
+            worldSorting =
+                generatedRoot.gameObject.AddComponent<BuildingWorldSorting>();
+        }
+
+        worldSorting.BeginRebuild(root.transform);
 
         BuildingStructureStyle style =
             root.StructureStyle;
@@ -193,6 +210,8 @@ public static class BuildingStructureRenderer
             style,
             roots.RearGables
         );
+
+        worldSorting.RefreshSorting();
     }
 
 
@@ -235,7 +254,7 @@ public static class BuildingStructureRenderer
                 StructureSpriteAnchor.BottomLeft,
                 false,
                 false,
-                style.SortingLayerName,
+                "Ground",
                 style.FloorSortingOrder
             );
 
@@ -333,10 +352,9 @@ public static class BuildingStructureRenderer
             return;
         }
 
-        int wallSorting =
-            run.Direction == BuildingEdgeDirection.South
-                ? style.FrontWallSortingOrder
-                : style.RearWallSortingOrder;
+        // Shared world depth handles South/North order.
+        // These values are local priorities at the same structural baseline.
+        const int wallSorting = 0;
 
         float cursor =
             run.StartCoordinate;
@@ -366,7 +384,8 @@ public static class BuildingStructureRenderer
                 false,
                 false,
                 style.SortingLayerName,
-                wallSorting
+                wallSorting,
+                new Vector2(cursor, run.FixedCoordinate)
             );
 
             cursor +=
@@ -484,7 +503,8 @@ public static class BuildingStructureRenderer
                 false,
                 false,
                 style.SortingLayerName,
-                sortingOrder
+                sortingOrder,
+                new Vector2(seamX - offset, run.FixedCoordinate)
             );
         }
 
@@ -504,7 +524,8 @@ public static class BuildingStructureRenderer
                 true,
                 false,
                 style.SortingLayerName,
-                sortingOrder
+                sortingOrder,
+                new Vector2(seamX + offset, run.FixedCoordinate)
             );
         }
     }
@@ -541,7 +562,8 @@ public static class BuildingStructureRenderer
             false,
             false,
             style.SortingLayerName,
-            sortingOrder
+            sortingOrder,
+            new Vector2(seamX, run.FixedCoordinate)
         );
     }
 
@@ -636,40 +658,13 @@ public static class BuildingStructureRenderer
          * flat floor rectangle.
          */
 
-        /*
-         * One SortingGroup per N/S side-wall run.
-         *
-         * Inside the group the wall pieces interleave with side pillars:
-         *
-         * front wall-piece > pillar > rear wall-piece.
-         *
-         * Translating the entire presentation does not change these relative
-         * orders, so the existing overlap/Y-depth behaviour remains stable.
-         */
+        // Pieces in this run must interleave with the player.
+        // A SortingGroup on the complete run would prevent that.
         Transform runRoot =
             FindOrCreateChild(
                 verticalRoot,
                 $"Run_{run.Direction}_{runIndex:00}"
             );
-
-        SortingGroup sortingGroup =
-            runRoot.GetComponent<SortingGroup>();
-
-        if (sortingGroup == null)
-        {
-            sortingGroup =
-                runRoot.gameObject.AddComponent<SortingGroup>();
-        }
-
-        if (!string.IsNullOrWhiteSpace(
-                style.SortingLayerName))
-        {
-            sortingGroup.sortingLayerName =
-                style.SortingLayerName;
-        }
-
-        sortingGroup.sortingOrder =
-            style.SideWallFrontSortingOrder;
 
         Sprite wallSprite =
             style.SideWallSegment;
@@ -689,11 +684,8 @@ public static class BuildingStructureRenderer
                     segmentIndex *
                     step;
 
-                int sortingOrder =
-                    GetSideWallInternalSorting(
-                        segmentIndex,
-                        segmentCount
-                    );
+                // Never use the +64px presentation lift as depth.
+                const int sortingOrder = 0;
 
                 CreateSpritePiece(
                     runRoot,
@@ -707,7 +699,11 @@ public static class BuildingStructureRenderer
                     flipX,
                     false,
                     style.SortingLayerName,
-                    sortingOrder
+                    sortingOrder,
+                    new Vector2(
+                        run.FixedCoordinate,
+                        run.StartCoordinate + segmentIndex * step
+                    )
                 );
             }
         }
@@ -771,11 +767,8 @@ public static class BuildingStructureRenderer
                 continue;
             }
 
-            int sortingOrder =
-                GetSidePillarInternalSorting(
-                    seamIndex,
-                    segmentCount
-                );
+            // K-1 wall > pillar at seam K > K wall.
+            const int sortingOrder = 1;
 
             BuildSidePillar(
                 style,
@@ -784,6 +777,7 @@ public static class BuildingStructureRenderer
                 runIndex,
                 seamIndex,
                 visualSeamY,
+                structuralSeamY,
                 sortingOrder
             );
         }
@@ -797,6 +791,7 @@ public static class BuildingStructureRenderer
         int runIndex,
         int seamIndex,
         float visualSeamY,
+        float structuralSeamY,
         int sortingOrder)
     {
         Sprite pillarSprite =
@@ -824,7 +819,8 @@ public static class BuildingStructureRenderer
             false,
             false,
             style.SortingLayerName,
-            sortingOrder
+            sortingOrder,
+            new Vector2(run.FixedCoordinate, structuralSeamY)
         );
     }
 
@@ -898,56 +894,6 @@ public static class BuildingStructureRenderer
         }
 
         return new List<int>(seams);
-    }
-
-
-    private static int GetSideWallInternalSorting(
-        int segmentIndex,
-        int segmentCount)
-    {
-        /*
-         * Example, six segments:
-         *
-         * segment 0 = 12  (frontmost)
-         * segment 1 = 10
-         * segment 2 =  8
-         * ...
-         * segment 5 =  2  (rearmost)
-         */
-        return
-            Mathf.Max(
-                0,
-                (segmentCount - segmentIndex) * 2
-            );
-    }
-
-
-    private static int GetSidePillarInternalSorting(
-        int seamIndex,
-        int segmentCount)
-    {
-        /*
-         * A pillar on seam K sits between:
-         *
-         * segment K-1 (south/front)
-         * and
-         * segment K   (north/back)
-         *
-         * e.g. seam 2 in a 6-cell wall:
-         * segment 1 = 10
-         * pillar    =  9
-         * segment 2 =  8
-         *
-         * This is the exact visual rule we want: the wall approaching from
-         * the front renders over the post, while the next wall segment starts
-         * behind it. The existing +16px pillar lift determines where that
-         * hand-off happens visually.
-         */
-        return
-            Mathf.Max(
-                0,
-                (segmentCount - seamIndex) * 2 + 1
-            );
     }
 
 
@@ -1031,7 +977,8 @@ public static class BuildingStructureRenderer
                 BuildHorizontalDoorVisual(
                     style,
                     openingRoot,
-                    resolved.Direction
+                    resolved.Direction,
+                    resolved.LocalCenter
                 );
             }
             else
@@ -1039,7 +986,8 @@ public static class BuildingStructureRenderer
                 BuildSideDoorVisual(
                     style,
                     openingRoot,
-                    resolved.Direction
+                    resolved.Direction,
+                    resolved.LocalCenter
                 );
             }
         }
@@ -1049,7 +997,8 @@ public static class BuildingStructureRenderer
     private static void BuildHorizontalDoorVisual(
         BuildingStructureStyle style,
         Transform openingRoot,
-        BuildingEdgeDirection direction)
+        BuildingEdgeDirection direction,
+        Vector2 sortingAnchorLocal)
     {
         bool south =
             direction ==
@@ -1065,10 +1014,7 @@ public static class BuildingStructureRenderer
                 ? style.SouthDoorThresholdSprite
                 : style.NorthDoorThresholdSprite;
 
-        int wallSorting =
-            south
-                ? style.FrontWallSortingOrder
-                : style.RearWallSortingOrder;
+        const int wallSorting = 0;
 
         int thresholdSorting =
             wallSorting + 1;
@@ -1092,7 +1038,8 @@ public static class BuildingStructureRenderer
                 false,
                 false,
                 style.SortingLayerName,
-                thresholdSorting
+                thresholdSorting,
+                sortingAnchorLocal
             );
         }
 
@@ -1124,7 +1071,8 @@ public static class BuildingStructureRenderer
             false,
             false,
             style.SortingLayerName,
-            doorSorting
+            doorSorting,
+            sortingAnchorLocal
         );
     }
 
@@ -1132,7 +1080,8 @@ public static class BuildingStructureRenderer
     private static void BuildSideDoorVisual(
         BuildingStructureStyle style,
         Transform openingRoot,
-        BuildingEdgeDirection direction)
+        BuildingEdgeDirection direction,
+        Vector2 sortingAnchorLocal)
     {
         Sprite thresholdSprite =
             style.SideDoorThresholdSprite;
@@ -1167,7 +1116,8 @@ public static class BuildingStructureRenderer
             flipX,
             false,
             style.SortingLayerName,
-            style.SideWallFrontSortingOrder + 1
+            1,
+            sortingAnchorLocal
         );
     }
 
@@ -1281,6 +1231,7 @@ public static class BuildingStructureRenderer
                 i,
                 minX,
                 maxX,
+                rearWallBaseY,
                 wallTopY,
                 widthPixels
             );
@@ -1326,6 +1277,7 @@ public static class BuildingStructureRenderer
         int sectionIndex,
         float minX,
         float maxX,
+        float rearWallBaseY,
         float wallTopY,
         int widthPixels)
     {
@@ -1347,9 +1299,7 @@ public static class BuildingStructureRenderer
             GableFillPixels /
             (float)BuildingGrid.PixelsPerUnit;
 
-        int gableSorting =
-            style.RearWallSortingOrder +
-            1;
+        const int gableSorting = 1;
 
         for (int row = 0;
              row < courseCount;
@@ -1385,7 +1335,8 @@ public static class BuildingStructureRenderer
                     false,
                     false,
                     style.SortingLayerName,
-                    gableSorting
+                    gableSorting,
+                    new Vector2(leftX, rearWallBaseY)
                 );
 
                 CreateSpritePiece(
@@ -1400,7 +1351,8 @@ public static class BuildingStructureRenderer
                     true,
                     false,
                     style.SortingLayerName,
-                    gableSorting
+                    gableSorting,
+                    new Vector2(rightX, rearWallBaseY)
                 );
             }
 
@@ -1431,7 +1383,8 @@ public static class BuildingStructureRenderer
                     false,
                     false,
                     style.SortingLayerName,
-                    gableSorting
+                    gableSorting,
+                    new Vector2(leftX + slopeStep + fillIndex * fillStep, rearWallBaseY)
                 );
             }
         }
@@ -1468,7 +1421,8 @@ public static class BuildingStructureRenderer
                 false,
                 false,
                 style.SortingLayerName,
-                gableSorting + 1
+                gableSorting + 1,
+                new Vector2(minX + i * trimStep, rearWallBaseY)
             );
         }
     }
@@ -1542,7 +1496,8 @@ public static class BuildingStructureRenderer
         bool flipX,
         bool flipY,
         string sortingLayerName,
-        int sortingOrder)
+        int sortingOrder,
+        Vector2? sortingAnchorLocal = null)
     {
         if (parent == null ||
             sprite == null)
@@ -1576,15 +1531,29 @@ public static class BuildingStructureRenderer
         renderer.flipY =
             flipY;
 
-        if (!string.IsNullOrWhiteSpace(
-                sortingLayerName))
+        if (sortingAnchorLocal.HasValue)
         {
-            renderer.sortingLayerName =
-                sortingLayerName;
-        }
+            // The builder provides semantic structural anchors, not sprite pivots.
+            BuildingWorldSorting worldSorting =
+                parent.GetComponentInParent<BuildingWorldSorting>(true);
 
-        renderer.sortingOrder =
-            sortingOrder;
+            if (worldSorting != null)
+            {
+                worldSorting.Register(
+                    renderer,
+                    sortingAnchorLocal.Value,
+                    sortingOrder
+                );
+            }
+        }
+        else
+        {
+            // Floors are not participants in world Y-depth.
+            if (!string.IsNullOrWhiteSpace(sortingLayerName))
+                renderer.sortingLayerName = sortingLayerName;
+
+            renderer.sortingOrder = sortingOrder;
+        }
 
         pieceTransform.localPosition =
             GetTransformPositionForAnchor(

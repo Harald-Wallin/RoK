@@ -111,9 +111,19 @@ public sealed class BuildingOpening : MonoBehaviour
     /// Keeps the authoring marker itself on the resolved 64px wall slot,
     /// so moving a door remains a normal scene-handle workflow.
     /// </summary>
+
     public void SnapToFootprint(
         BuildingFootprint footprint)
     {
+#if UNITY_EDITOR
+
+        // Snapping belongs to authoring, not gameplay.
+        //
+        // Prevent door markers from moving when Unity
+        // enters or runs Play Mode.
+        if (EditorApplication.isPlayingOrWillChangePlaymode)
+            return;
+
         BuildingRoot root =
             Root;
 
@@ -146,28 +156,25 @@ public sealed class BuildingOpening : MonoBehaviour
             );
 
         if ((transform.position - targetWorld)
-                .sqrMagnitude <=
-            0.0000001f)
+                .sqrMagnitude <= 0.0000001f)
         {
             transform.hasChanged = false;
             return;
         }
 
-#if UNITY_EDITOR
-        if (!Application.isPlaying)
-        {
-            Undo.RecordObject(
-                transform,
-                "Snap Building Opening"
-            );
-        }
-#endif
+        Undo.RecordObject(
+            transform,
+            "Snap Building Opening"
+        );
 
         transform.position =
             targetWorld;
 
         transform.hasChanged = false;
+
+#endif
     }
+
 
 
     private void Sanitize()

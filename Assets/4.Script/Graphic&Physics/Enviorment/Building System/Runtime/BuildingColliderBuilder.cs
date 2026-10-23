@@ -11,6 +11,7 @@ public static class BuildingColliderBuilder
     // ENTRY
     // =========================================================
 
+
     public static void Rebuild(
         BuildingRoot root,
         BuildingFootprint footprint)
@@ -21,10 +22,8 @@ public static class BuildingColliderBuilder
             return;
         }
 
-
         Transform generatedRoot =
             root.GetOrCreateGeneratedRoot();
-
 
         Transform collisionRoot =
             FindOrCreateChild(
@@ -32,18 +31,30 @@ public static class BuildingColliderBuilder
                 CollisionRootName
             );
 
+        // =====================================================
+        // CAPTURE PREVIOUS GEOMETRY
+        // =====================================================
+
+        Bounds? previousColliderBounds =
+            Application.isPlaying
+                ? BuildingNavigationSync.GetColliderBounds(
+                    collisionRoot
+                )
+                : null;
+
+        // =====================================================
+        // BUILD COLLISION
+        // =====================================================
 
         ClearGeneratedChildren(
             collisionRoot
         );
-
 
         BuildPerimeterColliders(
             root,
             footprint,
             collisionRoot
         );
-
 
         if (root.GeneratePillarFootColliders)
         {
@@ -53,7 +64,18 @@ public static class BuildingColliderBuilder
                 collisionRoot
             );
         }
+
+        // =====================================================
+        // NAVIGATION INTEGRATION
+        // =====================================================
+
+        BuildingNavigationSync.NotifyCollidersRebuilt(
+            root,
+            collisionRoot,
+            previousColliderBounds
+        );
     }
+
 
 
     // =========================================================

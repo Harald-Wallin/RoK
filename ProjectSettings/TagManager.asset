@@ -45,17 +45,11 @@ TagManager:
   - name: Ground
     uniqueID: 3610908363
     locked: 0
-  - name: Items
-    uniqueID: 3857265599
-    locked: 0
-  - name: Characters
+  - name: World
     uniqueID: 1959689973
     locked: 0
-  - name: World (ny)
+  - name: AboveWorld
     uniqueID: 896410015
-    locked: 0
-  - name: AbovePlayer
-    uniqueID: 2900314581
     locked: 0
   - name: UI
     uniqueID: 809265379

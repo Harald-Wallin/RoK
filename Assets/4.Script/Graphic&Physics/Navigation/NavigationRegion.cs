@@ -106,6 +106,14 @@ public sealed class NavigationRegion :
     private int columns;
     private int rows;
 
+
+    private readonly Collider2D[] obstacleOverlapResults =
+        new Collider2D[1];
+
+    private readonly RaycastHit2D[] obstacleCastResults =
+        new RaycastHit2D[1];
+
+
     public float CellSize =>
         cellSize;
 
@@ -306,32 +314,51 @@ public sealed class NavigationRegion :
             );
     }
 
-    private bool IsWorldPositionBlocked(
-    Vector2 worldPosition)
+
+    private ContactFilter2D GetNavigationObstacleFilter()
     {
+        ContactFilter2D filter =
+            new ContactFilter2D();
+
+        filter.SetLayerMask(
+            obstacleLayers
+        );
+
+        // Navigation only considers solid obstacles.
+        // IndoorZones and other triggers are ignored.
+        filter.useTriggers = false;
+
+        return filter;
+    }
+
+
+
+    private bool IsWorldPositionBlocked(
+        Vector2 worldPosition)
+    {
+        ContactFilter2D filter =
+            GetNavigationObstacleFilter();
+
         float navigationRadius =
             NavigationRadius;
 
         if (navigationRadius <= 0f)
         {
-            Collider2D overlap =
-                Physics2D.OverlapPoint(
-                    worldPosition,
-                    obstacleLayers
-                );
-
-            return overlap != null;
+            return Physics2D.OverlapPoint(
+                worldPosition,
+                filter,
+                obstacleOverlapResults
+            ) > 0;
         }
 
-        Collider2D hit =
-            Physics2D.OverlapCircle(
-                worldPosition,
-                navigationRadius,
-                obstacleLayers
-            );
-
-        return hit != null;
+        return Physics2D.OverlapCircle(
+            worldPosition,
+            navigationRadius,
+            filter,
+            obstacleOverlapResults
+        ) > 0;
     }
+
 
     public bool ContainsWorldPosition(
         Vector2 worldPosition)
@@ -576,10 +603,11 @@ public sealed class NavigationRegion :
         return false;
     }
 
+
     public bool IsDirectPathClear(
-    Vector2 from,
-    Vector2 to,
-    float radiusOverride = -1f)
+        Vector2 from,
+        Vector2 to,
+        float radiusOverride = -1f)
     {
         float radius =
             radiusOverride >= 0f
@@ -587,46 +615,46 @@ public sealed class NavigationRegion :
                 : NavigationRadius;
 
         Vector2 direction =
-            to -
-            from;
+            to - from;
 
         float distance =
             direction.magnitude;
 
-        if (distance <=
-            0.001f)
-        {
+        if (distance <= 0.001f)
             return true;
-        }
 
         direction.Normalize();
 
+        ContactFilter2D filter =
+            GetNavigationObstacleFilter();
+
         if (radius <= 0f)
         {
-            RaycastHit2D hit =
+            int hitCount =
                 Physics2D.Raycast(
                     from,
                     direction,
-                    distance,
-                    obstacleLayers
+                    filter,
+                    obstacleCastResults,
+                    distance
                 );
 
-            return hit.collider ==
-                   null;
+            return hitCount == 0;
         }
 
-        RaycastHit2D hitWithClearance =
+        int circleHitCount =
             Physics2D.CircleCast(
                 from,
                 radius,
                 direction,
-                distance,
-                obstacleLayers
+                filter,
+                obstacleCastResults,
+                distance
             );
 
-        return hitWithClearance.collider ==
-               null;
+        return circleHitCount == 0;
     }
+
 
     private void EnsureGridExists()
     {

@@ -74,6 +74,18 @@ public static class BuildingRoofRenderer
         Transform generatedRoot =
             root.GetOrCreateGeneratedRoot();
 
+        // Shared per-building world-depth controller. Structure rebuild
+        // has already reset its registrations, when enabled.
+        BuildingWorldSorting worldSorting =
+            generatedRoot.GetComponent<BuildingWorldSorting>();
+
+        if (worldSorting == null)
+        {
+            worldSorting =
+                generatedRoot.gameObject.AddComponent<BuildingWorldSorting>();
+
+            worldSorting.BeginRebuild(root.transform);
+        }
 
         Transform roofsRoot =
             FindOrCreateChild(
@@ -252,10 +264,14 @@ public static class BuildingRoofRenderer
                 persistentRoot,
                 section,
                 settings.Profile,
-                plan
+                plan,
+                worldSorting
             );
         }
 
+
+        // Reapply depth orders after all roof renderers are generated.
+        worldSorting.RefreshSorting();
 
         // =====================================================
         // REFRESH FADERS
@@ -290,7 +306,8 @@ public static class BuildingRoofRenderer
         Transform persistentRoot,
         BuildingSection section,
         BuildingRoofProfile profile,
-        BuildingRoofBuildPlan plan)
+        BuildingRoofBuildPlan plan,
+        BuildingWorldSorting worldSorting)
     {
         Transform mainSectionRoot =
             CreateSectionRoot(
@@ -312,6 +329,12 @@ public static class BuildingRoofRenderer
                 section
             );
 
+        // The entire roof assembly shares the section's structural front edge
+        // as global depth anchor; piece.SortingOrder remains LOCAL ordering.
+        Vector2 roofDepthAnchorLocal = new Vector2(
+            section.GridPosition.x * BuildingGrid.StructuralStep,
+            section.GridPosition.y * BuildingGrid.StructuralStep
+        );
 
         for (int i = 0;
              i < plan.Pieces.Count;
@@ -404,16 +427,13 @@ public static class BuildingRoofRenderer
                 piece.FlipY;
 
 
-            if (!string.IsNullOrWhiteSpace(
-                    profile.SortingLayerName))
-            {
-                renderer.sortingLayerName =
-                    profile.SortingLayerName;
-            }
-
-
-            renderer.sortingOrder =
-                piece.SortingOrder;
+            // Semantics and depth are registered centrally. The controller
+            // selects the current shared world Sorting Layer automatically.
+            worldSorting.Register(
+                renderer,
+                roofDepthAnchorLocal,
+                piece.SortingOrder
+            );
 
 
             pieceTransform.localPosition =
