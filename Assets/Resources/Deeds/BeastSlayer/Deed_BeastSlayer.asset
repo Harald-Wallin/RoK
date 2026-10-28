@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: eed32523161bad34da31231f8f225313, type: 3}
+  m_Name: Deed_BeastSlayer
+  m_EditorClassIdentifier: Assembly-CSharp::DeedDefinition
+  persistentId: a09bb86d17f3d66428b8757e62e8196c
+  displayName: Beastslayer
+  category: {fileID: 11400000, guid: b9017220e49258a4295adccf0cacaffe, type: 2}
+  visibility: 0
+  revealHiddenOnFirstProgress: 1
+  image: {fileID: 0}
+  shortDescription: Kill 5 beasts
+  longDescription: 
+  objective: {fileID: 11400000, guid: cd933f3c69d147d4f8e5d6a9beb1208d, type: 2}
+  ranks:
+  - rankId: e8317f72a2a5475f8a6308d37ef2cef8
+    rankLabel: I
+    requiredTotalProgress: 6
+    shortDescription: 
+    longDescription: 
+    imageOverride: {fileID: 0}
+    rewards: []

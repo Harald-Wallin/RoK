@@ -168,7 +168,7 @@ SortingGroup:
   m_GameObject: {fileID: 3459725347379031730}
   m_Enabled: 1
   m_SortingLayerID: 1959689973
-  m_SortingLayer: 3
+  m_SortingLayer: 2
   m_SortingOrder: 0
   m_SortAtRoot: 0
   m_Sort3DAs2D: 0
@@ -253,6 +253,7 @@ MonoBehaviour:
   reputationLossOnDeath: 0
   displayName: 'Starving Wolf '
   role: 0
+  creatureTypes: 9
   level: 1
   stats:
   - stat: 0
@@ -271,7 +272,7 @@ MonoBehaviour:
     value: 0
   derivedStats:
   - stat: 15
-    value: 2.5
+    value: 2.54
   - stat: 4
     value: 14
   - stat: 5
@@ -348,6 +349,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::YSorter
   sortingOrderOffset: 0
   yOffset: 0
+  staticSorting: 0
 --- !u!114 &6069970325683136558
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -413,6 +415,7 @@ MonoBehaviour:
   wanderPauseTime: 2
   wanderSpeedMultiplier: 0.3
   patrolSpeedMultiplier: 0.75
+  patrolNodeReachDistance: 0.35
   blockedPatrolNodeAcceptanceDistance: 2
   patrolNodeBlockRadius: 0.9
 --- !u!114 &6584142422350811442
@@ -494,14 +497,12 @@ MonoBehaviour:
   repathInterval: 0.5
   targetMoveThreshold: 2
   preferDirectMovement: 1
-  portalReachDistance: 0.35
   stuckCheckDuration: 0.75
   minimumProgressDistance: 0.12
   physicalBlockPathDuration: 1.5
   drawCurrentPath: 1
   drawRawPath: 0
   drawCurrentWaypoint: 1
-  drawWorldRoute: 1
   navigationDebugLogs: 0
 --- !u!114 &-7217729489899146503
 MonoBehaviour:
@@ -712,6 +713,14 @@ PrefabInstance:
       propertyPath: m_Layer
       value: 8
       objectReference: {fileID: 0}
+    - target: {fileID: 2799311894933179103, guid: 7fae102c0907cb54680287d363a1299e, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2799311894933179103, guid: 7fae102c0907cb54680287d363a1299e, type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 3549829941184842167, guid: 7fae102c0907cb54680287d363a1299e, type: 3}
       propertyPath: m_Layer
       value: 8
@@ -719,6 +728,30 @@ PrefabInstance:
     - target: {fileID: 3944806037855951948, guid: 7fae102c0907cb54680287d363a1299e, type: 3}
       propertyPath: m_Layer
       value: 8
+      objectReference: {fileID: 0}
+    - target: {fileID: 5095196012088445319, guid: 7fae102c0907cb54680287d363a1299e, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5095196012088445319, guid: 7fae102c0907cb54680287d363a1299e, type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5095196012088445319, guid: 7fae102c0907cb54680287d363a1299e, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5095196012088445319, guid: 7fae102c0907cb54680287d363a1299e, type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5095196012088445319, guid: 7fae102c0907cb54680287d363a1299e, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5095196012088445319, guid: 7fae102c0907cb54680287d363a1299e, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5471636976128149095, guid: 7fae102c0907cb54680287d363a1299e, type: 3}
       propertyPath: m_Layer

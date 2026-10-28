@@ -1,0 +1,47 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: eed32523161bad34da31231f8f225313, type: 3}
+  m_Name: Deed_Wolfslayer
+  m_EditorClassIdentifier: Assembly-CSharp::DeedDefinition
+  persistentId: fb0d8dc5ba10c2a40b65bd3241ee5106
+  displayName: Wolfslayer
+  category: {fileID: 11400000, guid: b9017220e49258a4295adccf0cacaffe, type: 2}
+  visibility: 0
+  revealHiddenOnFirstProgress: 0
+  image: {fileID: 0}
+  shortDescription: Slay 10 Wolves
+  longDescription: "Wolves have since long been a natural part of the wildlife of
+    Ringl\xE1, but many a shepherd have also cursed them for their apetite for venison.
+    Killing some surely wouldn't hurt? "
+  objective: {fileID: 11400000, guid: a97f67840e388364ba16cb9fabf0e036, type: 2}
+  ranks:
+  - rankId: ebaf66bd23994199be77a68dc3ca68b3
+    rankLabel: I
+    requiredTotalProgress: 1
+    shortDescription: 
+    longDescription: 
+    imageOverride: {fileID: 0}
+    rewards: []
+  - rankId: b5bc41d19e3f48f194d2f0fa729c1b1a
+    rankLabel: II
+    requiredTotalProgress: 3
+    shortDescription: 
+    longDescription: 
+    imageOverride: {fileID: 0}
+    rewards: []
+  - rankId: 34c57c4c36064f6bb62a46722944c373
+    rankLabel: III
+    requiredTotalProgress: 5
+    shortDescription: 
+    longDescription: 
+    imageOverride: {fileID: 0}
+    rewards: []
