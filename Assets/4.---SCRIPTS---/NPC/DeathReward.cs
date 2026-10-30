@@ -84,10 +84,10 @@ public class DeathReward :
             PlayerReference.Player;
 
         bool playerHasCredit =
-    HasPlayerKillCredit(
-        result,
-        player
-    );
+            HasPlayerKillCredit(
+                result,
+                player
+            );
 
         /*
          * Corpse skapas ALLTID här.

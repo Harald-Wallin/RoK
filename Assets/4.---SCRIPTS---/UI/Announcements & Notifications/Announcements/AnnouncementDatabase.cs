@@ -15,4 +15,7 @@ public class AnnouncementDatabase : ScriptableObject
 
     [Header("Favours")]
     public AnnouncementData favourFailed;
+
+    [Header("Deeds")]
+    public AnnouncementData deedCompleted;
 }

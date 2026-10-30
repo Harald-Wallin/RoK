@@ -187,13 +187,54 @@ public sealed class PlayerDeedManager : MonoBehaviour
     private void HandleTrackingChanged(DeedRuntime deed) =>
         DeedTrackingChanged?.Invoke(deed);
 
+
     private void HandleRankCompleted(
-        DeedRuntime deed, DeedRankDefinition rank)
+        DeedRuntime deed,
+        DeedRankDefinition rank)
     {
-        DeedRankCompleted?.Invoke(deed, rank);
+        if (deed == null ||
+            rank == null)
+        {
+            return;
+        }
+
+        // =====================================================
+        // ANNOUNCEMENT
+        // =====================================================
+
+        AnnouncementSpawner.Instance
+            ?.ShowDeedCompleted(
+                deed.Definition,
+                rank
+            );
+
+        // =====================================================
+        // IMMEDIATE REWARDS
+        // =====================================================
+
+        DeedRewardDelivery
+            .GrantImmediateRewards(
+                player,
+                deed,
+                rank
+            );
+
+        // =====================================================
+        // EXISTING EVENT
+        // =====================================================
+
+        DeedRankCompleted?.Invoke(
+            deed,
+            rank
+        );
 
         Debug.Log(
-            $"Deed completed: {deed.Definition.DisplayName} " +
-            $"{rank.RankLabel} ({deed.Progress} progress)", this);
+            $"Deed completed: " +
+            $"{deed.Definition.DisplayName} " +
+            $"{rank.RankLabel} " +
+            $"({deed.Progress} progress)",
+            this
+        );
     }
+
 }

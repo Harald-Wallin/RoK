@@ -17,3 +17,4 @@ MonoBehaviour:
   factionDiscovered: {fileID: 11400000, guid: fa1c0a13251679e47b964ba96c5940e2, type: 2}
   reputationRankChanged: {fileID: 11400000, guid: 8387e6f716abd144e8a4d28055750047, type: 2}
   favourFailed: {fileID: 11400000, guid: 6686674a14df472429e0bb14daf6b302, type: 2}
+  deedCompleted: {fileID: 11400000, guid: 02e366bbcc9b09345934a0228bbab4c4, type: 2}

@@ -1,3 +1,4 @@
+
 using UnityEngine;
 
 public class AnnouncementRequest
@@ -8,14 +9,18 @@ public class AnnouncementRequest
 
     public AudioClip overrideSound;
 
+    // Optional image for announcements.
+    public Sprite artwork;
+
     public AnnouncementRequest(
         AnnouncementData data,
         string customMessage,
-        AudioClip overrideSound = null
-    )
+        AudioClip overrideSound = null,
+        Sprite artwork = null)
     {
         this.data = data;
         this.customMessage = customMessage;
         this.overrideSound = overrideSound;
+        this.artwork = artwork;
     }
 }

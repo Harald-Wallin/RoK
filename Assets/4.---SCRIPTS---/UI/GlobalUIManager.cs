@@ -1,4 +1,5 @@
 using TMPro;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
@@ -429,7 +430,7 @@ public sealed class GlobalUIManager : MonoBehaviour
         }
 
         if (deedsWindow != null &&
-    deedsWindow.IsOpen)
+            deedsWindow.IsOpen)
         {
             deedsWindow.Close();
         }

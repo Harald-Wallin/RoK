@@ -100,6 +100,54 @@ public class AnnouncementSpawner : MonoBehaviour
         );
     }
 
+
+    public void ShowDeedCompleted(
+        DeedDefinition deed,
+        DeedRankDefinition rank)
+    {
+        if (deed == null ||
+            rank == null)
+        {
+            return;
+        }
+
+        AnnouncementData announcement =
+            database != null
+                ? database.deedCompleted
+                : null;
+
+        if (announcement == null)
+        {
+            Debug.LogWarning(
+                "Deed completion announcement is " +
+                "not assigned in AnnouncementDatabase.",
+                this
+            );
+
+            return;
+        }
+
+        string completedName =
+            $"{deed.DisplayName} {rank.RankLabel}".Trim();
+
+        Sprite artwork =
+            rank.ImageOverride != null
+                ? rank.ImageOverride
+                : deed.Image;
+
+        string message =
+            "<size=18>DEED COMPLETED</size>\n" +
+            $"<size=48>{completedName}</size>";
+
+        QueueAnnouncement(
+            announcement,
+            message,
+            null,
+            artwork
+        );
+    }
+
+
     // =========================================================
     // MESSAGE BUILDING
     // =========================================================
@@ -158,10 +206,12 @@ public class AnnouncementSpawner : MonoBehaviour
     // QUEUE
     // =========================================================
 
+
     private void QueueAnnouncement(
         AnnouncementData data,
         string customMessage = null,
-        AudioClip overrideSound = null)
+        AudioClip overrideSound = null,
+        Sprite artwork = null)
     {
         if (data == null)
             return;
@@ -170,7 +220,8 @@ public class AnnouncementSpawner : MonoBehaviour
             new AnnouncementRequest(
                 data,
                 customMessage,
-                overrideSound
+                overrideSound,
+                artwork
             )
         );
 
@@ -181,6 +232,7 @@ public class AnnouncementSpawner : MonoBehaviour
             );
         }
     }
+
 
     private IEnumerator ProcessQueue()
     {
@@ -201,9 +253,10 @@ public class AnnouncementSpawner : MonoBehaviour
                 );
 
             instance.Initialize(
-                data,
-                request.customMessage
-            );
+                 data,
+                 request.customMessage,
+                 request.artwork
+             );
 
             UISoundManager.Instance?.Play(
                 request.overrideSound != null
