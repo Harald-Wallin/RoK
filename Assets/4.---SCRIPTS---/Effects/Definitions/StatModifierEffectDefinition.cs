@@ -8,6 +8,7 @@ public sealed class StatModifierEffectDefinition :
     EffectDefinition
 {
     [Header("Stat Modifier")]
+
     [SerializeField]
     private StatType stat;
 
@@ -17,6 +18,10 @@ public sealed class StatModifierEffectDefinition :
 
     [SerializeField]
     private float value = 0.10f;
+
+    // =====================================================
+    // RUNTIME FACTORY
+    // =====================================================
 
     public override IEffectRuntime CreateRuntime(
         EffectContext context)
@@ -29,23 +34,34 @@ public sealed class StatModifierEffectDefinition :
         );
     }
 
+    // =====================================================
+    // DESCRIPTIONS
+    // =====================================================
+
     public override string GetDescription()
+    {
+        return GetDescriptionForStacks(1);
+    }
+
+    public override string GetDescriptionForStacks(
+        int stacks)
     {
         return StatFormatting.FormatModifier(
             stat,
             modifierType,
-            value
+            value * Mathf.Max(0, stacks)
         );
     }
 
     // =====================================================
-    // PRIVATE RUNTIME
+    // EFFECT RUNTIME
     // =====================================================
 
     private sealed class Runtime :
         IEffectRuntime
     {
         private readonly EffectContext context;
+
         private readonly StatType stat;
         private readonly ModifierType type;
         private readonly float value;
@@ -65,7 +81,7 @@ public sealed class StatModifierEffectDefinition :
         }
 
         // =================================================
-        // ACTIVATE
+        // ACTIVATION
         // =================================================
 
         public void Activate(int stacks)
@@ -74,7 +90,7 @@ public sealed class StatModifierEffectDefinition :
         }
 
         // =================================================
-        // STACKS
+        // STACK UPDATES
         // =================================================
 
         public void SetStacks(int stacks)
@@ -83,7 +99,7 @@ public sealed class StatModifierEffectDefinition :
         }
 
         // =================================================
-        // REBUILD
+        // REBUILD MODIFIER
         // =================================================
 
         private void Rebuild(int stacks)
@@ -94,6 +110,7 @@ public sealed class StatModifierEffectDefinition :
             if (target == null)
                 return;
 
+            // Remove only this runtime's modifiers.
             if (applied)
             {
                 target.RemoveModifiersFromSource(
@@ -128,7 +145,7 @@ public sealed class StatModifierEffectDefinition :
         }
 
         // =================================================
-        // DEACTIVATE
+        // CLEANUP
         // =================================================
 
         public void Deactivate()
@@ -147,4 +164,3 @@ public sealed class StatModifierEffectDefinition :
         }
     }
 }
-

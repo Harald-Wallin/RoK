@@ -18,11 +18,13 @@ MonoBehaviour:
     +3% MaxHP'
   icon: {fileID: 21300000, guid: cf96efd9c25ffeb4abb1612b12f29b10, type: 3}
   maxPoints: 3
+  passiveEffects:
+  - {fileID: 11400000, guid: ab355d184dd401e4faea8e8209402389, type: 2}
   effects:
   - {fileID: 11400000, guid: 6295c57be15309640a739d6b6158f950, type: 2}
   unlockedAbility: {fileID: 0}
+  unlocksWardSystem: 0
   tier: 2
   requirements:
   - talent: {fileID: 0}
     requiredPoints: 0
-  unlockedBaseAttack: {fileID: 0}

@@ -1,6 +1,17 @@
+
 using System.Collections.Generic;
 using UnityEngine;
 
+/// <summary>
+/// Owns talent point progression.
+///
+/// Shared passive effects use the same
+/// CharacterEffectController as buffs,
+/// titles and equipment.
+///
+/// Legacy talents remain supported
+/// until migrated.
+/// </summary>
 public sealed class TalentManager :
     MonoBehaviour
 {
@@ -22,53 +33,114 @@ public sealed class TalentManager :
     public List<TalentRuntime> talents =
         new();
 
+    // =====================================================
+    // RUNTIME
+    // =====================================================
+
+    private const int BaseWardCapacity = 5;
+
+    private readonly Dictionary<
+        TalentRuntime,
+        EffectHandle> passiveHandles =
+            new();
+
+    private CharacterEffectController
+        effectController;
+
+    private bool suppressEffectEvents;
+
     private PlayerStats Player =>
         PlayerReference.Player;
+
+    // =====================================================
+    // UNITY LIFECYCLE
+    // =====================================================
 
     private void Awake()
     {
         Instance = this;
 
-        Initialize(
-            allTalents
-        );
+        Initialize(allTalents);
     }
 
     private void OnDestroy()
     {
+        if (effectController != null)
+        {
+            effectController.OnEffectsChanged -=
+                HandleEffectsChanged;
+        }
+
+        suppressEffectEvents = true;
+
+        CleanupPassiveEffects();
+
+        suppressEffectEvents = false;
+
         if (Instance == this)
         {
             Instance = null;
         }
     }
 
+    // =====================================================
+    // INITIALIZATION
+    // =====================================================
+
     public void Initialize(
         List<TalentData> talentData)
     {
+        suppressEffectEvents = true;
+
+        CleanupPassiveEffects();
+
+        PlayerStats player = Player;
+
+        if (player != null)
+        {
+            foreach (TalentRuntime runtime
+                     in talents)
+            {
+                if (runtime != null)
+                {
+                    player.RemoveModifiersFromSource(
+                        runtime
+                    );
+                }
+            }
+        }
+
         talents.Clear();
 
-        if (talentData == null)
-            return;
-
-        foreach (TalentData data in talentData)
+        if (talentData != null)
         {
-            if (data == null)
-                continue;
+            foreach (TalentData data
+                     in talentData)
+            {
+                if (data == null)
+                    continue;
 
-            talents.Add(
-                new TalentRuntime(data)
-            );
+                talents.Add(
+                    new TalentRuntime(data)
+                );
+            }
         }
+
+        suppressEffectEvents = false;
+
+        RefreshWardState();
     }
 
-    public int GetTierRequirement(
-        int tier)
+    // =====================================================
+    // TIER REQUIREMENTS
+    // =====================================================
+
+    public int GetTierRequirement(int tier)
     {
         if (tier <= 1)
             return 0;
 
-        int index =
-            tier - 1;
+        int index = tier - 1;
 
         if (tierRequirements == null ||
             index < 0 ||
@@ -80,134 +152,383 @@ public sealed class TalentManager :
         return tierRequirements[index];
     }
 
+    // =====================================================
+    // SPEND TALENT POINT
+    // =====================================================
+
     public bool TrySpendPoint(
         TalentRuntime talent)
     {
         if (!CanLearnTalent(talent))
             return false;
 
+        int previousPoints =
+            talent.currentPoints;
+
         talent.currentPoints++;
+
+        if (!ApplyTalent(talent))
+        {
+            talent.currentPoints =
+                previousPoints;
+
+            ApplyTalent(talent);
+
+            Debug.LogError(
+                $"Failed to apply talent " +
+                $"'{talent.data.DisplayName}'. " +
+                $"Point not spent.",
+                this
+            );
+
+            return false;
+        }
+
         availablePoints--;
 
-        ApplyTalent(
-            talent
-        );
-
-        HandleUnlocks(
-            talent
-        );
+        HandleUnlocks(talent);
 
         return true;
     }
 
-    private void ApplyTalent(
-        TalentRuntime talent)
-    {
-        PlayerStats player =
-            Player;
+    // =====================================================
+    // REAPPLY EFFECTS
+    // =====================================================
 
-        if (player == null ||
-            talent == null ||
-            talent.data == null)
+    /// <summary>
+    /// Reapplies assigned talent points without
+    /// spending additional points.
+    ///
+    /// Intended for future save/restore integration.
+    /// </summary>
+    public void ReapplyAllTalentEffects()
+    {
+        foreach (TalentRuntime talent in talents)
         {
-            return;
+            if (talent != null)
+            {
+                ApplyTalent(talent);
+            }
         }
 
+        RefreshWardState();
+    }
+
+    // =====================================================
+    // APPLY TALENT
+    // =====================================================
+
+    private bool ApplyTalent(
+        TalentRuntime talent)
+    {
+        PlayerStats player = Player;
+
+        if (player == null ||
+            talent?.data == null)
+        {
+            return false;
+        }
+
+        // Remove any legacy modifiers
+        // belonging to this talent.
         player.RemoveModifiersFromSource(
             talent
         );
 
-        WardSystem ward =
-            player.GetComponent<WardSystem>();
-
-        if (ward != null &&
-            talent.data.unlocksWardSystem)
+        if (talent.currentPoints <= 0)
         {
-            ward.SetWardGeneration(
-                talent.currentPoints > 0
-            );
+            RemovePassiveHandle(talent);
+
+            RefreshWardState();
+
+            return true;
         }
 
-        if (ward != null)
+        // =================================================
+        // SHARED EFFECT PATH
+        // =================================================
+
+        if (talent.data.HasSharedEffects)
         {
-            int maxWard = 5;
+            if (!EnsureEffectController(player))
+                return false;
 
-            foreach (TalentRuntime runtime in talents)
+            if (passiveHandles.TryGetValue(
+                    talent,
+                    out EffectHandle existing))
             {
-                if (runtime == null ||
-                    runtime.data == null ||
-                    runtime.data.effects == null)
+                if (!effectController.SetStacks(
+                        existing,
+                        talent.currentPoints))
                 {
-                    continue;
-                }
+                    passiveHandles.Remove(talent);
 
-                foreach (AbilityEffect effect in
-                         runtime.data.effects)
+                    return false;
+                }
+            }
+            else
+            {
+                EffectHandle handle =
+                    effectController.Activate(
+                        talent.data.PassiveEffects,
+                        DamageSourceContext
+                            .FromDirectSource(player),
+                        ModifierSourceType.Talent,
+                        talent.currentPoints
+                    );
+
+                if (handle == null)
+                    return false;
+
+                passiveHandles.Add(
+                    talent,
+                    handle
+                );
+            }
+        }
+
+        // =================================================
+        // LEGACY EFFECT PATH
+        // =================================================
+
+        else
+        {
+            RemovePassiveHandle(talent);
+
+            if (talent.data.effects != null)
+            {
+                foreach (AbilityEffect effect
+                         in talent.data.effects)
                 {
                     if (effect is not
-                        WardCapacityEffect wardEffect)
+                        StatModifierEffect statEffect)
                     {
                         continue;
                     }
 
-                    maxWard +=
-                        wardEffect.wardsPerPoint *
-                        runtime.currentPoints;
+                    float value =
+                        statEffect.value *
+                        talent.currentPoints;
+
+                    player.AddModifier(
+                        new StatModifier(
+                            statEffect.stat,
+                            value,
+                            statEffect.type,
+                            talent,
+                            ModifierSourceType.Talent
+                        )
+                    );
                 }
             }
-
-            ward.SetMaxWard(
-                maxWard
-            );
         }
 
-        if (talent.data.effects == null)
+        RefreshWardState();
+
+        return true;
+    }
+
+    // =====================================================
+    // EFFECT CONTROLLER
+    // =====================================================
+
+    private bool EnsureEffectController(
+        PlayerStats player)
+    {
+        CharacterEffectController resolved =
+            CharacterEffectController.GetOrCreate(
+                player
+            );
+
+        if (resolved == null)
+            return false;
+
+        if (effectController == resolved)
+            return true;
+
+        if (effectController != null)
+        {
+            effectController.OnEffectsChanged -=
+                HandleEffectsChanged;
+        }
+
+        effectController = resolved;
+
+        effectController.OnEffectsChanged +=
+            HandleEffectsChanged;
+
+        return true;
+    }
+
+    // =====================================================
+    // EFFECT EVENTS
+    // =====================================================
+
+    private void HandleEffectsChanged()
+    {
+        if (!suppressEffectEvents)
+        {
+            RefreshWardState();
+        }
+    }
+
+    // =====================================================
+    // WARD STATE
+    // =====================================================
+
+    private void RefreshWardState()
+    {
+        PlayerStats player = Player;
+
+        if (player == null)
             return;
 
-        foreach (AbilityEffect effect in
-                 talent.data.effects)
+        WardSystem ward =
+            player.GetComponent<WardSystem>();
+
+        if (ward == null)
+            return;
+
+        int maximum = BaseWardCapacity;
+
+        bool unlockGeneration = false;
+
+        // =================================================
+        // TALENT PROGRESSION & LEGACY WARD EFFECTS
+        // =================================================
+
+        foreach (TalentRuntime runtime in talents)
         {
-            if (effect is not
-                StatModifierEffect statEffect)
+            if (runtime?.data == null ||
+                runtime.currentPoints <= 0)
             {
                 continue;
             }
 
-            float scaledValue =
-                statEffect.value *
-                talent.currentPoints;
+            if (runtime.data.unlocksWardSystem)
+            {
+                unlockGeneration = true;
+            }
 
-            player.AddModifier(
-                new StatModifier(
-                    statEffect.stat,
-                    scaledValue,
-                    statEffect.type,
-                    talent,
-                    ModifierSourceType.Talent
-                )
+            // Only unmigrated talents use this path.
+            if (runtime.data.HasSharedEffects ||
+                runtime.data.effects == null)
+            {
+                continue;
+            }
+
+            foreach (AbilityEffect effect
+                     in runtime.data.effects)
+            {
+                if (effect is WardCapacityEffect legacy)
+                {
+                    maximum +=
+                        legacy.wardsPerPoint *
+                        runtime.currentPoints;
+                }
+            }
+        }
+
+        // =================================================
+        // SHARED WARD EFFECTS
+        // =================================================
+
+        if (effectController == null)
+        {
+            EnsureEffectController(player);
+        }
+
+        if (effectController != null)
+        {
+            WardCapacityQuery query =
+                new WardCapacityQuery(player);
+
+            effectController.ApplyTo(query);
+
+            maximum +=
+                query.AdditionalWards;
+        }
+
+        // =================================================
+        // WARD GENERATION
+        // =================================================
+
+        if (ward.IsUnlocked != unlockGeneration)
+        {
+            ward.SetWardGeneration(
+                unlockGeneration
             );
+        }
+
+        // =================================================
+        // WARD CAPACITY
+        // =================================================
+
+        if (ward.MaxWard != maximum)
+        {
+            ward.SetMaxWard(maximum);
         }
     }
 
-    private void HandleUnlocks(
-    TalentRuntime talent)
-    {
-        PlayerStats player =
-            Player;
+    // =====================================================
+    // CLEANUP PASSIVE EFFECTS
+    // =====================================================
 
-        if (player == null ||
-            talent == null ||
-            talent.data == null)
+    private void CleanupPassiveEffects()
+    {
+        if (effectController != null)
+        {
+            foreach (EffectHandle handle
+                     in passiveHandles.Values)
+            {
+                effectController.Deactivate(
+                    handle
+                );
+            }
+        }
+
+        passiveHandles.Clear();
+    }
+
+    // =====================================================
+    // REMOVE TALENT EFFECT HANDLE
+    // =====================================================
+
+    private void RemovePassiveHandle(
+        TalentRuntime talent)
+    {
+        if (!passiveHandles.TryGetValue(
+                talent,
+                out EffectHandle handle))
         {
             return;
         }
 
-        /*
-         * Unlocks appliceras endast när
-         * första poängen köps.
-         */
-        if (talent.currentPoints != 1)
+        passiveHandles.Remove(talent);
+
+        if (effectController != null)
+        {
+            effectController.Deactivate(
+                handle
+            );
+        }
+    }
+
+    // =====================================================
+    // ABILITY UNLOCKS
+    // =====================================================
+
+    private void HandleUnlocks(
+        TalentRuntime talent)
+    {
+        PlayerStats player = Player;
+
+        if (player == null ||
+            talent?.data == null ||
+            talent.currentPoints != 1)
+        {
             return;
+        }
 
         AbilityData unlockedAbility =
             talent.data.unlockedAbility;
@@ -221,8 +542,9 @@ public sealed class TalentManager :
             if (abilities == null)
             {
                 Debug.LogError(
-                    $"{nameof(PlayerAbilityCollection)} saknas " +
-                    $"på spelaren. '{unlockedAbility.abilityName}' " +
+                    $"{nameof(PlayerAbilityCollection)} " +
+                    $"saknas på spelaren. " +
+                    $"'{unlockedAbility.abilityName}' " +
                     $"kunde inte låsas upp.",
                     player
                 );
@@ -242,44 +564,42 @@ public sealed class TalentManager :
         spellbook?.Refresh();
     }
 
+    // =====================================================
+    // CAN LEARN TALENT
+    // =====================================================
+
     public bool CanLearnTalent(
         TalentRuntime talent)
     {
-        if (talent == null ||
-            talent.data == null)
+        if (talent?.data == null ||
+            availablePoints <= 0 ||
+            talent.currentPoints >=
+                talent.data.maxPoints)
         {
             return false;
         }
 
-        if (availablePoints <= 0)
-            return false;
-
-        if (talent.currentPoints >=
-            talent.data.maxPoints)
-        {
-            return false;
-        }
+        // =================================================
+        // INDIVIDUAL TALENT REQUIREMENTS
+        // =================================================
 
         TalentRequirement[] requirements =
             talent.data.requirements;
 
         if (requirements != null)
         {
-            foreach (TalentRequirement requirement in
-                     requirements)
+            foreach (TalentRequirement requirement
+                     in requirements)
             {
-                if (requirement == null ||
-                    requirement.talent == null)
-                {
+                if (requirement?.talent == null)
                     continue;
-                }
 
                 TalentRuntime runtime =
                     talents.Find(
                         candidate =>
                             candidate != null &&
                             candidate.data ==
-                            requirement.talent
+                                requirement.talent
                     );
 
                 if (runtime == null)
@@ -293,6 +613,10 @@ public sealed class TalentManager :
             }
         }
 
+        // =================================================
+        // TIER REQUIREMENTS
+        // =================================================
+
         int talentTier =
             talent.data.tier;
 
@@ -300,9 +624,7 @@ public sealed class TalentManager :
             return true;
 
         int requiredPoints =
-            GetTierRequirement(
-                talentTier
-            );
+            GetTierRequirement(talentTier);
 
         int spentPointsInPreviousTiers = 0;
 
@@ -322,19 +644,22 @@ public sealed class TalentManager :
             }
         }
 
-        return
-            spentPointsInPreviousTiers >=
-            requiredPoints;
+        return spentPointsInPreviousTiers >=
+               requiredPoints;
     }
 
+    // =====================================================
+    // VALIDATION
+    // =====================================================
+
 #if UNITY_EDITOR
+
     private void OnValidate()
     {
-        availablePoints =
-            Mathf.Max(
-                0,
-                availablePoints
-            );
+        availablePoints = Mathf.Max(
+            0,
+            availablePoints
+        );
 
         allTalents ??=
             new List<TalentData>();
@@ -353,5 +678,6 @@ public sealed class TalentManager :
                 );
         }
     }
+
 #endif
 }

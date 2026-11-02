@@ -1,4 +1,5 @@
 
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -7,13 +8,29 @@ using UnityEngine;
 public sealed class CharacterEffectController :
     MonoBehaviour
 {
+    // =====================================================
+    // RUNTIME STATE
+    // =====================================================
+
     private readonly List<EffectHandle>
         activeHandles = new();
 
     private CharacterStats stats;
 
+    /// <summary>
+    /// Raised when an effect group is activated,
+    /// removed or restacked.
+    ///
+    /// Systems with derived values can recalculate
+    /// when this event is raised.
+    /// </summary>
+    public event Action OnEffectsChanged;
+
+    public int ActiveEffectGroupCount =>
+        activeHandles.Count;
+
     // =====================================================
-    // UNITY
+    // UNITY LIFECYCLE
     // =====================================================
 
     private void Awake()
@@ -31,6 +48,8 @@ public sealed class CharacterEffectController :
         }
 
         activeHandles.Clear();
+
+        OnEffectsChanged = null;
     }
 
     // =====================================================
@@ -44,13 +63,14 @@ public sealed class CharacterEffectController :
             return null;
 
         CharacterEffectController controller =
-            target.GetComponent<CharacterEffectController>();
+            target.GetComponent<
+                CharacterEffectController>();
 
         if (controller == null)
         {
             controller =
-                target.gameObject
-                    .AddComponent<CharacterEffectController>();
+                target.gameObject.AddComponent<
+                    CharacterEffectController>();
         }
 
         return controller;
@@ -66,8 +86,11 @@ public sealed class CharacterEffectController :
         ModifierSourceType modifierSourceType,
         int stacks = 1)
     {
-        if (!isActiveAndEnabled || stats == null)
+        if (!isActiveAndEnabled ||
+            stats == null)
+        {
             return null;
+        }
 
         EffectContext context =
             new EffectContext(
@@ -88,11 +111,13 @@ public sealed class CharacterEffectController :
 
         activeHandles.Add(handle);
 
+        OnEffectsChanged?.Invoke();
+
         return handle;
     }
 
     // =====================================================
-    // STACK UPDATE
+    // STACK UPDATES
     // =====================================================
 
     public bool SetStacks(
@@ -106,9 +131,13 @@ public sealed class CharacterEffectController :
         }
 
         if (handle.TrySetStacks(stacks))
+        {
+            OnEffectsChanged?.Invoke();
             return true;
+        }
 
         Deactivate(handle);
+
         return false;
     }
 
@@ -116,7 +145,8 @@ public sealed class CharacterEffectController :
     // DEACTIVATE
     // =====================================================
 
-    public bool Deactivate(EffectHandle handle)
+    public bool Deactivate(
+        EffectHandle handle)
     {
         if (handle == null ||
             !activeHandles.Remove(handle))
@@ -126,6 +156,8 @@ public sealed class CharacterEffectController :
 
         handle.Cleanup();
 
+        OnEffectsChanged?.Invoke();
+
         return true;
     }
 
@@ -133,7 +165,8 @@ public sealed class CharacterEffectController :
     // CONTEXTUAL EFFECT QUERIES
     // =====================================================
 
-    public void ApplyTo<TContext>(TContext query)
+    public void ApplyTo<TContext>(
+        TContext query)
         where TContext : class
     {
         if (query == null)
@@ -146,8 +179,4 @@ public sealed class CharacterEffectController :
             activeHandles[i]?.ApplyTo(query);
         }
     }
-
-    public int ActiveEffectGroupCount =>
-        activeHandles.Count;
 }
-

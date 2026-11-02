@@ -16,6 +16,8 @@ MonoBehaviour:
   description: +2 Ward capacity
   icon: {fileID: 21300000, guid: 53c643d7ddc1cde4ca777092a9fd44b3, type: 3}
   maxPoints: 2
+  passiveEffects:
+  - {fileID: 11400000, guid: bc1ec4a03ffaa984796ad2cdd6c76c70, type: 2}
   effects:
   - {fileID: 11400000, guid: 9e173a44b5b916940bd71f1884d71e51, type: 2}
   unlockedAbility: {fileID: 0}
@@ -24,4 +26,3 @@ MonoBehaviour:
   requirements:
   - talent: {fileID: 11400000, guid: 426b81cb23a85ba47994c13adeec9c1a, type: 2}
     requiredPoints: 1
-  unlockedBaseAttack: {fileID: 0}

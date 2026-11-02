@@ -22,4 +22,4 @@ MonoBehaviour:
   refreshDurationOnReapply: 1
   effects:
   - {fileID: 11400000, guid: f1f6a6c9af816d04eb867f65d6b3dc92, type: 2}
-  - {fileID: 0}
+  - {fileID: 11400000, guid: 79af0f6a73416dc44b9ee68637383637, type: 2}

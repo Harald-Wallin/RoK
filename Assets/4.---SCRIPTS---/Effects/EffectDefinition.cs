@@ -2,13 +2,12 @@
 using UnityEngine;
 
 /// <summary>
-/// Immutable effect configuration.
+/// Reusable, immutable gameplay-effect configuration.
 ///
-/// No timers, active stacks or character-specific
-/// mutable state may be stored in this asset.
+/// Active timing, stack counts and source ownership
+/// belong to runtime instances, not ScriptableObjects.
 /// </summary>
-public abstract class EffectDefinition :
-    ScriptableObject
+public abstract class EffectDefinition : ScriptableObject
 {
     public abstract IEffectRuntime CreateRuntime(
         EffectContext context
@@ -17,6 +16,20 @@ public abstract class EffectDefinition :
     public virtual string GetDescription()
     {
         return name;
+    }
+
+    /// <summary>
+    /// Preview of an effect at a specific stack count
+    /// or talent rank.
+    /// </summary>
+    public virtual string GetDescriptionForStacks(
+        int stacks)
+    {
+        string description = GetDescription();
+
+        return stacks > 1
+            ? $"{description} (x{stacks})"
+            : description;
     }
 }
 
@@ -33,16 +46,11 @@ public interface IEffectRuntime
 }
 
 /// <summary>
-/// Optional contract for effects that modify
+/// Allows active effects to modify contextual
 /// gameplay calculations.
-///
-/// Future contexts:
-/// DamageContext, MovementContext,
-/// ExperienceContext, ReputationContext.
 /// </summary>
 public interface IEffectQuery<TContext>
     where TContext : class
 {
     void Modify(TContext context);
 }
-

@@ -1,3 +1,5 @@
+
+using System.Collections.Generic;
 using UnityEngine;
 
 [CreateAssetMenu(
@@ -6,24 +8,21 @@ using UnityEngine;
 public sealed class TalentData :
     ScriptableObject
 {
-    // =========================================================
+    // =====================================================
     // BASIC
-    // =========================================================
+    // =====================================================
 
     [Header("Basic")]
 
     public string talentName;
 
     public string Id =>
-    PersistentIdUtility
-        .FromDisplayName(
+        PersistentIdUtility.FromDisplayName(
             DisplayName
         );
 
     public string DisplayName =>
-        string.IsNullOrWhiteSpace(
-            talentName
-        )
+        string.IsNullOrWhiteSpace(talentName)
             ? name
             : talentName;
 
@@ -32,66 +31,104 @@ public sealed class TalentData :
 
     public Sprite icon;
 
-    // =========================================================
+    // =====================================================
     // SCALING
-    // =========================================================
+    // =====================================================
 
     [Header("Scaling")]
 
     [Min(1)]
     public int maxPoints = 5;
 
-    // =========================================================
-    // EFFECTS
-    // =========================================================
+    // =====================================================
+    // SHARED PASSIVE EFFECTS
+    // =====================================================
 
-    [Header("Effects")]
+    [Header("Shared Passive Effects")]
 
+    [SerializeField]
+    [Tooltip(
+        "Effects applied permanently while the talent " +
+        "has at least one invested point.\n\n" +
+        "Each effect receives the current talent points " +
+        "as its stack count.\n\n" +
+        "Use reusable EffectDefinition assets, " +
+        "not legacy AbilityEffect assets."
+    )]
+    private EffectDefinition[] passiveEffects =
+        new EffectDefinition[0];
+
+    public IReadOnlyList<EffectDefinition>
+        PassiveEffects => passiveEffects;
+
+    public bool HasSharedEffects =>
+        passiveEffects != null &&
+        passiveEffects.Length > 0;
+
+    // =====================================================
+    // LEGACY EFFECTS
+    // =====================================================
+
+    /// <summary>
+    /// Keep this field name unchanged.
+    ///
+    /// Existing talent assets store references
+    /// under the serialized name "effects".
+    ///
+    /// These references are preserved until
+    /// migration has been verified.
+    /// </summary>
+    [HideInInspector]
     public AbilityEffect[] effects;
 
-    // =========================================================
-    // UNLOCKS
-    // =========================================================
+    // =====================================================
+    // ABILITY UNLOCKS
+    // =====================================================
 
     [Header("Unlocks")]
 
     [Tooltip(
-        "Ability som låses upp när första poängen läggs i " +
-        "talenten.\n\n" +
-        "Kan vara både en vanlig Ability och en BaseAttack. " +
-        "AbilityData.UsageType avgör senare vilka slots den " +
-        "kan utrustas i."
+        "Ability unlocked when the first point " +
+        "is invested in this talent.\n\n" +
+        "The ability is learned but not " +
+        "automatically equipped."
     )]
     public AbilityData unlockedAbility;
 
-    // =========================================================
-    // WARD
-    // =========================================================
+    // =====================================================
+    // WARD SYSTEM
+    // =====================================================
 
     [Header("Ward")]
 
+    [Tooltip(
+        "Unlocks Ward generation after purchasing " +
+        "the first talent point.\n\n" +
+        "Ward capacity bonuses should use " +
+        "WardCapacityEffectDefinition."
+    )]
     public bool unlocksWardSystem;
 
-    // =========================================================
+    // =====================================================
     // TIER
-    // =========================================================
+    // =====================================================
 
     [Header("Tier")]
 
     [Min(1)]
     public int tier = 1;
 
-    // =========================================================
+    // =====================================================
     // REQUIREMENTS
-    // =========================================================
+    // =====================================================
 
     [Header("Requirements")]
 
     public TalentRequirement[] requirements;
 
-    // =========================================================
+    // =====================================================
     // TOOLTIP
-    // =========================================================
+    // =====================================================
 
     public TooltipData GetTooltipData(
         CharacterStats caster,
@@ -100,17 +137,12 @@ public sealed class TalentData :
         TooltipData data =
             new TooltipData
             {
-                title =
-                    talentName,
-
-                description =
-                    description,
-
-                showFooter =
-                    false
+                title = talentName,
+                description = description,
+                showFooter = false
             };
 
-        AddCurrentEffectsTooltip(
+        AddEffectsTooltip(
             data,
             currentPoints
         );
@@ -126,58 +158,76 @@ public sealed class TalentData :
             currentPoints
         );
 
-        AddRequirementsTooltip(
-            data
-        );
+        AddRequirementsTooltip(data);
 
         return data;
     }
 
-    // =========================================================
+    // =====================================================
     // CURRENT EFFECTS
-    // =========================================================
+    // =====================================================
 
-    private void AddCurrentEffectsTooltip(
+    private void AddEffectsTooltip(
         TooltipData data,
         int currentPoints)
     {
         if (data == null ||
-            currentPoints <= 0 ||
-            effects == null)
+            currentPoints <= 0)
         {
             return;
         }
 
-        for (int i = 0;
-             i < effects.Length;
-             i++)
+        if (HasSharedEffects)
         {
-            AbilityEffect effect =
-                effects[i];
+            foreach (
+                EffectDefinition effect
+                in passiveEffects)
+            {
+                if (effect == null)
+                    continue;
 
+                string text =
+                    effect.GetDescriptionForStacks(
+                        currentPoints
+                    );
+
+                if (!string.IsNullOrWhiteSpace(
+                        text))
+                {
+                    data.stats.Add(text);
+                }
+            }
+
+            return;
+        }
+
+        // Legacy tooltip compatibility.
+
+        if (effects == null)
+            return;
+
+        foreach (AbilityEffect effect in effects)
+        {
             if (effect is not
                 StatModifierEffect statEffect)
             {
                 continue;
             }
 
-            float value =
-                statEffect.value *
-                currentPoints;
-
             data.stats.Add(
                 StatFormatting.FormatModifier(
                     statEffect.stat,
                     statEffect.type,
-                    value
+                    statEffect.value *
+                    currentPoints
                 )
             );
         }
     }
 
-    // =========================================================
-    // ABILITY UNLOCK
-    // =========================================================
+    // =====================================================
+    // ABILITY UNLOCK TOOLTIP
+    // =====================================================
 
     private void AddAbilityUnlockTooltip(
         TooltipData data,
@@ -202,9 +252,7 @@ public sealed class TalentData :
             $"</color>"
         );
 
-        data.stats.Add(
-            string.Empty
-        );
+        data.stats.Add(string.Empty);
 
         TooltipData abilityTooltip =
             unlockedAbility.GetTooltipData(
@@ -225,28 +273,20 @@ public sealed class TalentData :
         if (abilityTooltip.stats == null)
             return;
 
-        for (int i = 0;
-             i < abilityTooltip.stats.Count;
-             i++)
+        foreach (
+            string line
+            in abilityTooltip.stats)
         {
-            string line =
-                abilityTooltip.stats[i];
-
-            if (string.IsNullOrEmpty(
-                    line))
+            if (!string.IsNullOrEmpty(line))
             {
-                continue;
+                data.stats.Add(line);
             }
-
-            data.stats.Add(
-                line
-            );
         }
     }
 
-    // =========================================================
-    // NEXT RANK
-    // =========================================================
+    // =====================================================
+    // NEXT RANK TOOLTIP
+    // =====================================================
 
     private void AddNextRankTooltip(
         TooltipData data,
@@ -260,9 +300,7 @@ public sealed class TalentData :
 
         if (currentPoints > 0)
         {
-            data.stats.Add(
-                string.Empty
-            );
+            data.stats.Add(string.Empty);
         }
 
         data.stats.Add(
@@ -271,42 +309,59 @@ public sealed class TalentData :
             "</color>"
         );
 
-        if (effects == null)
-            return;
-
         int nextRank =
             currentPoints + 1;
 
-        for (int i = 0;
-             i < effects.Length;
-             i++)
+        if (HasSharedEffects)
         {
-            AbilityEffect effect =
-                effects[i];
+            foreach (
+                EffectDefinition effect
+                in passiveEffects)
+            {
+                if (effect == null)
+                    continue;
 
+                string text =
+                    effect.GetDescriptionForStacks(
+                        nextRank
+                    );
+
+                if (!string.IsNullOrWhiteSpace(
+                        text))
+                {
+                    data.stats.Add(text);
+                }
+            }
+
+            return;
+        }
+
+        // Legacy preview compatibility.
+
+        if (effects == null)
+            return;
+
+        foreach (AbilityEffect effect in effects)
+        {
             if (effect is not
                 StatModifierEffect statEffect)
             {
                 continue;
             }
 
-            float value =
-                statEffect.value *
-                nextRank;
-
             data.stats.Add(
                 StatFormatting.FormatModifier(
                     statEffect.stat,
                     statEffect.type,
-                    value
+                    statEffect.value * nextRank
                 )
             );
         }
     }
 
-    // =========================================================
-    // REQUIREMENTS
-    // =========================================================
+    // =====================================================
+    // REQUIREMENTS TOOLTIP
+    // =====================================================
 
     private void AddRequirementsTooltip(
         TooltipData data)
@@ -318,9 +373,7 @@ public sealed class TalentData :
             return;
         }
 
-        data.stats.Add(
-            string.Empty
-        );
+        data.stats.Add(string.Empty);
 
         data.stats.Add(
             "<color=yellow>" +
@@ -328,18 +381,12 @@ public sealed class TalentData :
             "</color>"
         );
 
-        for (int i = 0;
-             i < requirements.Length;
-             i++)
+        foreach (
+            TalentRequirement requirement
+            in requirements)
         {
-            TalentRequirement requirement =
-                requirements[i];
-
-            if (requirement == null ||
-                requirement.talent == null)
-            {
+            if (requirement?.talent == null)
                 continue;
-            }
 
             TalentRuntime runtime =
                 FindTalentRuntime(
@@ -370,6 +417,10 @@ public sealed class TalentData :
         }
     }
 
+    // =====================================================
+    // RUNTIME LOOKUP
+    // =====================================================
+
     private static TalentRuntime
         FindTalentRuntime(
             TalentData talent)
@@ -381,36 +432,32 @@ public sealed class TalentData :
             return null;
         }
 
-        return TalentManager
-            .Instance
+        return TalentManager.Instance
             .talents
             .Find(
                 runtime =>
                     runtime != null &&
-                    runtime.data ==
-                    talent
+                    runtime.data == talent
             );
     }
 
-    // =========================================================
+    // =====================================================
     // VALIDATION
-    // =========================================================
+    // =====================================================
 
 #if UNITY_EDITOR
 
     private void OnValidate()
     {
-        maxPoints =
-            Mathf.Max(
-                1,
-                maxPoints
-            );
+        maxPoints = Mathf.Max(
+            1,
+            maxPoints
+        );
 
-        tier =
-            Mathf.Max(
-                1,
-                tier
-            );
+        tier = Mathf.Max(
+            1,
+            tier
+        );
     }
 
 #endif

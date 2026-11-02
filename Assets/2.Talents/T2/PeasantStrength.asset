@@ -18,8 +18,11 @@ MonoBehaviour:
     +2% Strength'
   icon: {fileID: 21300000, guid: af57a6fedc7467c45a265435e1acb7c0, type: 3}
   maxPoints: 3
+  passiveEffects:
+  - {fileID: 11400000, guid: 26e8716f4a5d1e54095911dae4a7514d, type: 2}
   effects:
   - {fileID: 11400000, guid: 4c1ddc64c5bb30d4b8946260382c1d67, type: 2}
   unlockedAbility: {fileID: 0}
+  unlocksWardSystem: 0
   tier: 2
-  unlockedBaseAttack: {fileID: 0}
+  requirements: []

@@ -447,6 +447,7 @@ public sealed class PlayerAbilityCollection :
     // EDITOR VALIDATION
     // =========================================================
 
+
     private void OnValidate()
     {
         learnedAbilities ??=
@@ -455,11 +456,10 @@ public sealed class PlayerAbilityCollection :
         EnsureActionSlotArray();
         EnsureBaseAttackSlotArray();
 
-        RemoveDuplicateLearnedAbilities();
-
         ValidateActionSlots();
         ValidateBaseAttackSlots();
     }
+
 
     private void EnsureActionSlotArray()
     {
