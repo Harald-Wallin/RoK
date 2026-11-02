@@ -12,6 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 52384bb5dcd50ef459a292be48c51a9a, type: 3}
   m_Name: Wolf_Starving
   m_EditorClassIdentifier: Assembly-CSharp::CreatureDefinition
-  id: creature_starving_wolf
   displayName: Starving Wolf
   icon: {fileID: 0}
+  resistances:
+  - damageType: 1
+    resistance: 1

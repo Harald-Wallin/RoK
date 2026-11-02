@@ -17,7 +17,7 @@ MonoBehaviour:
   category: {fileID: 11400000, guid: b9017220e49258a4295adccf0cacaffe, type: 2}
   visibility: 0
   revealHiddenOnFirstProgress: 0
-  image: {fileID: 0}
+  image: {fileID: 21300000, guid: ad82ab58509a57c4bace0f225b6d70f6, type: 3}
   shortDescription: Slay 10 Wolves
   longDescription: "Wolves have since long been a natural part of the wildlife of
     Ringl\xE1, but many a shepherd have also cursed them for their apetite for venison.
@@ -30,14 +30,50 @@ MonoBehaviour:
     shortDescription: 
     longDescription: 
     imageOverride: {fileID: 0}
-    rewards: []
+    rewards:
+    - kind: 4
+      displayName: 
+      icon: {fileID: 0}
+      ability: {fileID: 0}
+      item: {fileID: 0}
+      amount: 50
+    - kind: 5
+      displayName: 
+      icon: {fileID: 0}
+      ability: {fileID: 0}
+      item: {fileID: 0}
+      amount: 500
+    - kind: 0
+      displayName: Wolfslayer
+      icon: {fileID: 0}
+      ability: {fileID: 0}
+      item: {fileID: 0}
+      amount: 0
   - rankId: b5bc41d19e3f48f194d2f0fa729c1b1a
     rankLabel: II
     requiredTotalProgress: 3
     shortDescription: 
     longDescription: 
     imageOverride: {fileID: 0}
-    rewards: []
+    rewards:
+    - kind: 1
+      displayName: 
+      icon: {fileID: 0}
+      ability: {fileID: 11400000, guid: f5968349c0446ed41aed94abca0babff, type: 2}
+      item: {fileID: 0}
+      amount: 0
+    - kind: 0
+      displayName: 
+      icon: {fileID: 0}
+      ability: {fileID: 0}
+      item: {fileID: 0}
+      amount: 0
+    - kind: 0
+      displayName: 
+      icon: {fileID: 0}
+      ability: {fileID: 0}
+      item: {fileID: 0}
+      amount: 0
   - rankId: 34c57c4c36064f6bb62a46722944c373
     rankLabel: III
     requiredTotalProgress: 5

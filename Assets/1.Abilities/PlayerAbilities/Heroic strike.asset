@@ -16,8 +16,9 @@ MonoBehaviour:
   description: A determined strike that deals high damage upon your foe
   icon: {fileID: 21300000, guid: f4ce3af5ae408f94c9087617c874e8c0, type: 3}
   types: 0
+  usageType: 0
   tags: 0100000018000000
-  useActionSettings: 1
+  previewMode: 1
   targetingSettings:
     targetingMode: 4
     allowedRelations: 4
@@ -26,6 +27,7 @@ MonoBehaviour:
     radius: 1
     coneAngle: 90
     lineWidth: 0.3
+    lineLengthMode: 0
     selectionMode: 0
     maximumTargets: 1
     requiresAffectedTarget: 0
@@ -45,13 +47,35 @@ MonoBehaviour:
     channelTickInterval: 1
     maximumChargeDuration: 1
     recoveryDuration: 0
+    castMovement:
+      mode: 0
+      speedMultiplier: 0.5
+    chargeMovement:
+      mode: 0
+      speedMultiplier: 0.5
+    channelMovement:
+      mode: 0
+      speedMultiplier: 0.5
+    recoveryMovement:
+      mode: 0
+      speedMultiplier: 0.5
   executionSettings:
     activationMode: 1
     cooldown: 5
     triggersGlobalCooldown: 1
     globalCooldownOverride: 0
     canBeCancelled: 1
+    resolvesTargetHitImmediately: 1
     canBeInterrupted: 1
+  chargeSettings:
+    scalingMode: 0
+    minimumDamageMultiplier: 0.25
+    minimumRangeMultiplier: 0.25
+  chargeCompletionPreviewEffect:
+    effectType: 1
+    shakeAmount: 0.035
+    shakeSpeed: 28
+    forwardShakeInfluence: 0.15
   cooldown: 5
   globalCooldown: 0
   castTime: 0
@@ -64,3 +88,4 @@ MonoBehaviour:
   entersCombatState: 1
   effects:
   - {fileID: 11400000, guid: 701239db2e049894cbae6cdc17413f7a, type: 2}
+  - {fileID: 11400000, guid: 052de4cf30b2a794fbe8313887f6c21b, type: 2}

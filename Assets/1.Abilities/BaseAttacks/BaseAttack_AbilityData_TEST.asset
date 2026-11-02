@@ -18,7 +18,7 @@ MonoBehaviour:
   types: 0
   usageType: 1
   tags: 0100000000000000
-  useActionSettings: 1
+  previewMode: 1
   targetingSettings:
     targetingMode: 3
     allowedRelations: 4
@@ -27,6 +27,7 @@ MonoBehaviour:
     radius: 1
     coneAngle: 110
     lineWidth: 0.5
+    lineLengthMode: 0
     selectionMode: 0
     maximumTargets: 3
     requiresAffectedTarget: 0
@@ -46,6 +47,18 @@ MonoBehaviour:
     channelTickInterval: 1
     maximumChargeDuration: 1
     recoveryDuration: 0
+    castMovement:
+      mode: 0
+      speedMultiplier: 0.5
+    chargeMovement:
+      mode: 0
+      speedMultiplier: 0.5
+    channelMovement:
+      mode: 0
+      speedMultiplier: 0.5
+    recoveryMovement:
+      mode: 0
+      speedMultiplier: 0.5
   executionSettings:
     activationMode: 0
     cooldown: 0
@@ -54,6 +67,15 @@ MonoBehaviour:
     canBeCancelled: 1
     resolvesTargetHitImmediately: 1
     canBeInterrupted: 1
+  chargeSettings:
+    scalingMode: 0
+    minimumDamageMultiplier: 0.25
+    minimumRangeMultiplier: 0.25
+  chargeCompletionPreviewEffect:
+    effectType: 1
+    shakeAmount: 0.035
+    shakeSpeed: 28
+    forwardShakeInfluence: 0.15
   cooldown: 5
   globalCooldown: 0.8
   castTime: 0
@@ -65,4 +87,5 @@ MonoBehaviour:
   requiresHitCheck: 0
   entersCombatState: 0
   effects:
+  - {fileID: 11400000, guid: 94d298cbd11154e41a30b0141c609c27, type: 2}
   - {fileID: 11400000, guid: 94d298cbd11154e41a30b0141c609c27, type: 2}

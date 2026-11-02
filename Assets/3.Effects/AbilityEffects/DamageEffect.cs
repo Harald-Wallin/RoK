@@ -1,3 +1,4 @@
+
 using UnityEngine;
 
 [CreateAssetMenu(
@@ -7,7 +8,6 @@ public sealed class DamageEffect :
     AbilityEffect
 {
     [Header("Damage")]
-
     [SerializeField]
     [Min(0)]
     private int flatDamage;
@@ -15,14 +15,21 @@ public sealed class DamageEffect :
     [SerializeField]
     private DamageScalingEntry[] scaling;
 
-    [Header("Rules")]
+    [SerializeField]
+    private DamageType damageType =
+        DamageType.Physical;
 
+    [Header("Rules")]
     [SerializeField]
     [Tooltip(
-        "Ignorerar armor, block, crit och normal " +
-        "damageberäkning."
+        "Bypasses armor, block, crit and " +
+        "normal resistance calculations."
     )]
     private bool dealsRawDamage;
+
+    // =====================================================
+    // BASE DAMAGE
+    // =====================================================
 
     public int CalculateBaseDamage(
         CharacterStats caster,
@@ -47,10 +54,9 @@ public sealed class DamageEffect :
                 if (entry == null)
                     continue;
 
-                damage +=
-                    entry.Evaluate(
-                        caster
-                    );
+                damage += entry.Evaluate(
+                    caster
+                );
             }
         }
 
@@ -63,17 +69,18 @@ public sealed class DamageEffect :
                         chargeProgress
                     );
 
-            damage *=
-                chargeMultiplier;
+            damage *= chargeMultiplier;
         }
 
         return Mathf.Max(
             0,
-            Mathf.RoundToInt(
-                damage
-            )
+            Mathf.RoundToInt(damage)
         );
     }
+
+    // =====================================================
+    // EXECUTION
+    // =====================================================
 
     public override void Execute(
         AbilityEffectExecutionContext context)
@@ -118,7 +125,9 @@ public sealed class DamageEffect :
                     context.Caster,
                     context.Target,
                     damage,
-                    context.Ability
+                    context.Ability,
+                    damageType,
+                    source
                 );
 
         context.Target.TakeDamage(
@@ -127,16 +136,13 @@ public sealed class DamageEffect :
         );
     }
 
+    // =====================================================
+    // TOOLTIP
+    // =====================================================
+
     public override string GetTooltipText(
         CharacterStats caster)
     {
-        /*
-         * Tooltipen visar full-charge damage.
-         *
-         * AbilityEffect känner inte på egen hand till vilken
-         * AbilityData som äger effekten, så chargeintervallet
-         * kan senare presenteras av AbilityData-tooltipen.
-         */
         int damage =
             CalculateBaseDamage(
                 caster,
@@ -146,7 +152,8 @@ public sealed class DamageEffect :
 
         return dealsRawDamage
             ? $"Deals {damage} raw damage"
-            : $"Deals approximately {damage} damage";
+            : $"Deals approximately {damage} " +
+              $"{damageType} damage";
     }
 
 #if UNITY_EDITOR
@@ -154,11 +161,10 @@ public sealed class DamageEffect :
     {
         base.OnValidate();
 
-        flatDamage =
-            Mathf.Max(
-                0,
-                flatDamage
-            );
+        flatDamage = Mathf.Max(
+            0,
+            flatDamage
+        );
     }
 #endif
 }

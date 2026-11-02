@@ -1,25 +1,33 @@
+
 using UnityEngine;
 
 public static class CombatResolver
 {
+    // =====================================================
+    // FULL DAMAGE RESOLUTION
+    // =====================================================
+
     public static int DealDamage(
         CharacterStats attacker,
         CharacterStats target,
-        int baseDamage)
+        int baseDamage,
+        DamageType damageType = DamageType.Physical)
     {
         return DealDamage(
             DamageSourceContext.FromDirectSource(
                 attacker
             ),
             target,
-            baseDamage
+            baseDamage,
+            damageType
         );
     }
 
     public static int DealDamage(
         DamageSourceContext source,
         CharacterStats target,
-        int baseDamage)
+        int baseDamage,
+        DamageType damageType = DamageType.Physical)
     {
         CharacterStats attacker =
             source.DirectSource;
@@ -40,7 +48,9 @@ public static class CombatResolver
                     StatType.CritMultiplier
                 ),
                 attacker,
-                target
+                target,
+                damageType,
+                source
             );
 
         return target.TakeDamage(
@@ -48,6 +58,10 @@ public static class CombatResolver
             source
         );
     }
+
+    // =====================================================
+    // RAW DAMAGE – BYPASSES NORMAL CALCULATION
+    // =====================================================
 
     public static int DealRawDamage(
         CharacterStats attacker,
@@ -77,6 +91,10 @@ public static class CombatResolver
         );
     }
 
+    // =====================================================
+    // HIT CHANCE
+    // =====================================================
+
     public static bool RollHit(
         CharacterStats attacker,
         CharacterStats target)
@@ -99,15 +117,16 @@ public static class CombatResolver
         hitChance -=
             levelDifference * 0.07f;
 
-        hitChance =
-            Mathf.Clamp01(
-                hitChance
-            );
+        hitChance = Mathf.Clamp01(
+            hitChance
+        );
 
-        return
-            Random.value <=
-            hitChance;
+        return Random.value <= hitChance;
     }
+
+    // =====================================================
+    // DODGE
+    // =====================================================
 
     public static bool RollDodge(
         CharacterStats attacker,
@@ -131,22 +150,25 @@ public static class CombatResolver
         evasion +=
             levelDifference * 0.02f;
 
-        evasion =
-            Mathf.Clamp01(
-                evasion
-            );
+        evasion = Mathf.Clamp01(
+            evasion
+        );
 
-        return
-            Random.value <=
-            evasion;
+        return Random.value <= evasion;
     }
+
+    // =====================================================
+    // ALREADY SUCCESSFUL HIT
+    // =====================================================
 
     public static DamageResult
         ResolveDamageAfterSuccessfulHit(
             CharacterStats attacker,
             CharacterStats target,
             int baseDamage,
-            AbilityData ability)
+            AbilityData ability,
+            DamageType damageType = DamageType.Physical,
+            DamageSourceContext? sourceContext = null)
     {
         if (attacker == null ||
             target == null)
@@ -169,15 +191,23 @@ public static class CombatResolver
                 ),
                 attacker,
                 target,
-                canCrit
+                canCrit,
+                damageType,
+                sourceContext
             );
     }
+
+    // =====================================================
+    // STANDALONE EFFECT DAMAGE
+    // =====================================================
 
     public static DamageResult ResolveEffectDamage(
         CharacterStats attacker,
         CharacterStats target,
         int baseDamage,
-        AbilityData ability)
+        AbilityData ability,
+        DamageType damageType = DamageType.Physical,
+        DamageSourceContext? sourceContext = null)
     {
         if (attacker == null ||
             target == null)
@@ -198,6 +228,7 @@ public static class CombatResolver
             {
                 return new DamageResult
                 {
+                    damageType = damageType,
                     isMiss = true
                 };
             }
@@ -208,6 +239,7 @@ public static class CombatResolver
             {
                 return new DamageResult
                 {
+                    damageType = damageType,
                     isEvaded = true
                 };
             }
@@ -217,14 +249,21 @@ public static class CombatResolver
             attacker,
             target,
             baseDamage,
-            ability
+            ability,
+            damageType,
+            sourceContext
         );
     }
+
+    // =====================================================
+    // LEGACY ABILITY HIT
+    // =====================================================
 
     public static DamageResult ResolveAbilityHit(
         CharacterStats attacker,
         CharacterStats target,
-        int baseDamage)
+        int baseDamage,
+        DamageType damageType = DamageType.Physical)
     {
         if (attacker == null ||
             target == null)
@@ -241,9 +280,14 @@ public static class CombatResolver
                 StatType.CritMultiplier
             ),
             attacker,
-            target
+            target,
+            damageType
         );
     }
+
+    // =====================================================
+    // LEVEL
+    // =====================================================
 
     private static int GetLevel(
         CharacterStats stats)

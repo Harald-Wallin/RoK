@@ -1,8 +1,11 @@
-﻿using UnityEngine;
+﻿
+using UnityEngine;
 
 public struct DamageResult
 {
     public int damage;
+
+    public DamageType damageType;
 
     public bool isCrit;
     public bool isMiss;
@@ -14,18 +17,18 @@ public struct DamageResult
 
 public static class DamageCalculator
 {
-    /// <summary>
-    /// Legacy/full damage resolution.
-    ///
-    /// Används av kod som ännu inte har fått ett hitresultat från
-    /// AbilityEffectPipeline.
-    /// </summary>
+    // =====================================================
+    // FULL DAMAGE RESOLUTION (LEGACY ENTRY)
+    // =====================================================
+
     public static DamageResult CalculateDamage(
         int baseDamage,
         float critChance,
         float critMultiplier,
         CharacterStats attacker,
-        CharacterStats defender)
+        CharacterStats defender,
+        DamageType damageType = DamageType.Physical,
+        DamageSourceContext? sourceContext = null)
     {
         if (attacker == null ||
             defender == null)
@@ -39,7 +42,7 @@ public static class DamageCalculator
         {
             return new DamageResult
             {
-                damage = 0,
+                damageType = damageType,
                 isMiss = true
             };
         }
@@ -50,7 +53,7 @@ public static class DamageCalculator
         {
             return new DamageResult
             {
-                damage = 0,
+                damageType = damageType,
                 isEvaded = true
             };
         }
@@ -61,14 +64,21 @@ public static class DamageCalculator
             critMultiplier,
             attacker,
             defender,
-            true
+            true,
+            damageType,
+            sourceContext
         );
     }
 
+    // =====================================================
+    // DAMAGE AFTER SUCCESSFUL HIT
+    // =====================================================
+
     /// <summary>
-    /// Beräknar damage efter att hit och dodge redan har avgjorts.
+    /// Does not roll hit or dodge.
     ///
-    /// Den här metoden får aldrig göra ett nytt hit/dodge-slag.
+    /// The existing AbilityHitResolver is authoritative
+    /// for action-based hit resolution.
     /// </summary>
     public static DamageResult
         CalculateDamageAfterSuccessfulHit(
@@ -77,7 +87,9 @@ public static class DamageCalculator
             float critMultiplier,
             CharacterStats attacker,
             CharacterStats defender,
-            bool canCrit)
+            bool canCrit,
+            DamageType damageType = DamageType.Physical,
+            DamageSourceContext? sourceContext = null)
     {
         if (attacker == null ||
             defender == null)
@@ -85,26 +97,75 @@ public static class DamageCalculator
             return default;
         }
 
-        float damage =
-            Mathf.Max(
-                0,
-                baseDamage
+        DamageSourceContext source =
+            sourceContext ??
+            DamageSourceContext.FromDirectSource(
+                attacker
             );
 
-        damage *=
-            Random.Range(
-                0.8f,
-                1.2f
+        // =================================================
+        // CONTEXTUAL EFFECTS
+        // =================================================
+
+        DamageContext context =
+            new DamageContext(
+                source,
+                attacker,
+                defender,
+                damageType
             );
+
+        CharacterEffectController attackerEffects =
+            attacker.GetComponent<
+                CharacterEffectController>();
+
+        attackerEffects?.ApplyTo(context);
+
+        // Avoid processing a shared controller twice
+        // when attacker and defender are the same.
+        if (defender != attacker)
+        {
+            CharacterEffectController defenderEffects =
+                defender.GetComponent<
+                    CharacterEffectController>();
+
+            defenderEffects?.ApplyTo(context);
+        }
+
+        // =================================================
+        // BASE DAMAGE + OUTGOING MODIFIERS
+        // =================================================
+
+        float damage =
+            Mathf.Max(0f, baseDamage);
+
+        float outgoingMultiplier =
+            Mathf.Max(
+                0f,
+                1f + context.OutgoingBonus
+            );
+
+        damage *= outgoingMultiplier;
+
+        // =================================================
+        // RANDOM VARIATION
+        // =================================================
+
+        damage *= Random.Range(
+            0.8f,
+            1.2f
+        );
+
+        // =================================================
+        // CRITICAL HIT
+        // =================================================
 
         bool isCrit = false;
 
         if (canCrit)
         {
             float safeCritChance =
-                Mathf.Clamp01(
-                    critChance
-                );
+                Mathf.Clamp01(critChance);
 
             float safeCritMultiplier =
                 Mathf.Max(
@@ -113,84 +174,144 @@ public static class DamageCalculator
                 );
 
             isCrit =
-                Random.value <
-                safeCritChance;
+                Random.value < safeCritChance;
 
             if (isCrit)
             {
-                damage *=
-                    safeCritMultiplier;
+                damage *= safeCritMultiplier;
             }
         }
 
-        float armor =
-            Mathf.Max(
-                0f,
-                defender.GetStat(
-                    StatType.Armor
-                )
+        // =================================================
+        // ARMOR – PHYSICAL DAMAGE
+        // =================================================
+
+        if (damageType == DamageType.Physical)
+        {
+            float armor =
+                Mathf.Max(
+                    0f,
+                    defender.GetStat(
+                        StatType.Armor
+                    )
+                );
+
+            damage *=
+                100f / (100f + armor);
+        }
+
+        // =================================================
+        // RESISTANCES
+        // =================================================
+
+        float baseResistance =
+            GetBaseResistance(
+                defender,
+                damageType
+            );
+
+        float totalResistance =
+            Mathf.Clamp(
+                baseResistance +
+                context.ResistanceBonus,
+                -1f,
+                1f
             );
 
         damage *=
-            100f /
-            (100f + armor);
+            1f - totalResistance;
+
+        // =================================================
+        // BLOCK – PHYSICAL DAMAGE
+        // =================================================
 
         bool blocked = false;
         int blockedAmount = 0;
 
-        float blockChance =
-            Mathf.Clamp01(
-                defender.GetStat(
-                    StatType.BlockChance
-                )
-            );
-
-        if (Random.value < blockChance)
+        if (damageType == DamageType.Physical)
         {
-            blocked = true;
-
-            int blockValue =
-    Mathf.Max(
-        0,
-        Mathf.RoundToInt(
-            defender.GetStat(
-                StatType.BlockValue
-            )
-        )
-    );
-
-            blockedAmount =
-                Mathf.Min(
-                    blockValue,
-                    Mathf.Max(
-                        0,
-                        Mathf.CeilToInt(
-                            damage
-                        )
+            float blockChance =
+                Mathf.Clamp01(
+                    defender.GetStat(
+                        StatType.BlockChance
                     )
                 );
 
-            damage -= blockedAmount;
+            if (Random.value < blockChance)
+            {
+                blocked = true;
 
-            damage -= blockedAmount;
+                int blockValue =
+                    Mathf.Max(
+                        0,
+                        Mathf.RoundToInt(
+                            defender.GetStat(
+                                StatType.BlockValue
+                            )
+                        )
+                    );
+
+                blockedAmount =
+                    Mathf.Min(
+                        blockValue,
+                        Mathf.Max(
+                            0,
+                            Mathf.CeilToInt(damage)
+                        )
+                    );
+
+                // Exactly one block subtraction.
+                damage -= blockedAmount;
+            }
         }
+
+        // =================================================
+        // FINAL DAMAGE
+        // =================================================
 
         int finalDamage =
             Mathf.Max(
                 0,
-                Mathf.FloorToInt(
-                    damage
-                )
+                Mathf.FloorToInt(damage)
             );
 
         return new DamageResult
         {
             damage = finalDamage,
+            damageType = damageType,
+
             isCrit = isCrit,
+
             isMiss = false,
             isEvaded = false,
+
             isBlocked = blocked,
             blockedAmount = blockedAmount
         };
+    }
+
+    // =====================================================
+    // BASE CREATURE RESISTANCE
+    // =====================================================
+
+    private static float GetBaseResistance(
+        CharacterStats defender,
+        DamageType damageType)
+    {
+        if (defender == null)
+            return 0f;
+
+        CreatureIdentity identity =
+            defender.GetComponent<
+                CreatureIdentity>();
+
+        CreatureDefinition definition =
+            identity != null
+                ? identity.Definition
+                : null;
+
+        return definition != null
+            ? definition.GetResistance(damageType)
+            : 0f;
     }
 }

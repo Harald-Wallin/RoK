@@ -86,6 +86,112 @@ public sealed class BuffSystem :
         return true;
     }
 
+
+    // =====================================================
+    // SHARED EFFECT DEFINITION BUFFS
+    // =====================================================
+
+    public bool ApplyDefinition(
+        BuffDefinition definition,
+        DamageSourceContext source)
+    {
+        if (!isActiveAndEnabled ||
+            definition == null ||
+            stats == null)
+        {
+            return false;
+        }
+
+        // Reapply only to the matching buff
+        // from the same damage source.
+        DefinitionBuffRuntime existing =
+            GetDefinitionBuff(
+                definition,
+                source
+            );
+
+        if (existing != null)
+        {
+            if (existing.stacks <
+                existing.MaxStacks)
+            {
+                existing.stacks++;
+
+                existing.OnStackChanged(
+                    stats
+                );
+
+                if (!existing.HasActiveEffects)
+                {
+                    RemoveBuff(existing);
+                    return false;
+                }
+            }
+
+            if (definition.RefreshDurationOnReapply)
+            {
+                existing.ResetDuration();
+            }
+
+            OnBuffChanged?.Invoke(
+                existing,
+                this
+            );
+
+            return true;
+        }
+
+        // Each new buff receives its own
+        // lifetime and effect handle.
+        DefinitionBuffRuntime runtime =
+            new DefinitionBuffRuntime(
+                definition,
+                source
+            );
+
+        if (!AddRuntimeBuff(runtime))
+            return false;
+
+        // Handle failed effect initialization.
+        if (!runtime.HasActiveEffects)
+        {
+            RemoveBuff(runtime);
+
+            Debug.LogError(
+                $"Failed to activate buff " +
+                $"'{definition.DisplayName}'.",
+                this
+            );
+
+            return false;
+        }
+
+        return true;
+    }
+
+    private DefinitionBuffRuntime GetDefinitionBuff(
+        BuffDefinition definition,
+        DamageSourceContext source)
+    {
+        foreach (ActiveBuff buff in activeBuffs)
+        {
+            if (buff is not
+                DefinitionBuffRuntime runtime)
+            {
+                continue;
+            }
+
+            if (runtime.Definition == definition &&
+                runtime.MatchesSource(source))
+            {
+                return runtime;
+            }
+        }
+
+        return null;
+    }
+
+
     public bool RemoveBuff(
         ActiveBuff buff)
     {
