@@ -88,3 +88,5 @@ MonoBehaviour:
   entersCombatState: 1
   effects:
   - {fileID: 11400000, guid: 3c42a3b0882df0241b2d6872f8a120db, type: 2}
+  - {fileID: 11400000, guid: fe9aaca0e14afcf4e8e1fd5f9418d3a1, type: 2}
+  - {fileID: 11400000, guid: 16c9227364b76c048bd1ea2212ddb622, type: 2}

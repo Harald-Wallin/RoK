@@ -66,6 +66,14 @@ public sealed class RoKContentStudioWindow :
         recipePanel = new();
 
 
+    private readonly RoKContentStudioDiagnosticsPanel
+        diagnosticsPanel = new();
+
+
+    private readonly RoKContentStudioEffectRegistryPanel
+        effectRegistryPanel = new();
+
+
 
 
     // =====================================================
@@ -163,6 +171,32 @@ public sealed class RoKContentStudioWindow :
         header.Add(refreshButton);
 
         root.Add(header);
+
+
+        Button auditButton =
+            new Button(DrawContentAudit)
+            {
+                text = "Content Audit"
+            };
+
+        auditButton.tooltip =
+            "Validate content and inspect asset dependencies.";
+
+        header.Add(auditButton);
+
+
+        Button registryButton =
+            new Button(DrawEffectRegistry)
+            {
+                text = "Effect Registry"
+            };
+
+        registryButton.tooltip =
+            "Discover and create any registered RöK effect.";
+
+        header.Add(registryButton);
+
+
 
         // =================================================
         // MAIN LAYOUT
@@ -592,6 +626,89 @@ public sealed class RoKContentStudioWindow :
             "Use the ? buttons beside fields " +
             "for detailed documentation.";
     }
+
+
+    // =====================================================
+    // DYNAMIC EFFECT REGISTRY
+    // =====================================================
+
+    private void DrawEffectRegistry()
+    {
+        workspace.Clear();
+
+        workspace.Add(
+            Heading("Dynamic Effect Registry")
+        );
+
+        workspace.Add(
+            Paragraph(
+                "Discover, create and attach reusable " +
+                "gameplay effects without manually " +
+                "registering every new effect type."
+            )
+        );
+
+        IMGUIContainer panel =
+            new IMGUIContainer(
+                () =>
+                {
+                    effectRegistryPanel.Draw(
+                        ShowAsset,
+                        RefreshLibrary
+                    );
+                }
+            );
+
+        panel.style.marginTop = 10;
+
+        workspace.Add(panel);
+
+        helpLabel.text =
+            "Effect Registry discovers asset-creatable " +
+            "effect types automatically.";
+    }
+
+
+
+    // =====================================================
+    // CONTENT AUDIT
+    // =====================================================
+
+    private void DrawContentAudit()
+    {
+        workspace.Clear();
+
+        workspace.Add(
+            Heading("Content Validation & Dependencies")
+        );
+
+        workspace.Add(
+            Paragraph(
+                "Find missing references, suspicious " +
+                "configurations and dependencies between " +
+                "RöK gameplay assets."
+            )
+        );
+
+        IMGUIContainer panel =
+            new IMGUIContainer(
+                () =>
+                {
+                    diagnosticsPanel.Draw(
+                        ShowAsset
+                    );
+                }
+            );
+
+        panel.style.marginTop = 10;
+
+        workspace.Add(panel);
+
+        helpLabel.text =
+            "Content Audit is read-only. " +
+            "Run a new scan after editing or creating assets.";
+    }
+
 
 
     private void DrawCreator()
