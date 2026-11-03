@@ -1,0 +1,90 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 819478855cc46d4488d511a805e4a839, type: 3}
+  m_Name: Ability_TestFireStrike
+  m_EditorClassIdentifier: Assembly-CSharp::AbilityData
+  abilityName: Ability_TestFireStrike
+  description: 
+  icon: {fileID: 21300000, guid: 53c643d7ddc1cde4ca777092a9fd44b3, type: 3}
+  types: 1
+  usageType: 0
+  tags: 
+  previewMode: 1
+  targetingSettings:
+    targetingMode: 1
+    allowedRelations: 4
+    range: 2
+    minimumRange: 0
+    radius: 1
+    coneAngle: 90
+    lineWidth: 0.5
+    lineLengthMode: 0
+    selectionMode: 0
+    maximumTargets: 0
+    requiresAffectedTarget: 1
+    targetLayers:
+      serializedVersion: 2
+      m_Bits: 64
+    lineOfSight:
+      policy: 0
+      blockingLayers:
+        serializedVersion: 2
+        m_Bits: 0
+      originOffset: 0.05
+  timingSettings:
+    timingType: 0
+    castDuration: 0
+    channelDuration: 0
+    channelTickInterval: 1
+    maximumChargeDuration: 1
+    recoveryDuration: 0
+    castMovement:
+      mode: 0
+      speedMultiplier: 0.5
+    chargeMovement:
+      mode: 0
+      speedMultiplier: 0.5
+    channelMovement:
+      mode: 0
+      speedMultiplier: 0.5
+    recoveryMovement:
+      mode: 0
+      speedMultiplier: 0.5
+  executionSettings:
+    activationMode: 0
+    cooldown: 0
+    triggersGlobalCooldown: 1
+    globalCooldownOverride: 0
+    canBeCancelled: 1
+    resolvesTargetHitImmediately: 1
+    canBeInterrupted: 1
+  chargeSettings:
+    scalingMode: 0
+    minimumDamageMultiplier: 0.25
+    minimumRangeMultiplier: 0.25
+  chargeCompletionPreviewEffect:
+    effectType: 1
+    shakeAmount: 0.035
+    shakeSpeed: 28
+    forwardShakeInfluence: 0.15
+  cooldown: 5
+  globalCooldown: 0.8
+  castTime: 0
+  wardCost: 0
+  alwaysHits: 0
+  canCrit: 1
+  canMiss: 1
+  isSelfCast: 0
+  requiresHitCheck: 0
+  entersCombatState: 1
+  effects:
+  - {fileID: 11400000, guid: 3c42a3b0882df0241b2d6872f8a120db, type: 2}

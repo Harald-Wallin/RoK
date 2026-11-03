@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6e079692f78bd20428aeb5c375264feb, type: 3}
+  m_Name: Fire Protection_Buff
+  m_EditorClassIdentifier: Assembly-CSharp::BuffDefinition
+  displayName: Fire Protection
+  description: 
+  icon: {fileID: 21300000, guid: 43b6554babfdb8c45b706d1a46e8e918, type: 3}
+  duration: 30
+  removeOnDeath: 1
+  removeOnEncounterReset: 1
+  maxStacks: 1
+  refreshDurationOnReapply: 1
+  effects:
+  - {fileID: 11400000, guid: a0967730435968b4f92b600c4770b7db, type: 2}
+  - {fileID: 11400000, guid: f1f6a6c9af816d04eb867f65d6b3dc92, type: 2}
+  - {fileID: 11400000, guid: ec69396dc46fea843a1798232e57fbab, type: 2}
+  - {fileID: 11400000, guid: 292d2b0487670d14c948b4a8cdfec395, type: 2}

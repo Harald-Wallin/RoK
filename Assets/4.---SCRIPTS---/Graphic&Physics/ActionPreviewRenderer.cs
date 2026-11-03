@@ -274,6 +274,11 @@ public sealed class ActionPreviewRenderer :
     private TargetShapeRenderer
         activeFillRenderer;
 
+
+    private TargetingOutOfRangeCursor
+        outOfRangeCursor;
+
+
     // =========================================================
     // PASSIVE RENDERERS
     // =========================================================
@@ -334,11 +339,15 @@ public sealed class ActionPreviewRenderer :
 
         ClearActivePreview();
         ClearPassivePreview();
+        outOfRangeCursor?.Hide();
     }
 
     private void OnDestroy()
     {
         Unsubscribe();
+        
+        outOfRangeCursor?.Dispose();
+        outOfRangeCursor = null;
 
         if (activePreviewRoot != null)
         {
@@ -620,6 +629,18 @@ public sealed class ActionPreviewRenderer :
         activePreviewRoot.SetActive(
             false
         );
+
+
+        // Independent cursor presentation.
+        // Not parented to activePreviewRoot.
+
+        outOfRangeCursor =
+            new TargetingOutOfRangeCursor(
+                transform,
+                sortingLayerName,
+                sortingOrder + 2
+            );
+
     }
 
     private void CreatePassiveRenderers()
@@ -882,7 +903,53 @@ public sealed class ActionPreviewRenderer :
 
                 break;
         }
+
+
+        // =================================================
+        // HIDE GROUND PREVIEW WHEN OUT OF RANGE
+        // =================================================
+        //
+        // Keep the existing small out-of-range cursor.
+        // Only hide the large targeting geometry.
+        // =================================================
+
+        bool isGroundTargeting =
+            targeting.Settings.TargetingMode ==
+                TargetingMode.Circle ||
+            targeting.Settings.TargetingMode ==
+                TargetingMode.Point;
+
+        bool isBeyondRange =
+            targeting.FailureReason ==
+                TargetingFailureReason.OutOfRange;
+
+        if (isGroundTargeting && isBeyondRange)
+        {
+            activeOutlineRenderer.Clear();
+            activeFillRenderer.Clear();
+        }
+
+
+        // =================================================
+        // OUT OF RANGE CURSOR
+        // =================================================
+
+        if (ability.PreviewMode !=
+            ActionPreviewMode.None)
+        {
+            outOfRangeCursor?.Update(
+                targeting
+            );
+        }
+        else
+        {
+            outOfRangeCursor?.Hide();
+        }
+
+
     }
+
+
 
     private void RenderFullGeometry(
         TargetingResult targeting)
@@ -1523,6 +1590,10 @@ public sealed class ActionPreviewRenderer :
                     false
                 );
         }
+
+
+        outOfRangeCursor?.Hide();
+
     }
 
     private void ClearPassivePreview()

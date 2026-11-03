@@ -404,6 +404,45 @@ public sealed class TargetResolver
             return TargetingFailureReason.None;
         }
 
+
+        // =================================================
+        // GROUND TARGETING: PLACEMENT RANGE
+        // =================================================
+        //
+        // Circle and Point use Range as the maximum
+        // distance at which their center can be placed.
+        //
+        // RawAimPoint is the actual requested position.
+        // TargetPoint may already be clamped.
+        //
+        // A position beyond Range is invalid rather
+        // than automatically becoming a valid cast
+        // at the nearest allowed point.
+        // =================================================
+
+        bool isGroundTargeting =
+            mode == TargetingMode.Circle ||
+            mode == TargetingMode.Point;
+
+        if (isGroundTargeting)
+        {
+            float requestedDistance =
+                Vector2.Distance(
+                    result.Origin,
+                    result.RawAimPoint
+                );
+
+            const float tolerance = 0.001f;
+
+            if (requestedDistance >
+                result.EffectiveRange + tolerance)
+            {
+                return
+                    TargetingFailureReason.OutOfRange;
+            }
+        }
+
+
         if (result.Distance + 0.001f <
             result.Settings.MinimumRange)
         {
@@ -499,19 +538,47 @@ public sealed class TargetResolver
                 TargetingFailureReason.TargetNotAllowed;
         }
 
-        TargetingFailureReason rangeFailure =
-            GetTargetRangeFailure(
-                result.Origin,
-                target,
-                result.Settings,
-                result.EffectiveRange
-            );
 
-        if (rangeFailure !=
-            TargetingFailureReason.None)
+        // =================================================
+        // RANGE VALIDATION
+        // =================================================
+        //
+        // Circle and Point are ground-positioned shapes.
+        // Their placement range has already been enforced
+        // by ResolveTargetPoint().
+        //
+        // Targets inside their geometry must not be
+        // rejected just because they are farther away
+        // from the caster than the placement range.
+        //
+        // Self, SingleTarget, Cone and Line retain
+        // their existing per-target range rules.
+        // =================================================
+
+        TargetingMode targetingMode =
+            result.Settings.TargetingMode;
+
+        bool isGroundPositioned =
+            targetingMode == TargetingMode.Circle ||
+            targetingMode == TargetingMode.Point;
+
+        if (!isGroundPositioned)
         {
-            return rangeFailure;
+            TargetingFailureReason rangeFailure =
+                GetTargetRangeFailure(
+                    result.Origin,
+                    target,
+                    result.Settings,
+                    result.EffectiveRange
+                );
+
+            if (rangeFailure !=
+                TargetingFailureReason.None)
+            {
+                return rangeFailure;
+            }
         }
+
 
         if (!TargetValidator
                 .HasLineOfSightToTarget(

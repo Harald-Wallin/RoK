@@ -660,8 +660,33 @@ public sealed class CharacterActionController :
             currentContext
         );
 
+
         if (!targeting.IsValid)
+        {
+            // Invalid ground placement:
+            // cancel the preview without executing
+            // effects, spending Wards or starting
+            // cooldowns.
+
+            TargetingMode mode =
+                currentContext.Ability
+                    .TargetingSettings
+                    .TargetingMode;
+
+            bool isGroundTargeting =
+                mode == TargetingMode.Circle ||
+                mode == TargetingMode.Point;
+
+            if (isGroundTargeting &&
+                targeting.FailureReason ==
+                    TargetingFailureReason.OutOfRange)
+            {
+                CancelCurrentAction();
+            }
+
             return false;
+        }
+
 
         BeginTimingOrExecution();
 
