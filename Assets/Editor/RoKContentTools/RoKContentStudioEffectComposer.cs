@@ -108,23 +108,9 @@ public sealed class RoKContentStudioEffectComposer
 
         DrawProperty(
             serialized,
-            "displayName",
-            "Display Name",
-            "Namnet som visas i buff-UI."
-        );
-
-        DrawProperty(
-            serialized,
             "description",
             "Description",
             "Valfri beskrivning av buffen."
-        );
-
-        DrawProperty(
-            serialized,
-            "icon",
-            "Icon",
-            "Ikonen som används av buff-UI."
         );
 
         EditorGUILayout.Space();

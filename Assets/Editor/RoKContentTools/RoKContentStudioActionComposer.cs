@@ -12,7 +12,10 @@ public sealed class RoKContentStudioActionComposer
     // STATE
     // =====================================================
 
-    private bool showAbilitySettings = true;
+
+    private readonly RoKForgeAbilitySettingsEditor
+        abilitySettingsEditor = new();
+
     private bool showLegacyRules;
 
     private string search = string.Empty;
@@ -88,6 +91,7 @@ public sealed class RoKContentStudioActionComposer
         cachedSearch = null;
     }
 
+
     // =====================================================
     // ABILITY SETTINGS
     // =====================================================
@@ -95,188 +99,9 @@ public sealed class RoKContentStudioActionComposer
     private void DrawAbilitySettings(
         AbilityData ability)
     {
-        showAbilitySettings =
-            EditorGUILayout.Foldout(
-                showAbilitySettings,
-                "Ability Configuration",
-                true
-            );
-
-        if (!showAbilitySettings)
-            return;
-
-        SerializedObject serialized =
-            new SerializedObject(ability);
-
-        serialized.Update();
-
-        Section("Identity");
-
-        DrawProperty(
-            serialized,
-            "abilityName",
-            "Ability Name",
-            "Namnet som visas i spelets UI."
-        );
-
-        DrawProperty(
-            serialized,
-            "description",
-            "Description",
-            "Spelarens beskrivning av abilityn."
-        );
-
-        DrawProperty(
-            serialized,
-            "icon",
-            "Icon",
-            "Ikonen i actionbaren och Spellbook."
-        );
-
-        Section("Classification");
-
-        DrawProperty(
-            serialized,
-            "types",
-            "Ability Type",
-            "Melee, Spell, Buff, Curse eller Ranged."
-        );
-
-        DrawProperty(
-            serialized,
-            "usageType",
-            "Usage Type",
-            "Ability eller BaseAttack.\n\n" +
-            "BaseAttacks använder särskilda slots."
-        );
-
-        DrawProperty(
-            serialized,
-            "tags",
-            "Tags",
-            "Taggar för framtida interaktioner " +
-            "och gameplay-regler."
-        );
-
-        Section("Targeting");
-
-        DrawProperty(
-            serialized,
-            "previewMode",
-            "Target Preview",
-            "Bestämmer hur targeting visas, " +
-            "inte vilka mål som faktiskt påverkas."
-        );
-
-        DrawProperty(
-            serialized,
-            "targetingSettings",
-            "Targeting Settings",
-            "Bestämmer vilka mål som är giltiga.\n\n" +
-            "Exempel: Self, SingleTarget, Cone, Line."
-        );
-
-        Section("Timing & Execution");
-
-        DrawProperty(
-            serialized,
-            "timingSettings",
-            "Timing Settings",
-            "Cast, Charge, Channel och Recovery."
-        );
-
-        DrawProperty(
-            serialized,
-            "executionSettings",
-            "Execution Settings",
-            "Cooldown, GCD, activation mode " +
-            "och andra exekveringsregler."
-        );
-
-        DrawProperty(
-            serialized,
-            "chargeSettings",
-            "Charge Settings",
-            "Inställningar för charge-baserade abilities."
-        );
-
-        DrawProperty(
-            serialized,
-            "chargeCompletionPreviewEffect",
-            "Full Charge Preview",
-            "Visuell indikator vid full charge."
-        );
-
-        Section("Gameplay Rules");
-
-        DrawProperty(
-            serialized,
-            "wardCost",
-            "Ward Cost",
-            "Hur många Wards abilityn kostar."
-        );
-
-        DrawProperty(
-            serialized,
-            "alwaysHits",
-            "Always Hits",
-            "Om abilityn alltid ska träffa."
-        );
-
-        DrawProperty(
-            serialized,
-            "canMiss",
-            "Can Miss",
-            "Om miss-resolution tillåts."
-        );
-
-        DrawProperty(
-            serialized,
-            "canCrit",
-            "Can Crit",
-            "Om abilityns skada får bli critical."
-        );
-
-        DrawProperty(
-            serialized,
-            "requiresHitCheck",
-            "Requires Hit Check",
-            "Legacy combat-regel. " +
-            "Kontrollera actionens targeting och " +
-            "execution-inställningar i nya systemet."
-        );
-
-        DrawProperty(
-            serialized,
-            "entersCombatState",
-            "Enters Combat",
-            "Om användningen ska registrera combat activity."
-        );
-
-        if (serialized.ApplyModifiedProperties())
-        {
-            EditorUtility.SetDirty(ability);
-        }
+        abilitySettingsEditor.Draw(ability);
     }
 
-    private static void DrawProperty(
-        SerializedObject serialized,
-        string path,
-        string label,
-        string help)
-    {
-        SerializedProperty property =
-            serialized.FindProperty(path);
-
-        if (property == null)
-            return;
-
-        EditorGUILayout.PropertyField(
-            property,
-            new GUIContent(label, help),
-            true
-        );
-    }
 
     // =====================================================
     // ACTION LIST

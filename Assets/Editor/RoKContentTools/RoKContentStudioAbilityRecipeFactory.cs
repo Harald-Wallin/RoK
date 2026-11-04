@@ -23,6 +23,9 @@ public enum RoKAbilityRecipeKind
 
 public sealed class RoKAbilityRecipeRequest
 {
+
+    public Sprite Icon;
+
     public string Name = "New Ability";
     public string Description = "";
 
@@ -40,7 +43,13 @@ public sealed class RoKAbilityRecipeRequest
     public float Cooldown = 5f;
     public float Range = 6f;
 
-    public int TargetLayers;
+
+    public int TargetLayers =
+        LayerMask.GetMask(
+            "Hitbox",
+            "hitbox"
+        );
+
 
     public bool CanMiss = true;
     public bool CanCrit = true;
@@ -314,6 +323,13 @@ public static class RoKContentStudioAbilityRecipeFactory
             "description",
             request.Description
         );
+
+
+        Require(
+            serialized,
+            "icon"
+        ).objectReferenceValue = request.Icon;
+
 
         SetEnum(
             serialized,

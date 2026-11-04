@@ -22,6 +22,7 @@ public enum RoKBuffEffectSource
 
 public sealed class RoKBuffEffectDraft
 {
+
     public RoKBuffEffectSource Source =
         RoKBuffEffectSource.CreateNew;
 
@@ -522,6 +523,9 @@ public static class RoKContentStudioSmartRecipeFactory
     {
         return new RoKAbilityRecipeRequest
         {
+
+            Icon = source.Icon,
+
             Name = source.Name,
             Description = source.Description,
 

@@ -74,241 +74,195 @@ public sealed class RoKContentStudioWindow :
         effectRegistryPanel = new();
 
 
+    private readonly RoKForgeShell forgeShell =
+        new();
+
+
 
 
     // =====================================================
-    // MENU
+    // THE FORGE MENU
     // =====================================================
 
-    [MenuItem("RöK/Content Studio")]
+    [MenuItem("The Forge/Open The Forge")]
     public static void Open()
     {
-        var window =
+        RoKContentStudioWindow window =
             GetWindow<RoKContentStudioWindow>();
 
         window.titleContent =
-            new GUIContent("RöK Content Studio");
+            new GUIContent("The Forge");
 
         window.minSize =
-            new Vector2(850f, 560f);
+            new Vector2(900f, 560f);
 
         window.Show();
     }
 
+
+
     // =====================================================
-    // UI TOOLKIT
+    // THE FORGE V2.0 - ROOT LAYOUT
     // =====================================================
+
 
     public void CreateGUI()
     {
-        VisualElement root =
-            rootVisualElement;
-
-        root.Clear();
-
-        root.style.flexDirection =
-            FlexDirection.Column;
-
-        root.style.paddingLeft = 10;
-        root.style.paddingRight = 10;
-        root.style.paddingTop = 10;
-        root.style.paddingBottom = 10;
-
-        // =================================================
-        // HEADER
-        // =================================================
-
-        VisualElement header =
-            new VisualElement();
-
-        header.style.flexDirection =
-            FlexDirection.Row;
-
-        header.style.alignItems =
-            Align.Center;
-
-        header.style.marginBottom = 10;
-
-        Label title =
-            new Label("RöK Content Studio");
-
-        title.style.fontSize = 18;
-        title.style.unityFontStyleAndWeight =
-            FontStyle.Bold;
-
-        title.style.flexGrow = 1;
-
-        header.Add(title);
-
-        Button newButton =
-            new Button(DrawCreator)
-            {
-                text = "+ New Content"
-            };
-
-        header.Add(newButton);
-
-
-        Button recipeButton =
-            new Button(DrawAbilityRecipes)
-            {
-                text = "Ability Recipes"
-            };
-
-        recipeButton.tooltip =
-            "Create a complete ability with " +
-            "automatically connected actions.";
-
-        header.Add(recipeButton);
-
-
-        Button refreshButton =
-            new Button(RefreshLibrary)
-            {
-                text = "Refresh Library"
-            };
-
-        header.Add(refreshButton);
-
-        root.Add(header);
-
-
-        Button auditButton =
-            new Button(DrawContentAudit)
-            {
-                text = "Content Audit"
-            };
-
-        auditButton.tooltip =
-            "Validate content and inspect asset dependencies.";
-
-        header.Add(auditButton);
-
-
-        Button registryButton =
-            new Button(DrawEffectRegistry)
-            {
-                text = "Effect Registry"
-            };
-
-        registryButton.tooltip =
-            "Discover and create any registered RöK effect.";
-
-        header.Add(registryButton);
-
-
-
-        // =================================================
-        // MAIN LAYOUT
-        // =================================================
-
-        VisualElement main =
-            new VisualElement();
-
-        main.style.flexDirection =
-            FlexDirection.Row;
-
-        main.style.flexGrow = 1;
-
-        main.style.minHeight = 0;
-
-        root.Add(main);
-
-        // =================================================
-        // LIBRARY COLUMN
-        // =================================================
-
-        VisualElement sidebar =
-            new VisualElement();
-
-        sidebar.style.width = 260;
-        sidebar.style.marginRight = 12;
-
-        sidebar.style.flexShrink = 0;
-
-        main.Add(sidebar);
-
-        EnumField categoryField =
-            new EnumField("Category", category);
-
-        categoryField.tooltip =
-            "Choose which content type appears " +
-            "in the library.\n\n" +
-            "This only filters the list. " +
-            "It never modifies assets.";
-
-        categoryField.RegisterValueChangedCallback(
-            evt =>
-            {
-                category =
-                    (RoKContentCategory)evt.newValue;
-
-                RefreshLibrary();
-            }
-        );
-
-        sidebar.Add(categoryField);
-
-        TextField searchField =
-            new TextField("Search");
-
-        searchField.tooltip =
-            "Search asset names across your project.\n" +
-            "The search does not require assets " +
-            "to be stored in a particular folder.";
-
-        searchField.RegisterValueChangedCallback(
-            evt =>
-            {
-                search = evt.newValue;
-                RefreshLibrary();
-            }
-        );
-
-        sidebar.Add(searchField);
-
-        libraryView =
-            new ScrollView();
-
-        libraryView.style.flexGrow = 1;
-
-        sidebar.Add(libraryView);
-
-        // =================================================
-        // WORKSPACE COLUMN
-        // =================================================
-
-        workspace =
-            new ScrollView();
-
-        workspace.style.flexGrow = 1;
-        workspace.style.minWidth = 0;
-
-        main.Add(workspace);
-
-        // =================================================
-        // HELP PANEL
-        // =================================================
-
-        helpLabel =
-            new Label(
-                "Välj ett asset eller klicka på " +
-                "New Content för att börja."
+        try
+        {
+            Debug.Log(
+                "[The Forge] Initializing UI..."
             );
 
-        helpLabel.style.whiteSpace =
-            WhiteSpace.Normal;
+            RoKForgeCallbacks callbacks =
+                new RoKForgeCallbacks
+                {
+                    // =====================================
+                    // NAVIGATION
+                    // =====================================
 
-        helpLabel.style.marginTop = 10;
-        helpLabel.style.paddingTop = 8;
-        helpLabel.style.paddingBottom = 8;
+                    Home = DrawWelcome,
 
-        root.Add(helpLabel);
+                    OpenAsset = ShowAsset,
 
-        RefreshLibrary();
+                    RefreshLibrary = RefreshLibrary,
 
-        DrawWelcome();
+                    // =====================================
+                    // CONTENT CREATION
+                    // =====================================
+
+                    CreateAbility = DrawAbilityRecipes,
+
+                    CreateBuff = () =>
+                    {
+                        recipe =
+                            RoKContentRecipe.BuffDefinition;
+
+                        DrawCreator();
+                    },
+
+                    CreateEffect = DrawEffectRegistry,
+
+                    GuidedCreator = DrawCreator,
+
+                    // =====================================
+                    // TOOLS
+                    // =====================================
+
+                    ContentAudit = DrawContentAudit,
+
+                    EffectRegistry = DrawEffectRegistry,
+
+                    // =====================================
+                    // LIBRARY
+                    // =====================================
+
+                    CategoryChanged = value =>
+                    {
+                        category = value;
+                        RefreshLibrary();
+                    },
+
+                    SearchChanged = value =>
+                    {
+                        search = value;
+                        RefreshLibrary();
+                    }
+                };
+
+            // =============================================
+            // BUILD SHELL
+            // =============================================
+
+            forgeShell.Build(
+                rootVisualElement,
+                category,
+                search,
+                callbacks
+            );
+
+            // =============================================
+            // CONNECT REFERENCES
+            // =============================================
+
+            libraryView =
+                forgeShell.LibraryView;
+
+            workspace =
+                forgeShell.Workspace;
+
+            helpLabel =
+                forgeShell.HelpLabel;
+
+            // =============================================
+            // INITIALIZE CONTENT
+            // =============================================
+
+            RefreshLibrary();
+
+            DrawWelcome();
+
+            Debug.Log(
+                "[The Forge] UI initialized successfully."
+            );
+        }
+        catch (Exception exception)
+        {
+            Debug.LogException(exception);
+
+            // =============================================
+            // VISIBLE ERROR FALLBACK
+            // =============================================
+
+            VisualElement root =
+                rootVisualElement;
+
+            root.Clear();
+
+            root.style.paddingLeft = 16;
+            root.style.paddingRight = 16;
+            root.style.paddingTop = 16;
+
+            Label title =
+                new Label(
+                    "THE FORGE - INITIALIZATION FAILED"
+                );
+
+            title.style.fontSize = 17;
+
+            title.style.unityFontStyleAndWeight =
+                FontStyle.Bold;
+
+            title.style.color =
+                new Color(1f, 0.35f, 0.35f);
+
+            root.Add(title);
+
+            Label message =
+                new Label(
+                    exception.ToString()
+                );
+
+            message.style.whiteSpace =
+                WhiteSpace.Normal;
+
+            message.style.marginTop = 12;
+
+            root.Add(message);
+
+            Label instructions =
+                new Label(
+                    "Check the Unity Console for " +
+                    "the complete stack trace."
+                );
+
+            instructions.style.marginTop = 16;
+
+            root.Add(instructions);
+        }
     }
+
+
 
     // =====================================================
     // PROJECT CHANGES
@@ -369,27 +323,20 @@ public sealed class RoKContentStudioWindow :
         }
     }
 
+
     // =====================================================
-    // WELCOME
+    // FORGE HOME
     // =====================================================
 
     private void DrawWelcome()
     {
-        workspace.Clear();
+        forgeShell.RenderWelcome();
 
-        workspace.Add(
-            Heading("Welcome to RöK Content Studio")
-        );
-
-        workspace.Add(
-            Paragraph(
-                "Select an existing asset from the " +
-                "library to inspect or edit it.\n\n" +
-                "Choose New Content to create a " +
-                "complete ability, buff or reusable effect."
-            )
-        );
+        helpLabel.text =
+            "Search the library, open recent content, " +
+            "or create something new.";
     }
+
 
     // =====================================================
     // SELECTED ASSET
@@ -403,18 +350,26 @@ public sealed class RoKContentStudioWindow :
 
         selectedAsset = asset;
 
+
+        forgeShell.SetWelcomeMode(false);
+
+        forgeShell.RememberAsset(asset);
+
+
+
         workspace.Clear();
 
-        workspace.Add(
-            Heading(asset.name)
-        );
+        // =====================================================
+        // SHARED ASSET IDENTITY HEADER
+        // =====================================================
 
         workspace.Add(
-            Paragraph(
-                asset.GetType().Name + "\n" +
-                AssetDatabase.GetAssetPath(asset)
+            RoKForgeIdentityHeader.Create(
+                asset,
+                RefreshLibrary
             )
         );
+
 
         Button ping =
             new Button(
@@ -592,6 +547,9 @@ public sealed class RoKContentStudioWindow :
 
     private void DrawAbilityRecipes()
     {
+
+        forgeShell.SetWelcomeMode(false);
+
         workspace.Clear();
 
         workspace.Add(
@@ -634,6 +592,9 @@ public sealed class RoKContentStudioWindow :
 
     private void DrawEffectRegistry()
     {
+
+        forgeShell.SetWelcomeMode(false);
+
         workspace.Clear();
 
         workspace.Add(
@@ -676,6 +637,9 @@ public sealed class RoKContentStudioWindow :
 
     private void DrawContentAudit()
     {
+
+        forgeShell.SetWelcomeMode(false);
+
         workspace.Clear();
 
         workspace.Add(
@@ -713,6 +677,9 @@ public sealed class RoKContentStudioWindow :
 
     private void DrawCreator()
     {
+
+        forgeShell.SetWelcomeMode(false);
+
         workspace.Clear();
 
         workspace.Add(

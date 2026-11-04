@@ -85,6 +85,24 @@ public sealed class RoKContentStudioRecipePanel
             "över en befintlig ability."
         );
 
+
+        Field(
+            () =>
+            {
+                request.Icon =
+                    (Sprite)EditorGUILayout.ObjectField(
+                        "Icon",
+                        request.Icon,
+                        typeof(Sprite),
+                        false
+                    );
+            },
+            "Ikonen som används av abilityn i " +
+            "Spellbook, Actionbar och eventuella " +
+            "buffs som ärver abilityns ikon."
+        );
+
+
         Field(
             () =>
             {
@@ -413,6 +431,9 @@ public sealed class RoKContentStudioRecipePanel
         RoKAbilityRecipeRequest captured =
             new RoKAbilityRecipeRequest
             {
+
+                Icon = request.Icon,
+
                 Name = request.Name,
                 Description = request.Description,
 
