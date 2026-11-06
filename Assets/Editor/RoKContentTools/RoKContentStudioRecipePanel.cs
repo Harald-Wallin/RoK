@@ -16,6 +16,9 @@ public sealed class RoKContentStudioRecipePanel
         new();
 
 
+    private bool targetLayersInitialized;
+
+
     private RoKSelfBuffSource selfBuffSource =
         RoKSelfBuffSource.Existing;
 
@@ -37,6 +40,30 @@ public sealed class RoKContentStudioRecipePanel
         Action<ScriptableObject> openAsset,
         Action refreshLibrary)
     {
+
+        // =====================================================
+        // INITIALIZE DEFAULT TARGET LAYERS
+        // =====================================================
+        //
+        // Unity APIs must not be called from field
+        // initializers or constructors owned by
+        // EditorWindow.
+        //
+        // Initialize once, when the Editor UI is active.
+        // =====================================================
+
+        if (!targetLayersInitialized)
+        {
+            targetLayersInitialized = true;
+
+            request.TargetLayers =
+                LayerMask.GetMask(
+                    "Hitbox",
+                    "hitbox"
+                );
+        }
+
+
         EditorGUILayout.HelpBox(
             "Build a complete AbilityData with " +
             "automatically connected AbilityEffects.\n\n" +

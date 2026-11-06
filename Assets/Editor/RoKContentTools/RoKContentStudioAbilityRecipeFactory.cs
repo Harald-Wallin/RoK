@@ -44,11 +44,9 @@ public sealed class RoKAbilityRecipeRequest
     public float Range = 6f;
 
 
-    public int TargetLayers =
-        LayerMask.GetMask(
-            "Hitbox",
-            "hitbox"
-        );
+
+    public int TargetLayers;
+
 
 
     public bool CanMiss = true;

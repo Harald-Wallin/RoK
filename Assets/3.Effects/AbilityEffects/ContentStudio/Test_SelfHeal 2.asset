@@ -21,7 +21,7 @@ MonoBehaviour:
   refreshDurationOnStack: 1
   removeOnDeath: 1
   removeOnEncounterReset: 1
-  flatHealing: 0
+  flatHealing: 25
   scaling: []
   targetMaximumHealthPercentage: 0
   scalesWithCharge: 0

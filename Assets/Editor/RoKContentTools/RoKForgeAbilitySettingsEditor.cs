@@ -30,7 +30,8 @@ public sealed class RoKForgeAbilitySettingsEditor
     // DRAW
     // =====================================================
 
-    public void Draw(AbilityData ability)
+
+    public void Draw( AbilityData ability,bool twoColumns = false)
     {
         if (ability == null)
             return;
@@ -39,6 +40,18 @@ public sealed class RoKForgeAbilitySettingsEditor
             new SerializedObject(ability);
 
         serialized.Update();
+
+
+        if (twoColumns)
+        {
+            EditorGUILayout.BeginHorizontal();
+
+            EditorGUILayout.BeginVertical(
+                GUILayout.MinWidth(300),
+                GUILayout.ExpandWidth(true)
+            );
+        }
+
 
         // =================================================
         // GENERAL
@@ -93,6 +106,20 @@ public sealed class RoKForgeAbilitySettingsEditor
                 );
             }
         );
+
+
+        if (twoColumns)
+        {
+            EditorGUILayout.EndVertical();
+
+            GUILayout.Space(12);
+
+            EditorGUILayout.BeginVertical(
+                GUILayout.MinWidth(300),
+                GUILayout.ExpandWidth(true)
+            );
+        }
+
 
         // =================================================
         // TIMING AND EXECUTION
@@ -213,6 +240,14 @@ public sealed class RoKForgeAbilitySettingsEditor
         // =================================================
         // COMMIT CHANGES
         // =================================================
+
+
+        if (twoColumns)
+        {
+            EditorGUILayout.EndVertical();
+            EditorGUILayout.EndHorizontal();
+        }
+    
 
         if (serialized.ApplyModifiedProperties())
         {

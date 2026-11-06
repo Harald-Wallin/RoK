@@ -331,14 +331,17 @@ public sealed class RoKContentStudioEffectComposer
 
         EditorGUILayout.EndHorizontal();
 
-        EditorGUILayout.PropertyField(
+
+        RoKForgeLinkedField.Draw(
             element,
             new GUIContent(
                 "Definition",
-                "Referens till ett återanvändbart " +
-                "EffectDefinition-asset."
-            )
+                "Double-click to open this EffectDefinition " +
+                "inside The Forge."
+            ),
+            openAsset
         );
+
 
         if (definition != null)
         {

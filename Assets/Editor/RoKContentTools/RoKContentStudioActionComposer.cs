@@ -246,15 +246,17 @@ public sealed class RoKContentStudioActionComposer
 
         EditorGUILayout.EndHorizontal();
 
-        EditorGUILayout.PropertyField(
+
+        RoKForgeLinkedField.Draw(
             element,
             new GUIContent(
                 "Action Asset",
-                "Referens till ett AbilityEffect-asset.\n\n" +
-                "Detta är en handling som körs av " +
-                "AbilityEffectPipeline."
-            )
+                "Double-click to open this linked action " +
+                "inside The Forge."
+            ),
+            openAsset
         );
+
 
         if (action != null)
         {
@@ -288,6 +290,20 @@ public sealed class RoKContentStudioActionComposer
                         $"Buff: {linkedBuff.DisplayName}",
                         EditorStyles.miniLabel
                     );
+
+
+                    if (GUILayout.Button(
+                        "Open Linked Buff",
+                        GUILayout.Height(22)))
+                    {
+                        BuffDefinition captured = linkedBuff;
+
+                        RoKForgeLinkedField.QueueOpen(
+                            captured,
+                            openAsset
+                        );
+                    }
+
                 }
             }
 
@@ -338,7 +354,7 @@ public sealed class RoKContentStudioActionComposer
     // INLINE ACTION EDITOR
     // =====================================================
 
-    private void DrawInlineActionEditor(
+    public void DrawInlineActionEditor(
         AbilityEffect action)
     {
         SerializedObject serialized =

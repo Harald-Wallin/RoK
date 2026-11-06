@@ -16,6 +16,9 @@ public sealed class RoKForgeCallbacks
 {
     public Action Home;
     public Action CreateAbility;
+
+    public Action AdvancedAbilityRecipes;
+
     public Action CreateBuff;
     public Action CreateEffect;
 
@@ -23,6 +26,12 @@ public sealed class RoKForgeCallbacks
     public Action ContentAudit;
     public Action EffectRegistry;
     public Action RefreshLibrary;
+
+
+    public Action Back;
+    public Action Forward;
+    public Action<int> NavigateToHistory;
+
 
     public Action<ScriptableObject> OpenAsset;
 
@@ -43,6 +52,13 @@ public sealed class RoKForgeShell
     private RoKForgeCallbacks callbacks;
 
     private VisualElement quickCreatePanel;
+
+
+    private Button backButton;
+    private Button forwardButton;
+
+    private VisualElement navigationTrail;
+
 
     public ScrollView LibraryView { get; private set; }
     public ScrollView Workspace { get; private set; }
@@ -129,6 +145,42 @@ public sealed class RoKForgeShell
         home.tooltip =
             "Return to The Forge home.";
 
+
+        // =====================================================
+        // BACK / FORWARD
+        // =====================================================
+
+        backButton =
+            new Button(
+                () => callbacks.Back?.Invoke()
+            )
+            {
+                text = "◀"
+            };
+
+        backButton.tooltip =
+            "Go back to the previous Forge view.";
+
+        backButton.style.width = 32;
+
+        header.Add(backButton);
+
+        forwardButton =
+            new Button(
+                () => callbacks.Forward?.Invoke()
+            )
+            {
+                text = "▶"
+            };
+
+        forwardButton.tooltip =
+            "Go forward in Forge history.";
+
+        forwardButton.style.width = 32;
+
+        header.Add(forwardButton);
+
+
         header.Add(home);
 
         ToolbarMenu tools =
@@ -156,6 +208,13 @@ public sealed class RoKForgeShell
             _ => callbacks.GuidedCreator?.Invoke()
         );
 
+
+        tools.menu.AppendAction(
+            "Advanced Ability Recipes",
+            _ => callbacks.AdvancedAbilityRecipes?.Invoke()
+        );
+
+
         header.Add(tools);
 
         Button refresh =
@@ -174,6 +233,28 @@ public sealed class RoKForgeShell
         header.Add(refresh);
 
         root.Add(header);
+
+
+        // =====================================================
+        // NAVIGATION TRAIL
+        // =====================================================
+
+        navigationTrail =
+            new VisualElement();
+
+        navigationTrail.style.flexDirection =
+            FlexDirection.Row;
+
+        navigationTrail.style.flexWrap =
+            Wrap.Wrap;
+
+        navigationTrail.style.alignItems =
+            Align.Center;
+
+        navigationTrail.style.marginBottom = 8;
+
+        root.Add(navigationTrail);
+
 
         // =================================================
         // RESIZABLE TWO-PANE LAYOUT
@@ -220,6 +301,92 @@ public sealed class RoKForgeShell
 
         root.Add(HelpLabel);
     }
+
+
+    // =====================================================
+    // REFRESH NAVIGATION UI
+    // =====================================================
+
+    public void UpdateNavigation(
+        RoKForgeNavigation navigation)
+    {
+        if (navigation == null ||
+            navigationTrail == null)
+        {
+            return;
+        }
+
+        backButton?.SetEnabled(
+            navigation.CanGoBack
+        );
+
+        forwardButton?.SetEnabled(
+            navigation.CanGoForward
+        );
+
+        navigationTrail.Clear();
+
+        // Keep the trail compact:
+        // Home + the most recent route entries.
+
+        int current =
+            navigation.Position;
+
+        int firstRecent =
+            Mathf.Max(1, current - 4);
+
+        for (int i = 0; i <= current; i++)
+        {
+            if (i > 0 && i < firstRecent)
+            {
+                if (i == 1)
+                {
+                    Label ellipsis =
+                        new Label(" / ... / ");
+
+                    navigationTrail.Add(ellipsis);
+                }
+
+                continue;
+            }
+
+            if (i > 0 && i >= firstRecent)
+            {
+                Label separator =
+                    new Label(" / ");
+
+                navigationTrail.Add(separator);
+            }
+
+            RoKForgeRoute route =
+                navigation.History[i];
+
+            int capturedIndex = i;
+
+            Button crumb =
+                new Button(
+                    () =>
+                    {
+                        callbacks.NavigateToHistory?.Invoke(
+                            capturedIndex
+                        );
+                    }
+                )
+                {
+                    text = route.Label
+                };
+
+            crumb.tooltip =
+                $"Navigate to {route.Label}";
+
+            crumb.style.fontSize = 11;
+
+            crumb.SetEnabled(i != current);
+
+            navigationTrail.Add(crumb);
+        }
+    }
+
 
     // =====================================================
     // LIBRARY PANE

@@ -54,6 +54,7 @@ public sealed class RoKContentStudioWindow :
     private ScrollView workspace;
     private Label helpLabel;
 
+
     private readonly RoKContentStudioEffectComposer
         effectComposer = new();
 
@@ -76,6 +77,21 @@ public sealed class RoKContentStudioWindow :
 
     private readonly RoKForgeShell forgeShell =
         new();
+
+
+    private readonly RoKForgeNavigation navigation =
+        new();
+
+
+    private readonly RoKForgeNavigationInput
+        navigationInput = new();
+
+
+
+
+    private readonly RoKForgeAbilityCreationPanel
+        abilityCreationPanel = new();
+
 
 
 
@@ -114,48 +130,91 @@ public sealed class RoKContentStudioWindow :
                 "[The Forge] Initializing UI..."
             );
 
+
             RoKForgeCallbacks callbacks =
                 new RoKForgeCallbacks
                 {
-                    // =====================================
+                    // =================================================
                     // NAVIGATION
-                    // =====================================
+                    // =================================================
 
-                    Home = DrawWelcome,
+                    Home = () =>
+                        Navigate(RoKForgeRoute.Home()),
+
+                    Back = NavigateBack,
+
+                    Forward = NavigateForward,
+
+                    NavigateToHistory = NavigateToHistory,
 
                     OpenAsset = ShowAsset,
 
-                    RefreshLibrary = RefreshLibrary,
+                    // =================================================
+                    // CREATION
+                    // =================================================
 
-                    // =====================================
-                    // CONTENT CREATION
-                    // =====================================
-
-                    CreateAbility = DrawAbilityRecipes,
+                    CreateAbility = () =>
+                        Navigate(
+                            RoKForgeRoute.ForPage(
+                                RoKForgePage.CreateAbility
+                            )
+                        ),
 
                     CreateBuff = () =>
                     {
-                        recipe =
-                            RoKContentRecipe.BuffDefinition;
+                        recipe = RoKContentRecipe.BuffDefinition;
 
-                        DrawCreator();
+                        Navigate(
+                            RoKForgeRoute.ForPage(
+                                RoKForgePage.GuidedCreator
+                            )
+                        );
                     },
 
-                    CreateEffect = DrawEffectRegistry,
+                    CreateEffect = () =>
+                        Navigate(
+                            RoKForgeRoute.ForPage(
+                                RoKForgePage.EffectRegistry
+                            )
+                        ),
 
-                    GuidedCreator = DrawCreator,
+                    AdvancedAbilityRecipes = () =>
+                        Navigate(
+                            RoKForgeRoute.ForPage(
+                                RoKForgePage.AbilityRecipes
+                            )
+                        ),
 
-                    // =====================================
+                    GuidedCreator = () =>
+                        Navigate(
+                            RoKForgeRoute.ForPage(
+                                RoKForgePage.GuidedCreator
+                            )
+                        ),
+
+                    // =================================================
                     // TOOLS
-                    // =====================================
+                    // =================================================
 
-                    ContentAudit = DrawContentAudit,
+                    ContentAudit = () =>
+                        Navigate(
+                            RoKForgeRoute.ForPage(
+                                RoKForgePage.ContentAudit
+                            )
+                        ),
 
-                    EffectRegistry = DrawEffectRegistry,
+                    EffectRegistry = () =>
+                        Navigate(
+                            RoKForgeRoute.ForPage(
+                                RoKForgePage.EffectRegistry
+                            )
+                        ),
 
-                    // =====================================
+                    RefreshLibrary = RefreshLibrary,
+
+                    // =================================================
                     // LIBRARY
-                    // =====================================
+                    // =================================================
 
                     CategoryChanged = value =>
                     {
@@ -170,6 +229,7 @@ public sealed class RoKContentStudioWindow :
                     }
                 };
 
+
             // =============================================
             // BUILD SHELL
             // =============================================
@@ -180,6 +240,19 @@ public sealed class RoKContentStudioWindow :
                 search,
                 callbacks
             );
+
+
+            // =====================================================
+            // FORGE INPUT SHORTCUTS
+            // =====================================================
+
+            navigationInput.Bind(
+                this,
+                rootVisualElement,
+                NavigateBack,
+                NavigateForward
+            );
+
 
             // =============================================
             // CONNECT REFERENCES
@@ -194,13 +267,24 @@ public sealed class RoKContentStudioWindow :
             helpLabel =
                 forgeShell.HelpLabel;
 
+
+            RoKForgeVisualStyle.ApplyShell(
+                rootVisualElement,
+                libraryView,
+                workspace,
+                helpLabel
+            );
+
+
             // =============================================
             // INITIALIZE CONTENT
             // =============================================
 
+
             RefreshLibrary();
 
-            DrawWelcome();
+            RenderCurrentRoute();
+
 
             Debug.Log(
                 "[The Forge] UI initialized successfully."
@@ -263,6 +347,233 @@ public sealed class RoKContentStudioWindow :
     }
 
 
+    // =====================================================
+    // CENTRAL NAVIGATION
+    // =====================================================
+
+    private void Navigate(RoKForgeRoute destination)
+    {
+        if (destination == null)
+            return;
+
+        if (navigation.Current.SameAs(destination))
+        {
+            RenderCurrentRoute();
+            return;
+        }
+
+        if (!CanLeaveCurrentRoute(destination))
+            return;
+
+        navigation.Push(destination);
+
+        RenderCurrentRoute();
+    }
+
+    // =====================================================
+    // BACK
+    // =====================================================
+
+    private void NavigateBack()
+    {
+        if (!navigation.CanGoBack)
+            return;
+
+        RoKForgeRoute destination =
+            navigation.PeekBack();
+
+        if (!CanLeaveCurrentRoute(destination))
+            return;
+
+        navigation.Back();
+
+        RenderCurrentRoute();
+    }
+
+    // =====================================================
+    // FORWARD
+    // =====================================================
+
+    private void NavigateForward()
+    {
+        if (!navigation.CanGoForward)
+            return;
+
+        RoKForgeRoute destination =
+            navigation.PeekForward();
+
+        if (!CanLeaveCurrentRoute(destination))
+            return;
+
+        navigation.Forward();
+
+        RenderCurrentRoute();
+    }
+
+    // =====================================================
+    // HISTORY NAVIGATION
+    // =====================================================
+
+    private void NavigateToHistory(int index)
+    {
+        if (index < 0 ||
+            index >= navigation.History.Count ||
+            index == navigation.Position)
+        {
+            return;
+        }
+
+        RoKForgeRoute destination =
+            navigation.History[index];
+
+        if (!CanLeaveCurrentRoute(destination))
+            return;
+
+        navigation.JumpTo(index);
+
+        RenderCurrentRoute();
+    }
+
+    // =====================================================
+    // UNSAVED DRAFT PROTECTION
+    // =====================================================
+
+    private bool CanLeaveCurrentRoute(
+        RoKForgeRoute destination)
+    {
+        if (destination == null)
+            return false;
+
+        if (navigation.Current.SameAs(destination))
+            return true;
+
+        bool hasUnsavedDraft =
+            navigation.Current.Page ==
+                RoKForgePage.CreateAbility &&
+            abilityCreationPanel.Draft != null;
+
+        if (!hasUnsavedDraft)
+            return true;
+
+        bool discard =
+            EditorUtility.DisplayDialog(
+                "Discard Unsaved Ability?",
+                "The current Ability draft has not " +
+                "been saved.\n\n" +
+                "Leaving this page will discard the " +
+                "draft and its temporary actions.\n\n" +
+                "Existing project assets will not " +
+                "be modified.",
+                "Discard Draft",
+                "Keep Editing"
+            );
+
+        if (!discard)
+            return false;
+
+        abilityCreationPanel.Cancel();
+
+        return true;
+    }
+
+    // =====================================================
+    // RENDER CURRENT ROUTE
+    // =====================================================
+
+    private void RenderCurrentRoute()
+    {
+        if (workspace == null ||
+            helpLabel == null)
+        {
+            return;
+        }
+
+        RoKForgeRoute route =
+            navigation.Current;
+
+
+        // Remove home-only layout when editing content.
+
+        if (route.Page != RoKForgePage.Home)
+        {
+            VisualElement content =
+                workspace.contentContainer;
+
+            content.RemoveFromClassList("forge-home");
+            content.style.minHeight = 0;
+        }
+
+
+        switch (route.Page)
+        {
+            case RoKForgePage.Home:
+
+                DrawWelcome();
+                break;
+
+            case RoKForgePage.Asset:
+
+                if (route.Asset != null)
+                {
+                    RenderAsset(route.Asset);
+                }
+                else
+                {
+                    navigation.Push(
+                        RoKForgeRoute.Home()
+                    );
+
+                    DrawWelcome();
+                }
+
+                break;
+
+            case RoKForgePage.CreateAbility:
+
+                DrawNewAbility();
+                break;
+
+            case RoKForgePage.AbilityRecipes:
+
+                DrawAbilityRecipes();
+                break;
+
+            case RoKForgePage.EffectRegistry:
+
+                DrawEffectRegistry();
+                break;
+
+            case RoKForgePage.ContentAudit:
+
+                DrawContentAudit();
+                break;
+
+            case RoKForgePage.GuidedCreator:
+
+                DrawCreator();
+                break;
+
+            default:
+
+                DrawWelcome();
+                break;
+        }
+
+
+        forgeShell.UpdateNavigation(navigation);
+
+        ScriptableObject activeAsset =
+            navigation.Current.Page == RoKForgePage.Asset
+                ? navigation.Current.Asset
+                : null;
+
+        RoKForgeVisualStyle.UpdateLibrarySelection(
+            libraryView,
+            activeAsset
+        );
+
+    }
+
 
     // =====================================================
     // PROJECT CHANGES
@@ -280,6 +591,8 @@ public sealed class RoKContentStudioWindow :
     // LIBRARY
     // =====================================================
 
+
+
     private void RefreshLibrary()
     {
         if (libraryView == null)
@@ -295,24 +608,18 @@ public sealed class RoKContentStudioWindow :
 
         foreach (ScriptableObject asset in assets)
         {
+            if (asset == null)
+                continue;
+
             ScriptableObject captured = asset;
 
-            Button button =
-                new Button(
+            Button row =
+                RoKForgeVisualStyle.CreateAssetRow(
+                    asset,
                     () => ShowAsset(captured)
-                )
-                {
-                    text =
-                        $"{asset.name}  " +
-                        $"[{asset.GetType().Name}]"
-                };
+                );
 
-            button.tooltip =
-                AssetDatabase.GetAssetPath(asset);
-
-            button.style.marginBottom = 3;
-
-            libraryView.Add(button);
+            libraryView.Add(row);
         }
 
         if (assets.Count == 0)
@@ -321,16 +628,34 @@ public sealed class RoKContentStudioWindow :
                 new Label("No matching content.")
             );
         }
+
+        ScriptableObject activeAsset =
+            navigation.Current.Page == RoKForgePage.Asset
+                ? navigation.Current.Asset
+                : null;
+
+        RoKForgeVisualStyle.UpdateLibrarySelection(
+            libraryView,
+            activeAsset
+        );
     }
+
+
 
 
     // =====================================================
     // FORGE HOME
     // =====================================================
 
+
+
     private void DrawWelcome()
     {
         forgeShell.RenderWelcome();
+
+        RoKForgeVisualStyle.StyleHome(
+            workspace
+        );
 
         helpLabel.text =
             "Search the library, open recent content, " +
@@ -338,26 +663,44 @@ public sealed class RoKContentStudioWindow :
     }
 
 
+
+
     // =====================================================
     // SELECTED ASSET
     // =====================================================
 
-    private void ShowAsset(
-        ScriptableObject asset)
+
+    // =====================================================
+    // OPEN ASSET
+    // =====================================================
+
+    private void ShowAsset(ScriptableObject asset)
+    {
+        if (asset == null)
+            return;
+
+        Navigate(
+            RoKForgeRoute.ForAsset(asset)
+        );
+    }
+
+    // =====================================================
+    // RENDER EXISTING ASSET
+    // =====================================================
+
+    private void RenderAsset(ScriptableObject asset)
     {
         if (asset == null)
             return;
 
         selectedAsset = asset;
 
-
         forgeShell.SetWelcomeMode(false);
 
         forgeShell.RememberAsset(asset);
 
-
-
         workspace.Clear();
+
 
         // =====================================================
         // SHARED ASSET IDENTITY HEADER
@@ -434,10 +777,18 @@ public sealed class RoKContentStudioWindow :
         }
         else
         {
+
             InspectorElement inspector =
                 new InspectorElement(asset);
 
+            RoKForgeLinkedField.EnableNestedNavigation(
+                inspector,
+                asset,
+                ShowAsset
+            );
+
             inspector.style.marginTop = 10;
+
 
             workspace.Add(inspector);
         }
@@ -541,6 +892,104 @@ public sealed class RoKContentStudioWindow :
     // GUIDED CREATOR
     // =====================================================
 
+
+    // =====================================================
+    // THE FORGE - UNIFIED ABILITY CREATION
+    // =====================================================
+
+    private void DrawNewAbility()
+    {
+
+        // Only create a new draft if none exists.
+        // Re-rendering must preserve current edits.
+
+        if (abilityCreationPanel.Draft == null)
+        {
+            abilityCreationPanel.Begin();
+        }
+
+
+        forgeShell.SetWelcomeMode(false);
+
+        workspace.Clear();
+
+        workspace.Add(
+            Heading("Create New Ability")
+        );
+
+        // =============================================
+        // SHARED IDENTITY HEADER
+        // =============================================
+
+
+        VisualElement identity =
+            RoKForgeIdentityHeader.Create(
+                abilityCreationPanel.Draft
+            );
+
+        identity.style.maxWidth = 640;
+
+        workspace.Add(identity);
+
+
+        // =============================================
+        // SHARED SETTINGS + DRAFT ACTIONS
+        // =============================================
+
+        IMGUIContainer panel =
+            new IMGUIContainer(
+                () =>
+                {
+
+
+                    abilityCreationPanel.UseTwoColumns =
+                        workspace.contentViewport.resolvedStyle.width
+                            >= 700f;
+
+
+                    abilityCreationPanel.Draw(
+                        created =>
+                        {
+                            RefreshLibrary();
+
+                            ShowAsset(created);
+                        },
+
+                        () =>
+                        {
+                            abilityCreationPanel.Cancel();
+
+                            Navigate(
+                                RoKForgeRoute.Home()
+                            );
+                        }
+
+                    );
+                }
+            );
+
+
+        panel.style.marginTop = 10;
+
+        // Fill the available workspace,
+        // but stop growing beyond 720 px.
+        panel.style.width =
+            Length.Percent(100);
+
+        panel.style.maxWidth = 720f;
+
+        panel.style.alignSelf =
+            Align.FlexStart;
+
+        workspace.Add(panel);
+
+
+        helpLabel.text =
+            "Unsaved draft. No project assets are " +
+            "created until Create Ability is confirmed.";
+    }
+
+
     // =====================================================
     // ABILITY RECIPE BUILDER
     // =====================================================
@@ -549,6 +998,7 @@ public sealed class RoKContentStudioWindow :
     {
 
         forgeShell.SetWelcomeMode(false);
+
 
         workspace.Clear();
 
@@ -595,6 +1045,7 @@ public sealed class RoKContentStudioWindow :
 
         forgeShell.SetWelcomeMode(false);
 
+
         workspace.Clear();
 
         workspace.Add(
@@ -640,6 +1091,7 @@ public sealed class RoKContentStudioWindow :
 
         forgeShell.SetWelcomeMode(false);
 
+
         workspace.Clear();
 
         workspace.Add(
@@ -679,6 +1131,7 @@ public sealed class RoKContentStudioWindow :
     {
 
         forgeShell.SetWelcomeMode(false);
+
 
         workspace.Clear();
 
@@ -1179,6 +1632,21 @@ public sealed class RoKContentStudioWindow :
 
         return "No documentation available.";
     }
+
+
+    // =====================================================
+    // WINDOW CLEANUP
+    // =====================================================
+
+
+    private void OnDisable()
+    {
+        navigationInput?.Dispose();
+
+        abilityCreationPanel?.Dispose();
+    }
+
+
 }
 
 #endif
