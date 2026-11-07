@@ -13,13 +13,14 @@ MonoBehaviour:
   m_Name: BasicStrength
   m_EditorClassIdentifier: Assembly-CSharp::TalentData
   talentName: Basic Strength
-  description: 'Increases strength by 3.
+  description: 'Increases strength by 10%.
 
 '
   icon: {fileID: 21300000, guid: af57a6fedc7467c45a265435e1acb7c0, type: 3}
   maxPoints: 1
   passiveEffects:
   - {fileID: 11400000, guid: 19ce55df99d395a43b6d9b317897c6d0, type: 2}
+  - {fileID: 11400000, guid: 505da2e7494ed5e418fb91e6f95815fe, type: 2}
   effects:
   - {fileID: 11400000, guid: 562102167fd87bf4a94d874ae88f36d1, type: 2}
   unlockedAbility: {fileID: 0}

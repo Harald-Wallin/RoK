@@ -17,7 +17,11 @@ public enum RoKForgePage
     AbilityRecipes,
     EffectRegistry,
     ContentAudit,
-    GuidedCreator
+    GuidedCreator,
+
+    CreateItem,
+    CreateTalent
+
 }
 
 // =========================================================
@@ -102,6 +106,11 @@ public sealed class RoKForgeRoute
 
                 RoKForgePage.GuidedCreator =>
                     "Guided Creator",
+
+
+                RoKForgePage.CreateItem => "New Item",
+                RoKForgePage.CreateTalent => "New Talent",
+
 
                 _ => Page.ToString()
             };

@@ -8,6 +8,25 @@ using UnityEngine;
 
 public sealed class RoKContentStudioEffectRegistryPanel
 {
+
+    public void PrepareForTalent(TalentData talent)
+    {
+        if (talent == null ||
+            !AssetDatabase.Contains(talent))
+            return;
+
+        kind = RoKRegistryEffectKind.PassiveEffect;
+        passiveAttachment = PassiveAttachment.Talent;
+
+        targetTalent = talent;
+        targetBuff = null;
+
+        selectedType = null;
+        assetName = string.Empty;
+        search = string.Empty;
+    }
+
+
     // =====================================================
     // STATE
     // =====================================================

@@ -57,9 +57,10 @@ public sealed class RoKForgeAbilityCreationPanel
 
         // Deliberately created from a user-triggered
         // Editor action, never a field initializer.
-        draft =
-            ScriptableObject.CreateInstance<
-                AbilityData>();
+
+        draft = RoKForgeDraftSession
+            .CreateTemporary<AbilityData>();
+
 
         draft.name = "New Ability";
 
@@ -533,10 +534,12 @@ public sealed class RoKForgeAbilityCreationPanel
         if (actionTemplate == null)
             return;
 
+
         AbilityEffect action =
-            ScriptableObject.CreateInstance(
+            RoKForgeDraftSession.CreateTemporary(
                 actionType
             ) as AbilityEffect;
+
 
         if (action == null)
             return;

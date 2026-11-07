@@ -327,6 +327,10 @@ public static class RoKForgeIdentityHeader
 
         // Other asset types currently use
         // their Unity asset filename.
+
+        if (asset is ItemData)
+            return "itemName";
+
         return null;
     }
 

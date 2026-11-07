@@ -93,6 +93,9 @@ public sealed class RoKContentStudioWindow :
         abilityCreationPanel = new();
 
 
+    private readonly RoKForgeDraftSession
+        contentDraftSession = new();
+
 
 
 
@@ -159,6 +162,16 @@ public sealed class RoKContentStudioWindow :
                                 RoKForgePage.CreateAbility
                             )
                         ),
+
+
+                    CreateItem = () =>
+                        Navigate(RoKForgeRoute.ForPage(
+                            RoKForgePage.CreateItem)),
+
+                    CreateTalent = () =>
+                        Navigate(RoKForgeRoute.ForPage(
+                            RoKForgePage.CreateTalent)),
+
 
                     CreateBuff = () =>
                     {
@@ -438,6 +451,7 @@ public sealed class RoKContentStudioWindow :
     // UNSAVED DRAFT PROTECTION
     // =====================================================
 
+
     private bool CanLeaveCurrentRoute(
         RoKForgeRoute destination)
     {
@@ -447,34 +461,40 @@ public sealed class RoKContentStudioWindow :
         if (navigation.Current.SameAs(destination))
             return true;
 
-        bool hasUnsavedDraft =
+        bool hasAbilityDraft =
             navigation.Current.Page ==
                 RoKForgePage.CreateAbility &&
             abilityCreationPanel.Draft != null;
 
-        if (!hasUnsavedDraft)
+        bool hasContentDraft =
+            (navigation.Current.Page == RoKForgePage.CreateItem ||
+             navigation.Current.Page == RoKForgePage.CreateTalent) &&
+            contentDraftSession.Draft != null;
+
+        if (!hasAbilityDraft && !hasContentDraft)
             return true;
 
-        bool discard =
-            EditorUtility.DisplayDialog(
-                "Discard Unsaved Ability?",
-                "The current Ability draft has not " +
-                "been saved.\n\n" +
-                "Leaving this page will discard the " +
-                "draft and its temporary actions.\n\n" +
-                "Existing project assets will not " +
-                "be modified.",
-                "Discard Draft",
-                "Keep Editing"
-            );
+        bool discard = EditorUtility.DisplayDialog(
+            "Discard Unsaved Content?",
+            "Leaving this page will discard the current " +
+            "draft and its temporary changes.\n\n" +
+            "Existing project assets will not be modified.",
+            "Discard Draft",
+            "Keep Editing"
+        );
 
         if (!discard)
             return false;
 
-        abilityCreationPanel.Cancel();
+        if (hasAbilityDraft)
+            abilityCreationPanel.Cancel();
+
+        if (hasContentDraft)
+            contentDraftSession.Cancel();
 
         return true;
     }
+
 
     // =====================================================
     // RENDER CURRENT ROUTE
@@ -533,6 +553,16 @@ public sealed class RoKContentStudioWindow :
                 DrawNewAbility();
                 break;
 
+
+            case RoKForgePage.CreateItem:
+                DrawNewItemOrTalent(typeof(ItemData));
+                break;
+
+            case RoKForgePage.CreateTalent:
+                DrawNewItemOrTalent(typeof(TalentData));
+                break;
+
+
             case RoKForgePage.AbilityRecipes:
 
                 DrawAbilityRecipes();
@@ -573,6 +603,165 @@ public sealed class RoKContentStudioWindow :
         );
 
     }
+
+
+    private void DrawItemOrTalentFields(ScriptableObject asset)
+    {
+        bool twoColumns =
+            workspace.contentViewport.resolvedStyle.width >= 700f;
+
+        if (asset is ItemData item)
+            RoKForgeItemEditor.Draw(item, twoColumns);
+
+
+        else if (asset is TalentData talent)
+            RoKForgeTalentEditor.Draw(
+                talent,
+                twoColumns,
+                OpenTalentEffectRegistry,
+                ShowAsset
+            );
+
+
+    }
+
+
+    private void OpenTalentEffectRegistry(TalentData talent)
+    {
+        if (talent == null ||
+            !AssetDatabase.Contains(talent))
+            return;
+
+        effectRegistryPanel.PrepareForTalent(talent);
+
+        Navigate(
+            RoKForgeRoute.ForPage(
+                RoKForgePage.EffectRegistry
+            )
+        );
+    }
+
+
+    private void DrawNewItemOrTalent(Type type)
+    {
+        bool isItem = type == typeof(ItemData);
+        string label = isItem ? "Item" : "Talent";
+
+        if (contentDraftSession.Draft == null)
+        {
+            contentDraftSession.Begin(type);
+
+            if (contentDraftSession.Draft is ItemData item)
+            {
+                item.itemName = "New Item";
+                item.name = item.itemName;
+            }
+            else if (contentDraftSession.Draft is TalentData talent)
+            {
+                talent.talentName = "New Talent";
+                talent.name = talent.talentName;
+            }
+        }
+
+        ScriptableObject draft = contentDraftSession.Draft;
+
+        forgeShell.SetWelcomeMode(false);
+        workspace.Clear();
+
+        workspace.Add(Heading("Create New " + label));
+
+        VisualElement header =
+            RoKForgeIdentityHeader.Create(draft);
+
+        header.style.maxWidth = 640;
+        workspace.Add(header);
+
+        IMGUIContainer panel = new(() =>
+        {
+            if (draft == null ||
+                contentDraftSession.Draft != draft)
+                return;
+
+            DrawItemOrTalentFields(draft);
+
+            string name = draft switch
+            {
+                ItemData item => item.itemName,
+                TalentData talent => talent.talentName,
+                _ => string.Empty
+            };
+
+            EditorGUILayout.Space(12);
+            EditorGUILayout.BeginHorizontal();
+
+            if (GUILayout.Button("Cancel", GUILayout.Height(34)))
+            {
+                EditorApplication.delayCall += () =>
+                {
+                    if (contentDraftSession.Draft != draft)
+                        return;
+
+                    contentDraftSession.Cancel();
+                    Navigate(RoKForgeRoute.Home());
+                };
+            }
+
+            using (new EditorGUI.DisabledScope(
+                string.IsNullOrWhiteSpace(name) ||
+                EditorApplication.isPlayingOrWillChangePlaymode))
+            {
+                if (GUILayout.Button(
+                    "Create " + label, GUILayout.Height(34)))
+                {
+                    EditorApplication.delayCall += () =>
+                    {
+                        if (contentDraftSession.Draft != draft)
+                            return;
+
+                        try
+                        {
+                            string folder = isItem
+                                ? "Assets/ContentStudio/Items"
+                                : "Assets/ContentStudio/Talents";
+
+                            ScriptableObject created =
+                                contentDraftSession.Commit(
+                                    name, folder);
+
+                            RefreshLibrary();
+                            ShowAsset(created);
+
+                            Selection.activeObject = created;
+                            EditorGUIUtility.PingObject(created);
+                        }
+                        catch (Exception exception)
+                        {
+                            Debug.LogException(exception);
+
+                            EditorUtility.DisplayDialog(
+                                "Creation Failed",
+                                exception.Message,
+                                "OK");
+                        }
+                    };
+                }
+            }
+
+            EditorGUILayout.EndHorizontal();
+        });
+
+        panel.style.width = Length.Percent(100);
+        panel.style.maxWidth = 720;
+        panel.style.alignSelf = Align.FlexStart;
+        panel.style.marginTop = 10;
+
+        workspace.Add(panel);
+
+        helpLabel.text =
+            "Unsaved " + label +
+            " draft. Cancel discards all temporary changes.";
+    }
+
 
 
     // =====================================================
@@ -775,6 +964,22 @@ public sealed class RoKContentStudioWindow :
 
             workspace.Add(composer);
         }
+        else if (asset is ItemData || asset is TalentData)
+        {
+            IMGUIContainer editor = new(() =>
+            {
+                if (asset != null)
+                    DrawItemOrTalentFields(asset);
+            });
+
+            editor.style.width = Length.Percent(100);
+            editor.style.maxWidth = 720;
+            editor.style.alignSelf = Align.FlexStart;
+            editor.style.marginTop = 10;
+
+            workspace.Add(editor);
+        }
+
         else
         {
 
@@ -1644,6 +1849,9 @@ public sealed class RoKContentStudioWindow :
         navigationInput?.Dispose();
 
         abilityCreationPanel?.Dispose();
+
+        contentDraftSession?.Cancel();
+
     }
 
 

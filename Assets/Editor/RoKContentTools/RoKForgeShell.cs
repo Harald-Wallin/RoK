@@ -17,6 +17,11 @@ public sealed class RoKForgeCallbacks
     public Action Home;
     public Action CreateAbility;
 
+
+    public Action CreateItem;
+    public Action CreateTalent;
+
+
     public Action AdvancedAbilityRecipes;
 
     public Action CreateBuff;
@@ -560,10 +565,28 @@ public sealed class RoKForgeShell
             )
         );
 
+
+        createScroll.Add(
+            QuickButton(
+                "ITEM",
+                "Create a new ItemData.",
+                () => callbacks.CreateItem?.Invoke()
+            )
+        );
+
+        createScroll.Add(
+            QuickButton(
+                "TALENT",
+                "Create a new TalentData.",
+                () => callbacks.CreateTalent?.Invoke()
+            )
+        );
+
+
         Label upcoming =
             new Label(
                 "PLANNED\n" +
-                "Talent · Title · Oath · Item"
+                "Title · Oath"
             );
 
         upcoming.style.whiteSpace =

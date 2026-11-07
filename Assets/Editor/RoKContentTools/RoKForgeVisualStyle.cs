@@ -204,6 +204,14 @@ public static class RoKForgeVisualStyle
             else if (button.text == "STANDALONE EFFECT")
                 button.text = "✧   STANDALONE EFFECT";
 
+
+            else if (button.text == "ITEM")
+                button.text = "✦   ITEM";
+
+            else if (button.text == "TALENT")
+                button.text = "✧   TALENT";
+
+
             button.style.backgroundColor =
                 index == 0
                     ? new Color(0.28f, 0.19f, 0.14f)
@@ -902,6 +910,11 @@ public static class RoKForgeVisualStyle
 
         if (asset is TalentData)
             return "TA";
+
+
+        if (asset is ItemData)
+            return "IT";
+
 
         return "RK";
     }

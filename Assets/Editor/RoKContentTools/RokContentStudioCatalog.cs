@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 
+
 public enum RoKContentCategory
 {
     All,
@@ -12,8 +13,10 @@ public enum RoKContentCategory
     Buffs,
     AbilityActions,
     PassiveEffects,
-    Talents
+    Talents,
+    Items
 }
+
 
 public static class RoKContentStudioCatalog
 {
@@ -85,7 +88,9 @@ public static class RoKContentStudioCatalog
                 asset is BuffDefinition ||
                 asset is AbilityEffect ||
                 asset is EffectDefinition ||
-                asset is TalentData,
+                asset is TalentData ||
+                asset is ItemData,
+
 
             RoKContentCategory.Abilities =>
                 asset is AbilityData,
@@ -101,6 +106,11 @@ public static class RoKContentStudioCatalog
 
             RoKContentCategory.Talents =>
                 asset is TalentData,
+
+
+            RoKContentCategory.Items =>
+                asset is ItemData,
+
 
             _ => false
         };
@@ -300,6 +310,51 @@ public static class RoKContentStudioCatalog
                     links.Add(effect);
             }
         }
+
+
+        if (asset is TalentData talent)
+        {
+            foreach (EffectDefinition effect in talent.PassiveEffects)
+            {
+                if (effect != null && !links.Contains(effect))
+                    links.Add(effect);
+            }
+
+            if (talent.unlockedAbility != null)
+                links.Add(talent.unlockedAbility);
+
+            if (talent.requirements != null)
+            {
+                foreach (TalentRequirement requirement
+                         in talent.requirements)
+                {
+                    if (requirement?.talent != null &&
+                        !links.Contains(requirement.talent))
+                    {
+                        links.Add(requirement.talent);
+                    }
+                }
+            }
+        }
+
+        if (asset is ItemData item)
+        {
+            if (item.RequiredFavour != null)
+                links.Add(item.RequiredFavour);
+
+            if (item.reputationFaction != null &&
+                !links.Contains(item.reputationFaction))
+            {
+                links.Add(item.reputationFaction);
+            }
+
+            foreach (FavourData favour in item.LinkedFavours)
+            {
+                if (favour != null && !links.Contains(favour))
+                    links.Add(favour);
+            }
+        }
+
 
         return links;
     }

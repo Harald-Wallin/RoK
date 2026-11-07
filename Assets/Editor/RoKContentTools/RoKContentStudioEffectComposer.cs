@@ -183,58 +183,22 @@ public sealed class RoKContentStudioEffectComposer
     // EFFECT LIST
     // =====================================================
 
-    private void DrawEffectList(
-        BuffDefinition buff)
-    {
-        SerializedObject serialized =
-            new SerializedObject(buff);
 
+    private void DrawEffectList(BuffDefinition buff)
+    {
+        SerializedObject serialized = new(buff);
         serialized.Update();
 
-        SerializedProperty effects =
-            serialized.FindProperty("effects");
-
-        if (effects == null)
-        {
-            EditorGUILayout.HelpBox(
-                "BuffDefinition saknar effects-array.",
-                MessageType.Error
-            );
-
-            return;
-        }
-
-        EditorGUILayout.LabelField(
-            $"Active Effects ({effects.arraySize})",
-            EditorStyles.boldLabel
-        );
-
-        if (effects.arraySize == 0)
-        {
-            EditorGUILayout.HelpBox(
-                "Buffen saknar gameplay-effekter.\n\n" +
-                "Lägg till en befintlig effekt eller " +
-                "skapa en ny nedan.",
-                MessageType.Info
-            );
-        }
-
-        for (int i = 0;
-             i < effects.arraySize;
-             i++)
-        {
-            DrawEffectRow(
-                buff,
-                effects,
-                i
-            );
-        }
+        RoKForgePassiveEffectList.Draw(
+            serialized,
+            "effects",
+            "ACTIVE EFFECTS",
+            openAsset);
 
         if (serialized.ApplyModifiedProperties())
-        {
             EditorUtility.SetDirty(buff);
-        }
     }
+
 
     // =====================================================
     // EFFECT ROW
