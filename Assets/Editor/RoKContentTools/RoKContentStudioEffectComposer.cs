@@ -20,9 +20,8 @@ public sealed class RoKContentStudioEffectComposer
 
     private AddMode addMode = AddMode.Existing;
 
-    private string search = string.Empty;
-
-    private Vector2 resultScroll;
+    private readonly RoKForgePassiveEffectList.ExistingEffectPicker existingEffectPicker =
+    new();
 
     private RoKPassiveEffectKind effectKind =
         RoKPassiveEffectKind.StatModifier;
@@ -46,10 +45,6 @@ public sealed class RoKContentStudioEffectComposer
     private string selectedHelp =
         "Välj ett fält för mer information.";
 
-    private List<EffectDefinition> cachedEffects;
-
-    private string cachedSearch;
-
     private Action<ScriptableObject> openAsset;
     private Action refreshLibrary;
 
@@ -60,7 +55,8 @@ public sealed class RoKContentStudioEffectComposer
     public void Draw(
         BuffDefinition buff,
         Action<ScriptableObject> openAsset,
-        Action refreshLibrary)
+        Action refreshLibrary,
+        bool twoColumns=false)
     {
         if (buff == null)
             return;
@@ -68,26 +64,21 @@ public sealed class RoKContentStudioEffectComposer
         this.openAsset = openAsset;
         this.refreshLibrary = refreshLibrary;
 
-        DrawBuffProperties(buff);
-
-        EditorGUILayout.Space(12);
-
-        DrawEffectList(buff);
-
-        EditorGUILayout.Space(12);
-
-        DrawEffectPicker(buff);
+            RoKForgeFormLayout.DrawColumns(
+        twoColumns,
+        () =>
+        {
+            DrawBuffProperties(buff);
+            EditorGUILayout.Space(12);
+            DrawEffectList(buff);
+        },
+        () => DrawEffectPicker(buff));
 
         EditorGUILayout.Space(12);
 
         DrawHelp();
     }
 
-    public void InvalidateCache()
-    {
-        cachedEffects = null;
-        cachedSearch = null;
-    }
 
     // =====================================================
     // BUFF PROPERTIES
@@ -199,169 +190,6 @@ public sealed class RoKContentStudioEffectComposer
             EditorUtility.SetDirty(buff);
     }
 
-
-    // =====================================================
-    // EFFECT ROW
-    // =====================================================
-
-    private void DrawEffectRow(
-        BuffDefinition buff,
-        SerializedProperty effects,
-        int index)
-    {
-        SerializedProperty element =
-            effects.GetArrayElementAtIndex(index);
-
-        EffectDefinition definition =
-            element.objectReferenceValue
-                as EffectDefinition;
-
-        EditorGUILayout.BeginVertical(
-            EditorStyles.helpBox
-        );
-
-        EditorGUILayout.BeginHorizontal();
-
-        EditorGUILayout.LabelField(
-            $"Effect {index + 1}",
-            EditorStyles.boldLabel,
-            GUILayout.Width(75)
-        );
-
-        EditorGUI.BeginDisabledGroup(
-            index == 0
-        );
-
-        if (GUILayout.Button(
-                "↑",
-                GUILayout.Width(28)))
-        {
-            int captured = index;
-
-            QueueEdit(
-                buff,
-                "Move Effect Up",
-                array =>
-                    array.MoveArrayElement(
-                        captured,
-                        captured - 1
-                    )
-            );
-        }
-
-        EditorGUI.EndDisabledGroup();
-
-        EditorGUI.BeginDisabledGroup(
-            index >= effects.arraySize - 1
-        );
-
-        if (GUILayout.Button(
-                "↓",
-                GUILayout.Width(28)))
-        {
-            int captured = index;
-
-            QueueEdit(
-                buff,
-                "Move Effect Down",
-                array =>
-                    array.MoveArrayElement(
-                        captured,
-                        captured + 1
-                    )
-            );
-        }
-
-        EditorGUI.EndDisabledGroup();
-
-        GUILayout.FlexibleSpace();
-
-        if (GUILayout.Button(
-                "Remove",
-                GUILayout.Width(65)))
-        {
-            int captured = index;
-
-            QueueEdit(
-                buff,
-                "Remove Effect",
-                array =>
-                    DeleteElement(
-                        array,
-                        captured
-                    )
-            );
-        }
-
-        EditorGUILayout.EndHorizontal();
-
-
-        RoKForgeLinkedField.Draw(
-            element,
-            new GUIContent(
-                "Definition",
-                "Double-click to open this EffectDefinition " +
-                "inside The Forge."
-            ),
-            openAsset
-        );
-
-
-        if (definition != null)
-        {
-            EditorGUILayout.LabelField(
-                definition.GetType().Name,
-                EditorStyles.miniLabel
-            );
-
-            string description =
-                definition.GetDescription();
-
-            if (!string.IsNullOrWhiteSpace(
-                    description))
-            {
-                EditorGUILayout.HelpBox(
-                    description,
-                    MessageType.None
-                );
-            }
-
-            EditorGUILayout.BeginHorizontal();
-
-            if (GUILayout.Button(
-                    "Open in Content Studio"))
-            {
-                EffectDefinition captured =
-                    definition;
-
-                // Avoid changing the UI tree
-                // during IMGUI layout.
-                EditorApplication.delayCall +=
-                    () => openAsset?.Invoke(captured);
-            }
-
-            if (GUILayout.Button(
-                    "Ping",
-                    GUILayout.Width(55)))
-            {
-                EditorGUIUtility.PingObject(
-                    definition
-                );
-            }
-
-            EditorGUILayout.EndHorizontal();
-        }
-        else
-        {
-            EditorGUILayout.HelpBox(
-                "Tom effekt-referens.",
-                MessageType.Warning
-            );
-        }
-
-        EditorGUILayout.EndVertical();
-    }
-
     // =====================================================
     // EFFECT PICKER
     // =====================================================
@@ -395,147 +223,21 @@ public sealed class RoKContentStudioEffectComposer
         }
     }
 
-    // =====================================================
-    // SEARCH EXISTING EFFECTS
-    // =====================================================
-
-    private void DrawExistingPicker(
-        BuffDefinition buff)
+    private void DrawExistingPicker(BuffDefinition buff)
     {
-        string nextSearch =
-            EditorGUILayout.TextField(
-                new GUIContent(
-                    "Search",
-                    "Sök bland samtliga befintliga " +
-                    "passiva EffectDefinition-assets."
-                ),
-                search
-            );
+        SerializedObject serialized = new(buff);
 
-        if (nextSearch != search)
-        {
-            search = nextSearch;
-            InvalidateCache();
-        }
-
-        if (cachedEffects == null ||
-            cachedSearch != search)
-        {
-            RebuildCache();
-        }
-
-        if (cachedEffects.Count == 0)
-        {
-            EditorGUILayout.HelpBox(
-                "Inga matchande effekter hittades.",
-                MessageType.Info
-            );
-
-            return;
-        }
-
-        resultScroll =
-            EditorGUILayout.BeginScrollView(
-                resultScroll,
-                GUILayout.MaxHeight(240)
-            );
-
-        foreach (EffectDefinition effect
-                 in cachedEffects)
-        {
-            if (effect == null)
-                continue;
-
-            EditorGUILayout.BeginHorizontal(
-                EditorStyles.helpBox
-            );
-
-            EditorGUILayout.BeginVertical();
-
-            EditorGUILayout.LabelField(
-                effect.name,
-                EditorStyles.boldLabel
-            );
-
-            EditorGUILayout.LabelField(
-                effect.GetDescription(),
-                EditorStyles.miniLabel
-            );
-
-            EditorGUILayout.EndVertical();
-
-            EditorGUI.BeginDisabledGroup(
-                ContainsEffect(buff, effect)
-            );
-
-            if (GUILayout.Button(
-                    "Add",
-                    GUILayout.Width(55)))
-            {
-                EffectDefinition captured =
-                    effect;
-
-                QueueEdit(
-                    buff,
-                    "Add Existing Effect",
-                    array =>
-                        AddElement(
-                            array,
-                            captured
-                        )
-                );
-            }
-
-            EditorGUI.EndDisabledGroup();
-
-            if (GUILayout.Button(
-                    "Open",
-                    GUILayout.Width(55)))
-            {
-                EffectDefinition captured =
-                    effect;
-
-                EditorApplication.delayCall +=
-                    () => openAsset?.Invoke(captured);
-            }
-
-            EditorGUILayout.EndHorizontal();
-        }
-
-        EditorGUILayout.EndScrollView();
+        existingEffectPicker.Draw(serialized, "effects", openAsset);
 
         EditorGUILayout.HelpBox(
-            "Effekter som redan finns i buffen " +
-            "kan inte läggas till en andra gång.\n\n" +
-            "Använd buffens Max Stacks för " +
-            "att förstärka effekten vid återapplicering.",
-            MessageType.Info
-        );
+            "Effekter som redan finns i buffen kan inte läggas till igen. " +
+            "Använd buffens Max Stacks för att förstärka effekten vid återapplicering.",
+            MessageType.Info);
     }
 
-    // =====================================================
-    // EFFECT CACHE
-    // =====================================================
-
-    private void RebuildCache()
+    public void InvalidateCache()
     {
-        cachedEffects = new();
-
-        List<ScriptableObject> assets =
-            RoKContentStudioCatalog.Find(
-                RoKContentCategory.PassiveEffects,
-                search
-            );
-
-        foreach (ScriptableObject asset in assets)
-        {
-            if (asset is EffectDefinition effect)
-            {
-                cachedEffects.Add(effect);
-            }
-        }
-
-        cachedSearch = search;
+        existingEffectPicker.InvalidateCache();
     }
 
     // =====================================================
@@ -828,33 +530,6 @@ public sealed class RoKContentStudioEffectComposer
         array.GetArrayElementAtIndex(index)
             .objectReferenceValue =
                 definition;
-    }
-
-    private static void DeleteElement(
-        SerializedProperty array,
-        int index)
-    {
-        if (index < 0 ||
-            index >= array.arraySize)
-        {
-            return;
-        }
-
-        int previousSize =
-            array.arraySize;
-
-        array.DeleteArrayElementAtIndex(
-            index
-        );
-
-        // Unity may first clear an Object reference
-        // instead of removing its array slot.
-        if (array.arraySize == previousSize)
-        {
-            array.DeleteArrayElementAtIndex(
-                index
-            );
-        }
     }
 
     private static bool ContainsEffect(

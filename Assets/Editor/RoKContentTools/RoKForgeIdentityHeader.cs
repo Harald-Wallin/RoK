@@ -5,7 +5,6 @@ using UnityEngine;
 using System;
 using UnityEditor;
 using UnityEditor.UIElements;
-using UnityEngine;
 using UnityEngine.UIElements;
 
 /// <summary>
@@ -137,6 +136,32 @@ public static class RoKForgeIdentityHeader
         }
 
         UpdatePreview(currentIcon);
+
+        if (asset is ItemData item)
+        {
+            const float borderWidth = 2f;
+
+            iconContainer.style.borderTopWidth = borderWidth;
+            iconContainer.style.borderRightWidth = borderWidth;
+            iconContainer.style.borderBottomWidth = borderWidth;
+            iconContainer.style.borderLeftWidth = borderWidth;
+
+            void UpdateRarityBorder()
+            {
+                Color color = ItemRarityColors.GetColor(item.rarity);
+
+                iconContainer.style.borderTopColor = color;
+                iconContainer.style.borderRightColor = color;
+                iconContainer.style.borderBottomColor = color;
+                iconContainer.style.borderLeftColor = color;
+            }
+
+            UpdateRarityBorder();
+
+            iconContainer.TrackPropertyValue(
+                serialized.FindProperty(nameof(ItemData.rarity)),
+                _ => UpdateRarityBorder());
+        }
 
         root.Add(iconContainer);
 

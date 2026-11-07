@@ -20,7 +20,8 @@ public enum RoKForgePage
     GuidedCreator,
 
     CreateItem,
-    CreateTalent
+    CreateTalent,
+    CreateFavour
 
 }
 
@@ -110,6 +111,7 @@ public sealed class RoKForgeRoute
 
                 RoKForgePage.CreateItem => "New Item",
                 RoKForgePage.CreateTalent => "New Talent",
+                RoKForgePage.CreateFavour => "New Favour",
 
 
                 _ => Page.ToString()
@@ -194,6 +196,27 @@ public sealed class RoKForgeNavigation
             history.RemoveAt(0);
             position--;
         }
+    }
+
+    public void ForgetAsset(ScriptableObject asset)
+    {
+        for (int i = history.Count - 1; i >= 0; i--)
+        {
+            RoKForgeRoute route = history[i];
+
+            if (route.Page != RoKForgePage.Asset || route.Asset != asset)
+                continue;
+
+            history.RemoveAt(i);
+
+            if (i <= position)
+                position--;
+        }
+
+        if (history.Count == 0)
+            history.Add(RoKForgeRoute.Home());
+
+        position = Mathf.Clamp(position, 0, history.Count - 1);
     }
 
     // =====================================================

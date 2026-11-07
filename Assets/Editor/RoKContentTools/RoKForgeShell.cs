@@ -21,6 +21,8 @@ public sealed class RoKForgeCallbacks
     public Action CreateItem;
     public Action CreateTalent;
 
+    public Action CreateFavour;
+
 
     public Action AdvancedAbilityRecipes;
 
@@ -579,6 +581,14 @@ public sealed class RoKForgeShell
                 "TALENT",
                 "Create a new TalentData.",
                 () => callbacks.CreateTalent?.Invoke()
+            )
+        );
+
+        createScroll.Add(
+            QuickButton(
+                "FAVOUR",
+                "Create a new Favour draft.",
+                () => callbacks.CreateFavour?.Invoke()
             )
         );
 

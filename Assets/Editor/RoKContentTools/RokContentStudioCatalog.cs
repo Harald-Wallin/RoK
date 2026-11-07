@@ -14,7 +14,8 @@ public enum RoKContentCategory
     AbilityActions,
     PassiveEffects,
     Talents,
-    Items
+    Items,
+    Favours
 }
 
 
@@ -78,8 +79,8 @@ public static class RoKContentStudioCatalog
     }
 
     private static bool MatchesCategory(
-        ScriptableObject asset,
-        RoKContentCategory category)
+    ScriptableObject asset,
+    RoKContentCategory category)
     {
         return category switch
         {
@@ -89,28 +90,16 @@ public static class RoKContentStudioCatalog
                 asset is AbilityEffect ||
                 asset is EffectDefinition ||
                 asset is TalentData ||
-                asset is ItemData,
+                asset is ItemData ||
+                asset is FavourData,
 
-
-            RoKContentCategory.Abilities =>
-                asset is AbilityData,
-
-            RoKContentCategory.Buffs =>
-                asset is BuffDefinition,
-
-            RoKContentCategory.AbilityActions =>
-                asset is AbilityEffect,
-
-            RoKContentCategory.PassiveEffects =>
-                asset is EffectDefinition,
-
-            RoKContentCategory.Talents =>
-                asset is TalentData,
-
-
-            RoKContentCategory.Items =>
-                asset is ItemData,
-
+            RoKContentCategory.Abilities => asset is AbilityData,
+            RoKContentCategory.Buffs => asset is BuffDefinition,
+            RoKContentCategory.AbilityActions => asset is AbilityEffect,
+            RoKContentCategory.PassiveEffects => asset is EffectDefinition,
+            RoKContentCategory.Talents => asset is TalentData,
+            RoKContentCategory.Items => asset is ItemData,
+            RoKContentCategory.Favours => asset is FavourData,
 
             _ => false
         };
@@ -247,6 +236,12 @@ public static class RoKContentStudioCatalog
             }
         }
 
+        if (asset is FavourData favour)
+        {
+            foreach (string warning in favour.GetValidationWarnings())
+                issues.Add($"VARNING: {warning}");
+        }
+
         return issues;
     }
 
@@ -348,13 +343,32 @@ public static class RoKContentStudioCatalog
                 links.Add(item.reputationFaction);
             }
 
-            foreach (FavourData favour in item.LinkedFavours)
+            foreach (FavourData linkedFavour in item.LinkedFavours)
             {
-                if (favour != null && !links.Contains(favour))
-                    links.Add(favour);
+                if (linkedFavour != null && !links.Contains(linkedFavour))
+                    links.Add(linkedFavour);
             }
         }
 
+        if (asset is FavourData favour)
+        {
+            SerializedObject serialized = new(favour);
+            SerializedProperty property = serialized.GetIterator();
+
+            while (property.NextVisible(true))
+            {
+                if (property.propertyType != SerializedPropertyType.ObjectReference)
+                    continue;
+
+                if (property.objectReferenceValue is ScriptableObject linked &&
+                    linked != null &&
+                    linked != favour &&
+                    !links.Contains(linked))
+                {
+                    links.Add(linked);
+                }
+            }
+        }
 
         return links;
     }

@@ -45,7 +45,8 @@ public sealed class RoKContentStudioActionComposer
     public void Draw(
         AbilityData ability,
         Action<ScriptableObject> openAsset,
-        Action refreshLibrary)
+        Action refreshLibrary,
+        bool twoColumns=false)
     {
         if (ability == null)
             return;
@@ -69,7 +70,7 @@ public sealed class RoKContentStudioActionComposer
 
         using (new EditorGUI.DisabledScope(editingDisabled))
         {
-            DrawAbilitySettings(ability);
+            abilitySettingsEditor.Draw(ability, twoColumns);
 
             EditorGUILayout.Space(12);
 
@@ -89,17 +90,6 @@ public sealed class RoKContentStudioActionComposer
     {
         cachedActions = null;
         cachedSearch = null;
-    }
-
-
-    // =====================================================
-    // ABILITY SETTINGS
-    // =====================================================
-
-    private void DrawAbilitySettings(
-        AbilityData ability)
-    {
-        abilitySettingsEditor.Draw(ability);
     }
 
 
@@ -654,7 +644,7 @@ public sealed class RoKContentStudioActionComposer
     }
 
     // =====================================================
-    // ACTION CACHE
+    // CREATE NEW ACTION
     // =====================================================
 
     private void RebuildCache()
@@ -677,10 +667,6 @@ public sealed class RoKContentStudioActionComposer
 
         cachedSearch = search;
     }
-
-    // =====================================================
-    // CREATE NEW ACTION
-    // =====================================================
 
     private void DrawNewActionCreator(
         AbilityData ability)

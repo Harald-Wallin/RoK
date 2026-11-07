@@ -83,7 +83,7 @@ public static class RoKForgeLinkedField
     // =====================================================
 
     public static void EnableNestedNavigation(
-        InspectorElement inspector,
+        VisualElement inspector,
         ScriptableObject owner,
         Action<ScriptableObject> openAsset)
     {

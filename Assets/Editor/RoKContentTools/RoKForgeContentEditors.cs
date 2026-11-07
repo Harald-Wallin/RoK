@@ -9,39 +9,20 @@ using UnityEngine;
 internal static class RoKForgeEditorFields
 {
     public static void Draw(
-        ScriptableObject asset,
-        bool twoColumns,
-        Action<SerializedObject> left,
-        Action<SerializedObject> right)
+     ScriptableObject asset,
+     bool twoColumns,
+     Action<SerializedObject> left,
+     Action<SerializedObject> right)
     {
         SerializedObject so = new(asset);
         so.Update();
 
-        if (twoColumns)
-        {
-            EditorGUILayout.BeginHorizontal();
-            BeginColumn();
-        }
+        RoKForgeFormLayout.DrawColumns(
+            twoColumns,
+            () => left(so),
+            () => right(so));
 
-        left(so);
-
-        if (twoColumns)
-        {
-            EditorGUILayout.EndVertical();
-            GUILayout.Space(12);
-            BeginColumn();
-        }
-
-        right(so);
-
-        if (twoColumns)
-        {
-            EditorGUILayout.EndVertical();
-            EditorGUILayout.EndHorizontal();
-        }
-
-        if (so.ApplyModifiedProperties() &&
-            AssetDatabase.Contains(asset))
+        if (so.ApplyModifiedProperties() && AssetDatabase.Contains(asset))
             EditorUtility.SetDirty(asset);
     }
 
@@ -91,15 +72,6 @@ internal static class RoKForgeEditorFields
             propertyName,
             title,
             openAsset);
-    }
-
-
-
-    private static void BeginColumn()
-    {
-        EditorGUILayout.BeginVertical(
-            GUILayout.MinWidth(280),
-            GUILayout.ExpandWidth(true));
     }
 }
 
@@ -325,6 +297,9 @@ public static class RoKForgeItemEditor
 
 public static class RoKForgeTalentEditor
 {
+    private static readonly RoKForgePassiveEffectList.ExistingEffectPicker existingEffectPicker =
+    new();
+
 
     public static void Draw(
         TalentData talent,
@@ -370,17 +345,15 @@ public static class RoKForgeTalentEditor
         // Only references are modified here.
         RoKForgeEditorFields.LinkedAssetArray(
             so,
-            "PASSIVE EFFECTS",
             "passiveEffects",
+            "PASSIVE EFFECTS",
             openAsset
         );
 
-        EditorGUILayout.HelpBox(
-            "Use the + button above to link existing " +
-            "EffectDefinition assets.\n\n" +
-            "Shared effects are edited separately.",
-            MessageType.None
-        );
+        EditorGUILayout.Space(6);
+        EditorGUILayout.LabelField("Add Existing Effect", EditorStyles.boldLabel);
+        existingEffectPicker.Draw(so, "passiveEffects", openAsset);
+        EditorGUILayout.Space(6);
 
         bool saved = AssetDatabase.Contains(talent);
 

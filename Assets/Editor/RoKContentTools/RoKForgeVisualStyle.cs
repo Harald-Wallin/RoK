@@ -923,6 +923,61 @@ public static class RoKForgeVisualStyle
     // SHARED STYLING
     // =====================================================
 
+    private static readonly GUIStyle EffectCardLayout = new()
+    {
+        padding = new RectOffset(8, 8, 6, 6)
+    };
+
+    internal static void BeginEffectCard()
+    {
+        Rect rect = EditorGUILayout.BeginVertical(EffectCardLayout);
+
+        if (Event.current.type != EventType.Repaint)
+            return;
+
+        const float borderWidth = 1f;
+
+        EditorGUI.DrawRect(rect, Color.Lerp(Border, Bronze, 0.35f));
+
+        Rect background = Rect.MinMaxRect(
+            rect.xMin + borderWidth,
+            rect.yMin + borderWidth,
+            rect.xMax - borderWidth,
+            rect.yMax - borderWidth);
+
+        EditorGUI.DrawRect(background, Surface);
+    }
+
+    internal static Button CreateDeleteAssetButton(Action onClick)
+    {
+        Color border = EditorGUIUtility.isProSkin
+            ? new Color(0.73f, 0.29f, 0.25f)
+            : new Color(0.65f, 0.20f, 0.17f);
+
+        Button button = new Button(onClick)
+        {
+            text = "Delete Asset",
+            tooltip = "Move this asset to the system trash."
+        };
+
+        button.style.alignSelf = Align.FlexStart;
+        button.style.marginTop = 16;
+        button.style.marginBottom = 8;
+        button.style.minWidth = 120;
+
+        button.style.borderTopWidth = 1;
+        button.style.borderRightWidth = 1;
+        button.style.borderBottomWidth = 1;
+        button.style.borderLeftWidth = 1;
+
+        button.style.borderTopColor = border;
+        button.style.borderRightColor = border;
+        button.style.borderBottomColor = border;
+        button.style.borderLeftColor = border;
+
+        return button;
+    }
+
     private static void ApplyPanel(
         VisualElement element)
     {

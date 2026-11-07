@@ -474,168 +474,88 @@ public sealed class FavourData :
             group?.Normalize();
         }
 
-        ValidateFlow();
-        ValidateRewardEntries();
-        ValidateRequirementEntries();
+        foreach (string warning in GetValidationWarnings())
+            Debug.LogWarning(warning, this);
     }
 
-    private void ValidateFlow()
+    public IEnumerable<string> GetValidationWarnings()
     {
-        if (!isCourier &&
-            objectives.Count == 0)
-        {
-            Debug.LogWarning(
-                $"FavourData '{name}' saknar objectives.",
-                this
-            );
-        }
+        int objectiveCount = objectives?.Count ?? 0;
 
-        if (isCourier &&
-            objectives.Count > 0)
-        {
-            Debug.LogWarning(
-                $"Courier-favour '{name}' har objectives. " +
-                "En Courier ska normalt sakna vanliga objectives " +
-                "eftersom den blir ReadyToTurnIn direkt när " +
-                "den accepteras.",
-                this
-            );
-        }
+        if (!IsCourier && objectiveCount == 0)
+            yield return $"Favour '{name}' saknar objectives.";
 
-        if (isCourier &&
-            completionPolicy ==
-                FavourCompletionPolicy.Automatic)
-        {
-            Debug.LogWarning(
-                $"Courier-favour '{name}' använder Automatic " +
-                "completion. En Courier behöver en faktisk " +
-                "turn-in destination.",
-                this
-            );
-        }
+        if (IsCourier && objectiveCount > 0)
+            yield return $"Courier-favour '{name}' har vanliga objectives.";
 
-        if (isCourier &&
-            !UsesSpecificCompletionTarget)
+        if (objectives?.Exists(objective => objective == null) == true)
+            yield return $"Favour '{name}' har en tom objective-referens.";
+
+        if (IsCourier && !UsesSpecificCompletionTarget)
         {
-            Debug.LogWarning(
-                $"Courier-favour '{name}' måste använda " +
-                $"CompleteAtTarget eller CompleteAtWorldObject.",
-                this
-            );
+            yield return $"Courier-favour '{name}' måste använda " +
+                "CompleteAtTarget eller CompleteAtWorldObject.";
         }
 
         if (UsesSpecificCompletionTarget &&
-            string.IsNullOrWhiteSpace(
-                CompletionTargetId))
+            string.IsNullOrWhiteSpace(CompletionTargetId))
         {
-            Debug.LogWarning(
-                $"FavourData '{name}' använder en specifik " +
-                $"completion target men saknar ett giltigt " +
-                $"Completion Target.",
-                this
-            );
+            yield return $"Favour '{name}' saknar en giltig Completion Target.";
         }
-    }
 
-    private void ValidateRewardEntries()
-    {
-        foreach (FavourReputationReward reward
-                 in reputationRewards)
+        if (reputationRewards?.Exists(reward => reward?.Faction == null) == true)
+            yield return $"Favour '{name}' har en reputation reward utan Faction.";
+
+        if (itemRewards?.Exists(reward => reward?.Item == null) == true)
+            yield return $"Favour '{name}' har en item reward utan ItemData.";
+
+        if (abilityRewards?.Exists(reward => reward?.Ability == null) == true)
+            yield return $"Favour '{name}' har en ability reward utan AbilityData.";
+
+        if (rewardChoiceGroups != null)
         {
-            if (reward != null &&
-                reward.Faction == null)
+            foreach (FavourRewardChoiceGroup group in rewardChoiceGroups)
             {
-                Debug.LogWarning(
-                    $"FavourData '{name}' har en reputation " +
-                    $"reward utan Faction.",
-                    this
-                );
+                if (group == null)
+                    continue;
+
+                int validOptions = 0;
+
+                if (group.Options != null)
+                {
+                    foreach (FavourRewardChoiceOption option in group.Options)
+                    {
+                        if (option != null && option.IsValid)
+                            validOptions++;
+                    }
+                }
+
+                if (validOptions < group.ChoicesAllowed)
+                {
+                    yield return $"Reward-gruppen '{group.DisplayName}' kräver " +
+                        $"{group.ChoicesAllowed} val men har bara " +
+                        $"{validOptions} giltiga alternativ.";
+                }
             }
         }
 
-        foreach (FavourItemReward reward
-                 in itemRewards)
+        if (reputationRequirements?.Exists(
+                requirement => requirement?.Faction == null) == true)
         {
-            if (reward != null &&
-                reward.Item == null)
-            {
-                Debug.LogWarning(
-                    $"FavourData '{name}' har en item reward " +
-                    $"utan ItemData.",
-                    this
-                );
-            }
+            yield return $"Favour '{name}' har ett reputation requirement utan Faction.";
         }
 
-        foreach (FavourAbilityReward reward
-                 in abilityRewards)
+        if (itemRequirements?.Exists(
+                requirement => requirement?.Item == null) == true)
         {
-            if (reward != null &&
-                reward.Ability == null)
-            {
-                Debug.LogWarning(
-                    $"FavourData '{name}' har en ability reward " +
-                    $"utan AbilityData.",
-                    this
-                );
-            }
-        }
-    }
-
-    private void ValidateRequirementEntries()
-    {
-        foreach (FavourReputationRequirement
-                 requirement
-                 in reputationRequirements)
-        {
-            if (requirement != null &&
-                requirement.Faction == null)
-            {
-                Debug.LogWarning(
-                    $"FavourData '{name}' har ett reputation " +
-                    $"requirement utan Faction.",
-                    this
-                );
-            }
+            yield return $"Favour '{name}' har ett item requirement utan ItemData.";
         }
 
-        foreach (FavourItemRequirement requirement
-                 in itemRequirements)
-        {
-            if (requirement != null &&
-                requirement.Item == null)
-            {
-                Debug.LogWarning(
-                    $"FavourData '{name}' har ett item " +
-                    $"requirement utan ItemData.",
-                    this
-                );
-            }
-        }
+        if (requiredCompletedFavours?.Exists(required => required == this) == true)
+            yield return $"Favour '{name}' kräver sig själv.";
 
-        foreach (FavourData required
-                 in requiredCompletedFavours)
-        {
-            if (required == this)
-            {
-                Debug.LogWarning(
-                    $"FavourData '{name}' kräver sig själv.",
-                    this
-                );
-            }
-        }
-
-        foreach (FavourData forbidden
-                 in forbiddenCompletedFavours)
-        {
-            if (forbidden == this)
-            {
-                Debug.LogWarning(
-                    $"FavourData '{name}' förbjuder sig själv.",
-                    this
-                );
-            }
-        }
+        if (forbiddenCompletedFavours?.Exists(forbidden => forbidden == this) == true)
+            yield return $"Favour '{name}' förbjuder sig själv.";
     }
 
 
