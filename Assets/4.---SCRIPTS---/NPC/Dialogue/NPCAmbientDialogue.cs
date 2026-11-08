@@ -39,11 +39,13 @@ public class NPCAmbientDialogue : MonoBehaviour
     public GameObject dialogueBubblePrefab;
     private NPCBehavior ai;
     private NPCMovement movement;
+    private FavourGiver favourGiver;
 
     void Awake()
     {
         ai = GetComponent<NPCBehavior>();
         movement = GetComponent<NPCMovement>();
+        favourGiver = GetComponentInParent<FavourGiver>();
     }
 
     void Start()
@@ -217,12 +219,15 @@ public class NPCAmbientDialogue : MonoBehaviour
     {
         List<DialogueLine> validLines = new();
 
-        foreach (var table in dialogueTables)
-        {
-            if (!IsTableValid(table))
-                continue;
+        AddOfferDialogueLines(validLines);
 
-            validLines.AddRange(table.lines);
+        if (validLines.Count == 0)
+        {
+            foreach (NPCDialogueTable table in dialogueTables)
+            {
+                if (IsTableValid(table))
+                    validLines.AddRange(table.lines);
+            }
         }
 
         if (validLines.Count == 0)
@@ -231,8 +236,52 @@ public class NPCAmbientDialogue : MonoBehaviour
         return validLines[Random.Range(0, validLines.Count)];
     }
 
+    private void AddOfferDialogueLines(List<DialogueLine> validLines)
+    {
+        PlayerFavourManager manager = PlayerFavourManager.Instance;
+
+        if (favourGiver == null || manager == null)
+            return;
+
+        foreach (FavourData favour in favourGiver.Favours)
+        {
+            if (favour == null ||
+                favour.ActivationPolicy != FavourActivationPolicy.ExplicitAccept)
+            {
+                continue;
+            }
+
+            NPCDialogueTable table = favour.OfferAmbientDialogue;
+
+            if (!IsTableValid(table) ||
+                !manager.TryGetRuntime(favour, out FavourRuntime runtime) ||
+                runtime == null ||
+                runtime.Data != favour ||
+                !runtime.CanAccept)
+            {
+                continue;
+            }
+
+            foreach (DialogueLine line in table.lines)
+            {
+                if (line != null &&
+                    (!string.IsNullOrWhiteSpace(line.english) ||
+                     !string.IsNullOrWhiteSpace(line.swedish)))
+                {
+                    validLines.Add(line);
+                }
+            }
+
+            if (validLines.Count > 0)
+                return;
+        }
+    }
+
     bool IsTableValid(NPCDialogueTable table)
     {
+        if (table == null || table.lines == null || table.lines.Count == 0)
+            return false;
+
         if (table.faction == null)
             return true;
 

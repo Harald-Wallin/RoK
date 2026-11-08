@@ -1046,12 +1046,6 @@ public sealed class RoKContentStudioWindow :
             editor.style.marginTop = 10;
 
             workspace.Add(editor);
-
-            if (asset is FavourData favour)
-            {
-                workspace.Add(
-                    RoKForgeFavourObjectiveCreator.Create(favour, ShowAsset));
-            }
         }
         else if (asset is FavourData favour)
         {
@@ -1316,8 +1310,7 @@ public sealed class RoKContentStudioWindow :
 
 
                     abilityCreationPanel.UseTwoColumns =
-                        workspace.contentViewport.resolvedStyle.width
-                            >= 700f;
+                        RoKForgeFormLayout.UseTwoColumns(workspace);
 
 
                     abilityCreationPanel.Draw(
@@ -1393,13 +1386,13 @@ public sealed class RoKContentStudioWindow :
                 () =>
                 {
                     recipePanel.Draw(
-                        ShowAsset,
-                        RefreshLibrary
-                    );
+                        ShowAsset, RefreshLibrary, RoKForgeFormLayout.UseTwoColumns(workspace));
                 }
             );
 
         panel.style.marginTop = 10;
+
+        RoKForgeFormLayout.Constrain(panel);
 
         workspace.Add(panel);
 
@@ -1438,13 +1431,13 @@ public sealed class RoKContentStudioWindow :
                 () =>
                 {
                     effectRegistryPanel.Draw(
-                        ShowAsset,
-                        RefreshLibrary
-                    );
+                        ShowAsset, RefreshLibrary, RoKForgeFormLayout.UseTwoColumns(workspace));
                 }
             );
 
         panel.style.marginTop = 10;
+
+        RoKForgeFormLayout.Constrain(panel);
 
         workspace.Add(panel);
 
@@ -1484,12 +1477,13 @@ public sealed class RoKContentStudioWindow :
                 () =>
                 {
                     diagnosticsPanel.Draw(
-                        ShowAsset
-                    );
+                        ShowAsset, RoKForgeFormLayout.UseTwoColumns(workspace));
                 }
             );
 
         panel.style.marginTop = 10;
+
+        RoKForgeFormLayout.Constrain(panel);
 
         workspace.Add(panel);
 
@@ -1519,6 +1513,8 @@ public sealed class RoKContentStudioWindow :
             )
         );
 
+        VisualElement setupColumn = new();
+
         EnumField recipeField =
             new EnumField("Recipe", recipe);
 
@@ -1533,6 +1529,7 @@ public sealed class RoKContentStudioWindow :
         );
 
         AddField(
+            setupColumn,
             recipeField,
             "Choose what to build.\n\n" +
             "SelfBuffAbility creates:\n" +
@@ -1554,17 +1551,13 @@ public sealed class RoKContentStudioWindow :
         );
 
         AddField(
+            setupColumn,
             nameField,
             "Name of the created gameplay content.\n\n" +
             "The factory automatically generates " +
             "unique asset paths, so existing files " +
             "will not be overwritten."
         );
-
-        if (recipe != RoKContentRecipe.EmptyAbility)
-        {
-            DrawEffectSettings();
-        }
 
         if (recipe == RoKContentRecipe.SelfBuffAbility ||
             recipe == RoKContentRecipe.BuffDefinition)
@@ -1580,6 +1573,7 @@ public sealed class RoKContentStudioWindow :
             );
 
             AddField(
+                setupColumn,
                 durationField,
                 "How long the applied buff lasts " +
                 "in seconds.\n\n" +
@@ -1602,12 +1596,27 @@ public sealed class RoKContentStudioWindow :
             );
 
             AddField(
+                setupColumn,
                 cooldownField,
                 "Ability cooldown in seconds.\n\n" +
                 "This controls how often the ability " +
                 "can be activated. It does not control " +
                 "how long the resulting buff remains active."
             );
+        }
+
+        if (recipe == RoKContentRecipe.EmptyAbility)
+        {
+            RoKForgeFormLayout.Constrain(setupColumn);
+            workspace.Add(setupColumn);
+        }
+        else
+        {
+            VisualElement effectColumn = new();
+            DrawEffectSettings(effectColumn);
+
+            workspace.Add(
+                RoKForgeFormLayout.CreateColumns(workspace, setupColumn, effectColumn));
         }
 
         // =================================================
@@ -1628,6 +1637,8 @@ public sealed class RoKContentStudioWindow :
                 .isPlayingOrWillChangePlaymode
         );
 
+        RoKForgeFormLayout.Constrain(create);
+
         workspace.Add(create);
 
         helpLabel.text =
@@ -1639,189 +1650,129 @@ public sealed class RoKContentStudioWindow :
     // EFFECT SETTINGS
     // =====================================================
 
-    private void DrawEffectSettings()
+    private void DrawEffectSettings(VisualElement effectColumn)
     {
-        workspace.Add(
-            Heading("Effect Configuration")
-        );
+        effectColumn.Add(Heading("Effect Configuration"));
 
         if (recipe != RoKContentRecipe.PassiveEffect)
         {
-            ObjectField existing =
-                new ObjectField("Existing Effect")
-                {
-                    objectType =
-                        typeof(EffectDefinition),
+            ObjectField existing = new("Existing Effect")
+            {
+                objectType = typeof(EffectDefinition),
+                allowSceneObjects = false,
+                value = existingEffect
+            };
 
-                    allowSceneObjects = false,
-
-                    value = existingEffect
-                };
-
-            existing.RegisterValueChangedCallback(
-                evt =>
-                {
-                    existingEffect =
-                        evt.newValue
-                        as EffectDefinition;
-
-                    DrawCreator();
-                }
-            );
+            existing.RegisterValueChangedCallback(evt =>
+            {
+                existingEffect = evt.newValue as EffectDefinition;
+                DrawCreator();
+            });
 
             AddField(
+                effectColumn,
                 existing,
-                "Optional: reuse an existing " +
-                "EffectDefinition asset.\n\n" +
+                "Optional: reuse an existing EffectDefinition asset.\n\n" +
                 "When an existing effect is selected, " +
                 "Content Studio does not create a duplicate.\n\n" +
-                "Leave empty to create a new effect."
-            );
+                "Leave empty to create a new effect.");
 
             if (existingEffect != null)
             {
-                workspace.Add(
-                    Paragraph(
-                        "Using existing effect: " +
-                        existingEffect.name
-                    )
-                );
+                effectColumn.Add(
+                    Paragraph("Using existing effect: " + existingEffect.name));
 
                 return;
             }
         }
 
-        EnumField kindField =
-            new EnumField(
-                "Effect Type",
-                effectKind
-            );
+        EnumField kindField = new("Effect Type", effectKind);
 
-        kindField.RegisterValueChangedCallback(
-            evt =>
-            {
-                effectKind =
-                    (RoKPassiveEffectKind)evt.newValue;
-
-                DrawCreator();
-            }
-        );
+        kindField.RegisterValueChangedCallback(evt =>
+        {
+            effectKind = (RoKPassiveEffectKind)evt.newValue;
+            DrawCreator();
+        });
 
         AddField(
+            effectColumn,
             kindField,
             "Select the reusable effect behaviour.\n\n" +
             "Stat Modifier changes character stats.\n" +
             "Damage Resistance reduces incoming damage.\n" +
             "Creature Damage Bonus affects selected creatures.\n" +
-            "Damage Type Bonus improves one damage type."
-        );
+            "Damage Type Bonus improves one damage type.");
 
-        if (effectKind ==
-            RoKPassiveEffectKind.StatModifier)
+        if (effectKind == RoKPassiveEffectKind.StatModifier)
         {
-            EnumField statField =
-                new EnumField("Stat", stat);
-
-            statField.RegisterValueChangedCallback(
-                evt => stat = (StatType)evt.newValue
-            );
+            EnumField statField = new("Stat", stat);
+            statField.RegisterValueChangedCallback(evt => stat = (StatType)evt.newValue);
 
             AddField(
+                effectColumn,
                 statField,
                 "Character stat to modify.\n\n" +
-                "Example: MaxHP, Strength or Armor."
-            );
+                "Example: MaxHP, Strength or Armor.");
 
-            EnumField modifierField =
-                new EnumField(
-                    "Modifier Type",
-                    modifierType
-                );
-
-            modifierField.RegisterValueChangedCallback(
-                evt =>
-                    modifierType =
-                        (ModifierType)evt.newValue
-            );
+            EnumField modifierField = new("Modifier Type", modifierType);
+            modifierField.RegisterValueChangedCallback(evt =>
+                modifierType = (ModifierType)evt.newValue);
 
             AddField(
+                effectColumn,
                 modifierField,
                 "Flat adds a numeric amount.\n\n" +
                 "Percent applies a percentage according " +
-                "to RöK's stat calculation stages."
-            );
+                "to RöK's stat calculation stages.");
         }
 
-        if (effectKind ==
-                RoKPassiveEffectKind.DamageResistance ||
-            effectKind ==
-                RoKPassiveEffectKind.DamageTypeBonus)
+        if (effectKind == RoKPassiveEffectKind.DamageResistance ||
+            effectKind == RoKPassiveEffectKind.DamageTypeBonus)
         {
-            EnumField damageField =
-                new EnumField(
-                    "Damage Type",
-                    damageType
-                );
-
-            damageField.RegisterValueChangedCallback(
-                evt =>
-                    damageType =
-                        (DamageType)evt.newValue
-            );
+            EnumField damageField = new("Damage Type", damageType);
+            damageField.RegisterValueChangedCallback(evt =>
+                damageType = (DamageType)evt.newValue);
 
             AddField(
+                effectColumn,
                 damageField,
                 "Damage type affected by the effect.\n\n" +
                 "Examples: Physical, Fire, Frost, Curse.\n" +
-                "This is separate from CreatureType."
-            );
+                "This is separate from CreatureType.");
         }
 
-        if (effectKind ==
-            RoKPassiveEffectKind.CreatureDamageBonus)
+        if (effectKind == RoKPassiveEffectKind.CreatureDamageBonus)
         {
-            EnumFlagsField creatures =
-                new EnumFlagsField(
-                    "Creature Types",
-                    creatureTypes
-                );
-
-            creatures.RegisterValueChangedCallback(
-                evt =>
-                    creatureTypes =
-                        (CreatureType)evt.newValue
-            );
+            EnumFlagsField creatures = new("Creature Types", creatureTypes);
+            creatures.RegisterValueChangedCallback(evt =>
+                creatureTypes = (CreatureType)evt.newValue);
 
             AddField(
+                effectColumn,
                 creatures,
                 "Creature classifications affected.\n\n" +
                 "Multiple types can be selected.\n\n" +
                 "Example: Beast | Wolf.\n" +
-                "Any matching flag qualifies."
-            );
+                "Any matching flag qualifies.");
         }
 
-        FloatField amount =
-            new FloatField("Effect Value")
-            {
-                value = effectValue
-            };
+        FloatField amount = new("Effect Value")
+        {
+            value = effectValue
+        };
 
-        amount.RegisterValueChangedCallback(
-            evt => effectValue = evt.newValue
-        );
+        amount.RegisterValueChangedCallback(evt => effectValue = evt.newValue);
 
         AddField(
+            effectColumn,
             amount,
             "Magnitude of the effect.\n\n" +
             "For percentage modifiers:\n" +
             "0.10 = +10%\n" +
             "0.25 = +25%\n" +
             "-0.20 = -20%\n\n" +
-            "For Flat stat modifiers the value " +
-            "represents a numeric amount.\n\n" +
-            "Remember: the effect itself owns no timer."
-        );
+            "For Flat stat modifiers the value represents a numeric amount.\n\n" +
+            "Remember: the effect itself owns no timer.");
     }
 
     // =====================================================
@@ -1874,6 +1825,7 @@ public sealed class RoKContentStudioWindow :
     // =====================================================
 
     private void AddField(
+        VisualElement parent,
         VisualElement field,
         string help)
     {
@@ -1909,7 +1861,7 @@ public sealed class RoKContentStudioWindow :
 
         row.Add(info);
 
-        workspace.Add(row);
+        parent.Add(row);
     }
 
     // =====================================================

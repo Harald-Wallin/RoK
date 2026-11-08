@@ -24,7 +24,7 @@ MonoBehaviour:
   objectives:
   - {fileID: 11400000, guid: 9c759d488c806474ab70183cedefe0a8, type: 2}
   - {fileID: 11400000, guid: 8c316b9ed74268f47a684f68154e5d43, type: 2}
-  - {fileID: 11400000, guid: 771a8c5a7e8c72e4ab0d90bfcf9683b7, type: 2}
+  offerAmbientDialogue: {fileID: 11400000, guid: b929b2800ed01ba46b0c5b077db49c82, type: 2}
   dialogueSet: {fileID: 11400000, guid: 1f5c544cbda3fad41bb8269f6fe5f6dc, type: 2}
   completionDialogueSet: {fileID: 0}
   experienceReward: 120

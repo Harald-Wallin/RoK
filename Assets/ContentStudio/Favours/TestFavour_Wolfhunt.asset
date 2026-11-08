@@ -1,0 +1,60 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a845d5b2ad00dc548a9a92dd453395f0, type: 3}
+  m_Name: TestFavour_Wolfhunt
+  m_EditorClassIdentifier: Assembly-CSharp::FavourData
+  displayName: TestFavour_Wolfhunt
+  description: 
+  category: 1
+  activationPolicy: 0
+  completionPolicy: 1
+  isCourier: 0
+  completionTarget:
+    entityId: 
+    displayName: 
+  objectives:
+  - {fileID: 11400000, guid: cb233c75885757445b9c358e054950d0, type: 2}
+  offerAmbientDialogue: {fileID: 11400000, guid: 90ad06df88e2a314fb54a64bc8bd79f7, type: 2}
+  dialogueSet: {fileID: 11400000, guid: 108f649b9d6373d49871da021b0cbe2c, type: 2}
+  completionDialogueSet: {fileID: 0}
+  experienceReward: 100000
+  minimumCurrencyReward: 5
+  maximumCurrencyReward: 5
+  reputationRewards: []
+  itemRewards: []
+  abilityRewards: []
+  rewardChoiceGroups:
+  - displayName: ' '
+    choicesAllowed: 1
+    options:
+    - type: 0
+      item: {fileID: 11400000, guid: 3a0eeeb81a830854b8a057a087eb4146, type: 2}
+      itemAmount: 0
+      ability: {fileID: 0}
+    - type: 1
+      item: {fileID: 0}
+      itemAmount: 0
+      ability: {fileID: 11400000, guid: 1a312aa5472b17841bd3ac9fc9472233, type: 2}
+  minimumLevel: 2
+  minimumCurrency: 0
+  reputationRequirements: []
+  itemRequirements: []
+  requiredCompletedFavours: []
+  forbiddenCompletedFavours: []
+  failureSettings:
+    policy: 0
+    retryCooldownSeconds: 0
+  repeatSettings:
+    repeatable: 0
+    repeatCooldownSeconds: 0
+  followUps: []
+  requireSourceItemWhileActive: 1

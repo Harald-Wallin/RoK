@@ -38,7 +38,8 @@ public sealed class RoKContentStudioRecipePanel
 
     public void Draw(
         Action<ScriptableObject> openAsset,
-        Action refreshLibrary)
+        Action refreshLibrary,
+        bool twoColumns = false)
     {
 
         // =====================================================
@@ -72,6 +73,16 @@ public sealed class RoKContentStudioRecipePanel
             MessageType.Info
         );
 
+        RoKForgeFormLayout.DrawColumns(
+        twoColumns,
+        DrawRecipeIdentityAndDamage,
+        DrawTargetingExecutionAndBuff);
+
+            DrawRecipeResult(openAsset, refreshLibrary);
+    }
+
+    private void DrawRecipeIdentityAndDamage()
+    {
         Section("Recipe");
 
         Field(
@@ -224,222 +235,200 @@ public sealed class RoKContentStudioRecipePanel
             "multiplikatorn hämtas från casterns stats."
         );
 
+    }
+
+    private void DrawTargetingExecutionAndBuff()
+    {
         Section("Targeting");
 
         Field(
-            () =>
-            {
-                request.Range =
-                    EditorGUILayout.FloatField(
-                        "Range",
-                        request.Range
-                    );
-            },
+            () => request.Range = EditorGUILayout.FloatField("Range", request.Range),
             "Maximalt avstånd till ett giltigt target.\n\n" +
             "Recipe Builder skapar SingleTarget / Hostile.\n\n" +
             "Exempel:\n" +
             "2 för en närstridsattack.\n" +
-            "6 för en kortdistans-spell."
-        );
+            "6 för en kortdistans-spell.");
 
         Field(
             () =>
             {
-                targetingReference =
-                    (AbilityData)
-                    EditorGUILayout.ObjectField(
-                        "Copy Layers From",
-                        targetingReference,
-                        typeof(AbilityData),
-                        false
-                    );
+                targetingReference = (AbilityData)EditorGUILayout.ObjectField(
+                    "Copy Layers From",
+                    targetingReference,
+                    typeof(AbilityData),
+                    false);
             },
             "Valfri hjälp för target layers.\n\n" +
             "Välj en befintlig fungerande ability, " +
             "exempelvis Heroic Strike eller TestFireAbility.\n\n" +
             "Vi kopierar endast dess TargetLayers, " +
-            "inte cooldown, targeting mode eller effects."
-        );
+            "inte cooldown, targeting mode eller effects.");
 
-        if (targetingReference != null)
+        if (targetingReference != null && GUILayout.Button("Copy Target Layers"))
         {
-            if (GUILayout.Button(
-                    "Copy Target Layers"))
-            {
-                request.TargetLayers =
-                    targetingReference
-                        .TargetingSettings
-                        .TargetLayers.value;
-            }
+            request.TargetLayers = targetingReference.TargetingSettings.TargetLayers.value;
         }
 
         Field(
-            () =>
-            {
-                request.TargetLayers =
-                    DrawLayerMask(
-                        request.TargetLayers
-                    );
-            },
-            "Vilka Unity-lager som får innehålla " +
-            "targetbara fiender.\n\n" +
+            () => request.TargetLayers = DrawLayerMask(request.TargetLayers),
+            "Vilka Unity-lager som får innehålla targetbara fiender.\n\n" +
             "Detta måste matcha lagren i din scen.\n\n" +
-            "Välj rätt lager eller kopiera från " +
-            "en redan fungerande offensiv ability.\n\n" +
-            "Om inga lager väljs kan abilityn " +
-            "inte skapas."
-        );
+            "Välj rätt lager eller kopiera från en redan fungerande offensiv ability.\n\n" +
+            "Om inga lager väljs kan abilityn inte skapas.");
 
         Section("Execution");
 
         Field(
-            () =>
-            {
-                request.Cooldown =
-                    EditorGUILayout.FloatField(
-                        "Cooldown",
-                        request.Cooldown
-                    );
-            },
+            () => request.Cooldown = EditorGUILayout.FloatField("Cooldown", request.Cooldown),
             "Cooldown anges i sekunder.\n\n" +
-            "Den här cooldownen styr hur ofta " +
-            "abilityn får användas.\n\n" +
-            "Om abilityn även applicerar en buff " +
-            "har buffen sin egen Duration."
-        );
+            "Den här cooldownen styr hur ofta abilityn får användas.\n\n" +
+            "Om abilityn även applicerar en buff har buffen sin egen Duration.");
 
+        if (request.Recipe != RoKAbilityRecipeKind.DirectDamageWithSelfBuff)
+            return;
 
-        if (request.Recipe ==
-            RoKAbilityRecipeKind
-                .DirectDamageWithSelfBuff)
+        Section("Self Buff");
+
+        selfBuffSource = (RoKSelfBuffSource)EditorGUILayout.EnumPopup(
+            new GUIContent(
+                "Buff Source",
+                "Existing återanvänder en buff.\n\n" +
+                "CreateNew bygger en ny buff direkt i denna guide."),
+            selfBuffSource);
+
+        EditorGUILayout.Space(6);
+
+        if (selfBuffSource == RoKSelfBuffSource.Existing)
         {
-            Section("Self Buff");
-
-            selfBuffSource =
-                (RoKSelfBuffSource)
-                EditorGUILayout.EnumPopup(
-                    new GUIContent(
-                        "Buff Source",
-                        "Existing återanvänder en buff.\n\n" +
-                        "CreateNew bygger en ny buff " +
-                        "direkt i denna guide."
-                    ),
-                    selfBuffSource
-                );
-
-            EditorGUILayout.Space(6);
-
-            if (selfBuffSource ==
-                RoKSelfBuffSource.Existing)
-            {
-                Field(
-                    () =>
-                    {
-                        request.SelfBuff =
-                            (BuffDefinition)
-                            EditorGUILayout.ObjectField(
-                                "Buff Definition",
-                                request.SelfBuff,
-                                typeof(BuffDefinition),
-                                false
-                            );
-                    },
-                    "Välj en befintlig BuffDefinition.\n\n" +
-                    "Den återanvänds utan duplicering."
-                );
-
-                if (request.SelfBuff != null)
+            Field(
+                () =>
                 {
-                    int effectCount =
-                        request.SelfBuff.Effects != null
-                            ? request.SelfBuff.Effects.Count
-                            : 0;
+                    request.SelfBuff = (BuffDefinition)EditorGUILayout.ObjectField(
+                        "Buff Definition",
+                        request.SelfBuff,
+                        typeof(BuffDefinition),
+                        false);
+                },
+                "Välj en befintlig BuffDefinition.\n\n" +
+                "Den återanvänds utan duplicering.");
 
-                    EditorGUILayout.HelpBox(
-                        $"Buff: {request.SelfBuff.DisplayName}\n" +
-                        $"Duration: {request.SelfBuff.Duration:0.#}s\n" +
-                        $"Effects: {effectCount}\n\n" +
-                        "Target: Caster",
-                        MessageType.Info
-                    );
-                }
-            }
-            else
+            if (request.SelfBuff != null)
             {
-                inlineBuffComposer.Draw();
+                int effectCount = request.SelfBuff.Effects?.Count ?? 0;
+
+                EditorGUILayout.HelpBox(
+                    $"Buff: {request.SelfBuff.DisplayName}\n" +
+                    $"Duration: {request.SelfBuff.Duration:0.#}s\n" +
+                    $"Effects: {effectCount}\n\n" +
+                    "Target: Caster",
+                    MessageType.Info);
             }
         }
+        else
+        {
+            inlineBuffComposer.Draw();
+        }
+    }
 
-
-        Section("Generated Assets");
-
-        EditorGUILayout.HelpBox(
-            request.Recipe ==
-                RoKAbilityRecipeKind.DirectDamage
-                ? "AbilityData\n" +
-                  "  └── DamageEffect"
-                : "AbilityData\n" +
-                  "  ├── DamageEffect\n" +
-                  "  └── ApplyBuffDefinitionEffect\n" +
-                  "       └── Existing BuffDefinition",
-            MessageType.None
-        );
-
-        // =================================================
-        // VALIDATION
-        // =================================================
-
-
+    private void DrawRecipeResult(
+    Action<ScriptableObject> openAsset,
+    Action refreshLibrary)
+    {
         bool createNewBuff =
-            request.Recipe ==
-                RoKAbilityRecipeKind
-                    .DirectDamageWithSelfBuff &&
-            selfBuffSource ==
-                RoKSelfBuffSource.CreateNew;
+            request.Recipe == RoKAbilityRecipeKind.DirectDamageWithSelfBuff &&
+            selfBuffSource == RoKSelfBuffSource.CreateNew;
 
-        bool valid =
-            RoKContentStudioSmartRecipeFactory
-                .Validate(
-                    request,
-                    createNewBuff,
-                    createNewBuff
-                        ? inlineBuffComposer.Draft
-                        : null,
-                    out string error
-                );
+        RoKBuffRecipeDraft buffDraft =
+            createNewBuff ? inlineBuffComposer.Draft : null;
 
+        Section("Recipe Preview");
+        EditorGUILayout.HelpBox(
+            BuildRecipePreview(createNewBuff, buffDraft),
+            MessageType.None);
+
+        bool valid = RoKContentStudioSmartRecipeFactory.Validate(
+            request,
+            createNewBuff,
+            buffDraft,
+            out string error);
 
         if (!valid)
-        {
-            EditorGUILayout.HelpBox(
-                error,
-                MessageType.Warning
-            );
-        }
+            EditorGUILayout.HelpBox(error, MessageType.Warning);
 
         using (new EditorGUI.DisabledScope(
-            !valid ||
-            EditorApplication.isPlayingOrWillChangePlaymode))
+            !valid || EditorApplication.isPlayingOrWillChangePlaymode))
         {
-            if (GUILayout.Button(
-                    "Create Complete Ability",
-                    GUILayout.Height(36)))
-            {
-                QueueCreation(
-                    openAsset,
-                    refreshLibrary
-                );
-            }
+            if (GUILayout.Button("Create Complete Ability", GUILayout.Height(36)))
+                QueueCreation(openAsset, refreshLibrary);
         }
 
         EditorGUILayout.Space(12);
 
         Section("Detailed Help");
+        EditorGUILayout.HelpBox(selectedHelp, MessageType.Info);
+    }
 
-        EditorGUILayout.HelpBox(
-            selectedHelp,
-            MessageType.Info
-        );
+    private string BuildRecipePreview(
+        bool createNewBuff,
+        RoKBuffRecipeDraft buffDraft)
+    {
+        List<string> lines = new()
+    {
+        "Create AbilityData",
+        "  Create DamageEffect"
+    };
+
+        if (request.Recipe != RoKAbilityRecipeKind.DirectDamageWithSelfBuff)
+            return string.Join("\n", lines);
+
+        lines.Add("  Create ApplyBuffDefinitionEffect");
+
+        if (!createNewBuff)
+        {
+            lines.Add(request.SelfBuff != null
+                ? $"    Link existing buff: {request.SelfBuff.DisplayName}"
+                : "    Select an existing buff");
+
+            return string.Join("\n", lines);
+        }
+
+        if (buffDraft == null)
+        {
+            lines.Add("    Configure the new buff");
+            return string.Join("\n", lines);
+        }
+
+        string buffName = string.IsNullOrWhiteSpace(buffDraft.Name)
+            ? "(unnamed)"
+            : buffDraft.Name;
+
+        lines.Add($"    Create buff: {buffName}");
+
+        foreach (RoKBuffEffectDraft effect in buffDraft.Effects)
+        {
+            if (effect == null)
+            {
+                lines.Add("      Configure this effect");
+                continue;
+            }
+
+            if (effect.Source == RoKBuffEffectSource.Existing)
+            {
+                lines.Add(effect.ExistingEffect != null
+                    ? $"      Link existing effect: {effect.ExistingEffect.name}"
+                    : "      Select an existing effect");
+            }
+            else
+            {
+                string effectName = string.IsNullOrWhiteSpace(effect.Name)
+                    ? "(unnamed)"
+                    : effect.Name;
+
+                lines.Add($"      Create effect: {effectName}");
+            }
+        }
+
+        return string.Join("\n", lines);
     }
 
     // =====================================================

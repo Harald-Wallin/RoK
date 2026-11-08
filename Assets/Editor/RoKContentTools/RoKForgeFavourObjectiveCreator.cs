@@ -84,11 +84,17 @@ internal static class RoKForgeFavourObjectiveCreator
                     return;
                 }
 
-                FavourObjectiveData created;
+                ScriptableObject created;
 
                 try
                 {
-                    created = CreateAndAttach(favour, objectiveType, assetName);
+                    created = RoKForgeAssetAttachment.CreateAndAttach(
+                     favour,
+                     "objectives",
+                     objectiveType,
+                     assetName,
+                     ObjectiveFolder,
+                     "Create & Attach Favour Objective");
                 }
                 catch (Exception exception)
                 {

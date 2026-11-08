@@ -79,6 +79,12 @@ public sealed class FavourData :
 
     [SerializeField]
     [Tooltip(
+    "Optional overhead dialogue while this Favour " +
+    "is available for the player to accept.")]
+    private NPCDialogueTable offerAmbientDialogue;
+
+    [SerializeField]
+    [Tooltip(
         "Dialog som normalt används hos den entity " +
         "som erbjuder favourn."
     )]
@@ -293,6 +299,8 @@ public sealed class FavourData :
     public FavourDialogueSet
         CompletionDialogueSet =>
             completionDialogueSet;
+
+    public NPCDialogueTable OfferAmbientDialogue => offerAmbientDialogue;
 
     // =========================================================
     // REWARD API

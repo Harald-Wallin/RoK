@@ -72,7 +72,8 @@ public sealed class RoKContentStudioEffectRegistryPanel
 
     public void Draw(
         Action<ScriptableObject> openAsset,
-        Action refreshLibrary)
+        Action refreshLibrary,
+        bool twoColumns = false)
     {
         EditorGUILayout.HelpBox(
             "Dynamic Effect Registry\n\n" +
@@ -105,37 +106,31 @@ public sealed class RoKContentStudioEffectRegistryPanel
 
         EditorGUILayout.Space(8);
 
-        DrawTypeSelector();
-
+        RoKForgeFormLayout.DrawColumns(
+    twoColumns,
+    DrawTypeSelector,
+    () =>
+    {
         if (selectedType == null)
+        {
+            EditorGUILayout.HelpBox(
+                "Select an effect type to configure it.",
+                MessageType.None);
             return;
-
-        EditorGUILayout.Space(10);
+        }
 
         DrawCreationSettings();
-
         EditorGUILayout.Space(10);
 
         DrawAttachmentSettings();
-
         EditorGUILayout.Space(10);
 
-        DrawCreateButton(
-            openAsset,
-            refreshLibrary
-        );
-
+        DrawCreateButton(openAsset, refreshLibrary);
         EditorGUILayout.Space(12);
 
-        EditorGUILayout.LabelField(
-            "Context Help",
-            EditorStyles.boldLabel
-        );
-
-        EditorGUILayout.HelpBox(
-            helpText,
-            MessageType.Info
-        );
+        EditorGUILayout.LabelField("Context Help", EditorStyles.boldLabel);
+        EditorGUILayout.HelpBox(helpText, MessageType.Info);
+    });
     }
 
     // =====================================================

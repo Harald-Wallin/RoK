@@ -9,21 +9,18 @@ using System.Collections.Generic;
 public static class RoKForgePassiveEffectList
 {
     public static void Draw(
-        SerializedObject serialized,
-        string propertyName,
-        string heading,
-        Action<ScriptableObject> openAsset)
+     SerializedObject serialized,
+     string propertyName,
+     string heading,
+     Action<ScriptableObject> openAsset)
     {
-        SerializedProperty array =
-            serialized.FindProperty(propertyName);
-
-        ScriptableObject owner =
-            serialized.targetObject as ScriptableObject;
+        SerializedProperty array = serialized.FindProperty(propertyName);
+        ScriptableObject owner = serialized.targetObject as ScriptableObject;
 
         if (array == null || !array.isArray || owner == null)
             return;
 
-        RoKForgeVisualStyle.BeginEffectCard();
+        EditorGUILayout.BeginVertical(EditorStyles.helpBox);
 
         EditorGUILayout.LabelField(
             $"{heading} ({array.arraySize})",
@@ -32,23 +29,17 @@ public static class RoKForgePassiveEffectList
         if (array.arraySize == 0)
         {
             EditorGUILayout.HelpBox(
-                "No passive effects linked.",
+                "No effects linked.",
                 MessageType.Info);
         }
 
         for (int i = 0; i < array.arraySize; i++)
         {
             int index = i;
+            SerializedProperty element = array.GetArrayElementAtIndex(index);
+            EffectDefinition effect = element.objectReferenceValue as EffectDefinition;
 
-            SerializedProperty element =
-                array.GetArrayElementAtIndex(index);
-
-            EffectDefinition effect =
-                element.objectReferenceValue
-                    as EffectDefinition;
-
-            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-
+            RoKForgeVisualStyle.BeginEffectCard();
             EditorGUILayout.BeginHorizontal();
 
             EditorGUILayout.LabelField(
@@ -61,43 +52,40 @@ public static class RoKForgePassiveEffectList
             {
                 if (GUILayout.Button("↑", GUILayout.Width(28)))
                 {
-                    QueueEdit(owner, propertyName,
-                        "Move Effect Up", a =>
-                        {
-                            if (index > 0 && index < a.arraySize)
-                                a.MoveArrayElement(index, index - 1);
-                        });
+                    QueueEdit(owner, propertyName, "Move Effect Up", references =>
+                    {
+                        if (index > 0 && index < references.arraySize)
+                            references.MoveArrayElement(index, index - 1);
+                    });
                 }
             }
 
-            using (new EditorGUI.DisabledScope(
-                index >= array.arraySize - 1))
+            using (new EditorGUI.DisabledScope(index >= array.arraySize - 1))
             {
                 if (GUILayout.Button("↓", GUILayout.Width(28)))
                 {
-                    QueueEdit(owner, propertyName,
-                        "Move Effect Down", a =>
-                        {
-                            if (index >= 0 &&
-                                index < a.arraySize - 1)
-                                a.MoveArrayElement(index, index + 1);
-                        });
+                    QueueEdit(owner, propertyName, "Move Effect Down", references =>
+                    {
+                        if (index >= 0 && index < references.arraySize - 1)
+                            references.MoveArrayElement(index, index + 1);
+                    });
                 }
             }
 
-            if (GUILayout.Button("Remove", GUILayout.Width(65)))
+            GUIContent removeLabel = effect != null
+                ? new GUIContent("Unlink", "Remove this reference from the list.")
+                : new GUIContent("Remove", "Remove this empty slot.");
+
+            if (GUILayout.Button(removeLabel, GUILayout.Width(65)))
             {
-                QueueEdit(owner, propertyName,
-                    "Remove Effect", a =>
-                    {
-                        if (index < 0 || index >= a.arraySize)
-                            return;
+                QueueEdit(owner, propertyName, "Remove Effect", references =>
+                {
+                    if (index < 0 || index >= references.arraySize)
+                        return;
 
-                        a.GetArrayElementAtIndex(index)
-                            .objectReferenceValue = null;
-
-                        a.DeleteArrayElementAtIndex(index);
-                    });
+                    references.GetArrayElementAtIndex(index).objectReferenceValue = null;
+                    references.DeleteArrayElementAtIndex(index);
+                });
             }
 
             EditorGUILayout.EndHorizontal();
@@ -127,10 +115,7 @@ public static class RoKForgePassiveEffectList
                 EditorGUILayout.BeginHorizontal();
 
                 if (GUILayout.Button("Open"))
-                {
-                    RoKForgeLinkedField.QueueOpen(
-                        effect, openAsset);
-                }
+                    RoKForgeLinkedField.QueueOpen(effect, openAsset);
 
                 bool canDuplicate =
                     AssetDatabase.Contains(owner) &&
@@ -140,14 +125,7 @@ public static class RoKForgePassiveEffectList
                 using (new EditorGUI.DisabledScope(!canDuplicate))
                 {
                     if (GUILayout.Button("Duplicate & Customize"))
-                    {
-                        QueueDuplicate(
-                            owner,
-                            propertyName,
-                            index,
-                            effect,
-                            openAsset);
-                    }
+                        QueueDuplicate(owner, propertyName, index, effect, openAsset);
                 }
 
                 EditorGUILayout.EndHorizontal();
@@ -157,17 +135,16 @@ public static class RoKForgePassiveEffectList
             EditorGUILayout.Space(3);
         }
 
-        if (GUILayout.Button("+ Add Effect Reference"))
+        if (GUILayout.Button(new GUIContent(
+                "+ Add Reference Slot",
+                "Add an empty slot for an existing effect.")))
         {
-            QueueEdit(owner, propertyName,
-                "Add Effect Reference", a =>
-                {
-                    int index = a.arraySize;
-                    a.arraySize++;
-
-                    a.GetArrayElementAtIndex(index)
-                        .objectReferenceValue = null;
-                });
+            QueueEdit(owner, propertyName, "Add Effect Reference", references =>
+            {
+                int index = references.arraySize;
+                references.arraySize++;
+                references.GetArrayElementAtIndex(index).objectReferenceValue = null;
+            });
         }
 
         EditorGUILayout.EndVertical();

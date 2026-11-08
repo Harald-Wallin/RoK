@@ -25,7 +25,8 @@ public sealed class RoKContentStudioDiagnosticsPanel
     // =====================================================
 
     public void Draw(
-        Action<ScriptableObject> openAsset)
+        Action<ScriptableObject> openAsset,
+        bool twoColumns = false)
     {
         EditorGUILayout.HelpBox(
             "Analyze all Content Studio assets.\n\n" +
@@ -54,16 +55,16 @@ public sealed class RoKContentStudioDiagnosticsPanel
             return;
         }
 
-        DrawSummary();
-
-        EditorGUILayout.Space(12);
-
-        DrawIssueList(openAsset);
-
-        EditorGUILayout.Space(12);
-
-        DrawDependencies(openAsset);
-    }
+        RoKForgeFormLayout.DrawColumns(
+        twoColumns,
+        () =>
+        {
+            DrawSummary();
+            EditorGUILayout.Space(12);
+            DrawIssueList(openAsset);
+        },
+        () => DrawDependencies(openAsset));
+        }
 
     // =====================================================
     // SUMMARY
