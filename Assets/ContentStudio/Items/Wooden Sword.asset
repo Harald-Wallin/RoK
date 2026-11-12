@@ -1,0 +1,53 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4c2b6001d748cdc4896cad54b3c6d55c, type: 3}
+  m_Name: Wooden Sword
+  m_EditorClassIdentifier: Assembly-CSharp::ItemData
+  itemName: Wooden Sword
+  worldSprite: {fileID: 0}
+  rarity: 1
+  frontSprite: {fileID: 0}
+  backSprite: {fileID: 0}
+  leftSprite: {fileID: 0}
+  rightSprite: {fileID: 0}
+  hideHair: 0
+  hideBeard: 0
+  hideHead: 0
+  hideArms: 0
+  hideTorso: 0
+  hideLegs: 0
+  hideFeet: 0
+  description: Did you make this yourself?
+  icon: {fileID: 21300000, guid: bb38a2f018be9dc4fa3127e3fb3ba7ca, type: 3}
+  itemType: 1
+  weaponFamily: {fileID: 11400000, guid: d9266842b73a7ef458bd4fd6db9c9e30, type: 2}
+  weaponDamageRange: {x: 2, y: 2}
+  requiredFavour: {fileID: 0}
+  favourUse:
+    enabled: 0
+    favours: []
+  foodHealingPerTick: 10
+  foodTickInterval: 3
+  foodChannelDuration: 9
+  allowFoodAtFullHealth: 0
+  equippable: 1
+  stackable: 0
+  maxStack: 1
+  statModifiers: []
+  useLevelRequirement: 0
+  requiredLevel: 0
+  reputationFaction: {fileID: 0}
+  useReputationRequirement: 0
+  requiredReputation: 0
+  maximumOwned: 0
+  buyPrice: 10
+  sellMultiplier: 0.6

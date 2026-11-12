@@ -77,6 +77,33 @@ public class ItemData :
 
     public ItemType itemType;
 
+    [SerializeField, HideInInspector]
+    private WeaponFamilyDefinition weaponFamily;
+
+    public WeaponFamilyDefinition WeaponFamily =>
+        itemType == ItemType.Weapon ? weaponFamily : null;
+    [SerializeField, HideInInspector]
+    private Vector2Int weaponDamageRange;
+
+    public bool TryGetWeaponDamageRange(out Vector2Int range)
+    {
+        int minimum = Mathf.Max(0, weaponDamageRange.x);
+        int maximum = Mathf.Max(minimum, weaponDamageRange.y);
+
+        range = new Vector2Int(minimum, maximum);
+
+        return itemType == ItemType.Weapon && maximum > 0;
+    }
+
+    internal bool ReplacesWeaponDamageModifier(ItemStatModifier modifier)
+    {
+        return modifier != null &&
+               modifier.stat == StatType.WeaponDamage &&
+               modifier.modifierType == ModifierType.Flat &&
+               TryGetWeaponDamageRange(out _);
+    }
+
+
     [Header("Favour Item")]
 
     [SerializeField]
@@ -252,84 +279,65 @@ public class ItemData :
         public string warningDialog;
     }
 
-    public TooltipData GetTooltipData(
-        CharacterStats caster)
+    public TooltipData GetTooltipData(CharacterStats caster)
     {
-        TooltipData data =
-            new TooltipData();
+        TooltipData data = new TooltipData
+        {
+            title = DisplayName,
+            titleColor = ItemRarityColors.GetColor(rarity),
+            subtitle = ItemTypeDisplayName,
+            description = description,
+            footer = $"Sellprice: {SellPrice}",
+            showFooter = true
+        };
 
-        data.title =
-            DisplayName;
-
-        data.titleColor =
-            ItemRarityColors.GetColor(
-                rarity
-            );
-
-        data.subtitle =
-            ItemTypeDisplayName;
-
-        data.description =
-            description;
+        bool isWeapon = itemType == ItemType.Weapon;
+        float legacyWeaponDamage = 0f;
 
         if (statModifiers != null)
         {
-            foreach (ItemStatModifier modifier
-                     in statModifiers)
+            foreach (ItemStatModifier modifier in statModifiers)
             {
-                if (modifier == null)
+                if (modifier == null || Mathf.Approximately(modifier.value, 0f))
                     continue;
 
-                if (Mathf.Approximately(
-                        modifier.value,
-                        0f))
+                if (isWeapon &&
+                    modifier.stat == StatType.WeaponDamage &&
+                    modifier.modifierType == ModifierType.Flat)
                 {
+                    legacyWeaponDamage += modifier.value;
                     continue;
                 }
 
-                data.stats.Add(
-                    StatFormatting.FormatModifier(
-                        modifier.stat,
-                        modifier.modifierType,
-                        modifier.value
-                    )
-                );
+                data.stats.Add(StatFormatting.FormatModifier(
+                    modifier.stat, modifier.modifierType, modifier.value));
             }
         }
 
-        data.footer =
-            $"Sellprice: {SellPrice}";
+        if (isWeapon)
+        {
+            WeaponFamilyDefinition family = WeaponFamily;
+            string familyName = family != null ? family.name : ItemTypeDisplayName;
 
-        data.showFooter =
-            true;
+            string damage = TryGetWeaponDamageRange(out Vector2Int range)
+                ? $"{range.x}–{range.y}"
+                : $"{legacyWeaponDamage:0.##}–{legacyWeaponDamage:0.##}";
 
-        PlayerStats player =
-            PlayerReference.Player;
+            data.subtitle = $"<color=#FFFFFF>{familyName} • dmg: {damage}</color>";
+        }
 
-        AddRequirementLines(
-            data,
-            player
-        );
+        AddRequirementLines(data, PlayerReference.Player);
 
         if (IsFood)
         {
             data.stats.Add(
                 $"Restores {FoodHealingPerTick} health " +
-                $"every {FoodTickInterval:0.#} seconds."
-            );
+                $"every {FoodTickInterval:0.#} seconds.");
 
-            data.stats.Add(
-                $"Eating time: " +
-                $"{FoodChannelDuration:0.#} seconds."
-            );
+            data.stats.Add($"Eating time: {FoodChannelDuration:0.#} seconds.");
         }
 
-        FavourPresentationUtility
-            .AppendForItem(
-                data,
-                this
-            );
-
+        FavourPresentationUtility.AppendForItem(data, this);
         return data;
     }
 

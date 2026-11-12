@@ -32,108 +32,91 @@ public sealed class DamageEffect :
     // =====================================================
 
     public int CalculateBaseDamage(
-        CharacterStats caster,
-        AbilityData ability = null,
-        float chargeProgress = 1f)
+    CharacterStats caster,
+    AbilityData ability = null,
+    float chargeProgress = 1f)
     {
-        float damage =
-            Mathf.Max(
-                0,
-                flatDamage
-            );
+        return CalculateBaseDamage(caster, ability, chargeProgress, null, out _);
+    }
+
+    private int CalculateBaseDamage(
+        CharacterStats caster,
+        AbilityData ability,
+        float chargeProgress,
+        AbilityEffectExecutionContext context,
+        out bool usedWeaponRange)
+    {
+        usedWeaponRange = false;
+        float damage = Mathf.Max(0, flatDamage);
+        float? weaponDamage = null;
 
         if (scaling != null)
         {
-            for (int i = 0;
-                 i < scaling.Length;
-                 i++)
+            foreach (DamageScalingEntry entry in scaling)
             {
-                DamageScalingEntry entry =
-                    scaling[i];
-
                 if (entry == null)
                     continue;
 
-                damage += entry.Evaluate(
-                    caster
-                );
+                if (entry.Stat == StatType.WeaponDamage && entry.Multiplier != 0f)
+                {
+                    if (!weaponDamage.HasValue)
+                    {
+                        weaponDamage = context != null
+                            ? context.GetWeaponDamage(out usedWeaponRange)
+                            : WeaponDamageSnapshot.GetPreviewValue(caster);
+                    }
+
+                    damage += weaponDamage.Value * entry.Multiplier;
+                }
+                else
+                {
+                    damage += entry.Evaluate(caster);
+                }
             }
         }
 
-        if (ability != null &&
-            ability.ChargeSettings != null)
-        {
-            float chargeMultiplier =
-                ability.ChargeSettings
-                    .GetDamageMultiplier(
-                        chargeProgress
-                    );
+        if (ability != null && ability.ChargeSettings != null)
+            damage *= ability.ChargeSettings.GetDamageMultiplier(chargeProgress);
 
-            damage *= chargeMultiplier;
-        }
-
-        return Mathf.Max(
-            0,
-            Mathf.RoundToInt(damage)
-        );
+        return Mathf.Max(0, Mathf.RoundToInt(damage));
     }
 
-    // =====================================================
-    // EXECUTION
-    // =====================================================
-
-    public override void Execute(
-        AbilityEffectExecutionContext context)
+    public override void Execute(AbilityEffectExecutionContext context)
     {
-        if (context == null ||
-            context.Caster == null ||
-            context.Target == null)
+        if (context == null || context.Caster == null ||
+            context.Target == null || !context.TargetWasSuccessful)
         {
             return;
         }
 
-        if (!context.TargetWasSuccessful)
-            return;
-
-        int damage =
-            CalculateBaseDamage(
-                context.Caster,
-                context.Ability,
-                context.ChargeProgress
-            );
+        int damage = CalculateBaseDamage(
+            context.Caster,
+            context.Ability,
+            context.ChargeProgress,
+            context,
+            out bool usedWeaponRange);
 
         if (damage <= 0)
             return;
 
-        DamageSourceContext source =
-            context.DamageSource;
+        DamageSourceContext source = context.DamageSource;
 
         if (dealsRawDamage)
         {
-            CombatResolver.DealRawDamage(
-                source,
-                context.Target,
-                damage
-            );
-
+            CombatResolver.DealRawDamage(source, context.Target, damage);
             return;
         }
 
-        DamageResult result =
-            CombatResolver
-                .ResolveDamageAfterSuccessfulHit(
-                    context.Caster,
-                    context.Target,
-                    damage,
-                    context.Ability,
-                    damageType,
-                    source
-                );
+        DamageResult result = CombatResolver.ResolveDamageAfterSuccessfulHit(
+            context.Caster,
+            context.Target,
+            damage,
+            context.Ability,
+            damageType,
+            source,
+            applyDefaultDamageVariance: !usedWeaponRange);
 
-        context.Target.TakeDamage(
-            result,
-            source
-        );
+        context.Target.TakeDamage(result, source);
     }
 
     // =====================================================

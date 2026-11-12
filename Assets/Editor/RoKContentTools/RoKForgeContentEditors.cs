@@ -90,79 +90,49 @@ public static class RoKForgeItemEditor
         RoKForgeEditorFields.Group(
             so, "GENERAL", "description", "worldSprite");
 
-        // =============================================
-        // ITEM PROFILE
-        // =============================================
-
-        EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-
-        EditorGUILayout.LabelField(
-            "ITEM PROFILE",
-            EditorStyles.boldLabel
-        );
-
-        SerializedProperty type =
-            so.FindProperty("itemType");
-
-        EditorGUI.BeginChangeCheck();
-
-        EditorGUILayout.PropertyField(type);
-
-        bool changed = EditorGUI.EndChangeCheck();
-
-        ItemType selectedType =
-            (ItemType)type.enumValueIndex;
-
-        bool isDraft =
-            !AssetDatabase.Contains(so.targetObject);
-
-        if (changed && isDraft)
+        using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
         {
-            ApplyTypeDefaults(so, selectedType);
-        }
+            EditorGUILayout.LabelField("ITEM PROFILE", EditorStyles.boldLabel);
 
-        RoKForgeEditorFields.Field(so, "rarity");
+            SerializedProperty type = so.FindProperty("itemType");
 
-        if (!isDraft)
-        {
-            if (GUILayout.Button(
-                new GUIContent(
+            EditorGUI.BeginChangeCheck();
+            EditorGUILayout.PropertyField(type);
+            bool changed = EditorGUI.EndChangeCheck();
+
+            ItemType selectedType = (ItemType)type.enumValueIndex;
+            bool isDraft = !AssetDatabase.Contains(so.targetObject);
+
+            if (changed && isDraft)
+                ApplyTypeDefaults(so, selectedType);
+
+            RoKForgeEditorFields.Field(so, "rarity");
+
+            if (!isDraft && GUILayout.Button(new GUIContent(
                     "Apply Type Defaults",
-                    "Updates Equippable, Stackable and " +
-                    "Max Stack. Other settings are preserved."
-                )))
+                    "Updates Equippable, Stackable and Max Stack. Other settings are preserved.")))
             {
                 ApplyTypeDefaults(so, selectedType);
             }
+
+            if (selectedType == ItemType.None)
+            {
+                EditorGUILayout.HelpBox(
+                    "Select an Item Type before using this item.",
+                    MessageType.Warning);
+            }
         }
 
-        if (selectedType == ItemType.None)
-        {
-            EditorGUILayout.HelpBox(
-                "Select an Item Type before using this item.",
-                MessageType.Warning
-            );
-        }
+        SerializedProperty itemType = so.FindProperty("itemType");
 
-        EditorGUILayout.EndVertical();
-
-        // =============================================
-        // INVENTORY
-        // =============================================
+        if ((ItemType)itemType.enumValueIndex == ItemType.Weapon)
+            DrawWeaponProfile(so);
 
         RoKForgeEditorFields.Group(
-            so, "INVENTORY",
-            "stackable", "maximumOwned");
+            so, "INVENTORY", "stackable", "maximumOwned");
 
         if (RoKForgeEditorFields.Enabled(so, "stackable"))
-        {
-            RoKForgeEditorFields.Group(
-                so, "STACKING", "maxStack");
-        }
-
-        // =============================================
-        // EQUIPMENT
-        // =============================================
+            RoKForgeEditorFields.Group(so, "STACKING", "maxStack");
 
         RoKForgeEditorFields.Group(
             so, "EQUIPMENT", "equippable");
@@ -178,8 +148,39 @@ public static class RoKForgeItemEditor
         RoKForgeEditorFields.Group(
             so, "HIDE CHARACTER PARTS",
             "hideHair", "hideBeard", "hideHead",
-            "hideArms", "hideTorso", "hideLegs",
-            "hideFeet");
+            "hideArms", "hideTorso", "hideFeet");
+    }
+
+    private static void DrawWeaponProfile(SerializedObject so)
+    {
+        using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+        {
+            EditorGUILayout.LabelField("WEAPON", EditorStyles.boldLabel);
+            RoKForgeEditorFields.Field(so, "weaponFamily");
+
+            SerializedProperty property = so.FindProperty("weaponDamageRange");
+            Vector2Int range = property.vector2IntValue;
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                EditorGUILayout.PrefixLabel(new GUIContent(
+                    "Weapon Damage",
+                    "Minimum and maximum damage. 0–0 uses the existing stat modifiers."));
+
+                EditorGUI.BeginChangeCheck();
+
+                int minimum = EditorGUILayout.IntField(range.x);
+                GUILayout.Label("–", GUILayout.Width(12));
+                int maximum = EditorGUILayout.IntField(range.y);
+
+                if (EditorGUI.EndChangeCheck())
+                {
+                    minimum = Mathf.Max(0, minimum);
+                    maximum = Mathf.Max(minimum, maximum);
+                    property.vector2IntValue = new Vector2Int(minimum, maximum);
+                }
+            }
+        }
     }
 
 

@@ -56,6 +56,20 @@ public class EquipmentManager : MonoBehaviour
         return null;
     }
 
+    public ItemData GetEquippedWeapon(PlayerStats owner)
+    {
+        EquipmentSlotUI slot = GetEquippedWeaponSlot(owner);
+        return slot != null ? slot.GetEquippedItem() : null;
+    }
+
+    internal EquipmentSlotUI GetEquippedWeaponSlot(PlayerStats owner)
+    {
+        if (owner == null || owner != playerStats)
+            return null;
+
+        return GetSlotForItem(ItemType.Weapon);
+    }
+
     public int GetEquippedItemCount(
     ItemData item)
     {
@@ -161,41 +175,41 @@ public class EquipmentManager : MonoBehaviour
 
 
 
-    private void ApplyStats(
-    ItemData item,
-    EquipmentSlotUI sourceSlot)
+    private void ApplyStats(ItemData item, EquipmentSlotUI sourceSlot)
     {
-        if (item == null ||
-            sourceSlot == null)
-        {
+        if (item == null || sourceSlot == null)
             return;
+
+        if (item.TryGetWeaponDamageRange(out Vector2Int range))
+        {
+            float average = range.x + (range.y - range.x) * 0.5f;
+
+            playerStats.AddModifier(new StatModifier(
+                StatType.WeaponDamage,
+                average,
+                ModifierType.Flat,
+                sourceSlot,
+                ModifierSourceType.Equipment));
         }
 
         if (item.statModifiers == null)
             return;
 
-        foreach (ItemStatModifier modifier
-                 in item.statModifiers)
+        foreach (ItemStatModifier modifier in item.statModifiers)
         {
-            if (modifier == null)
-                continue;
-
-            if (Mathf.Approximately(
-                    modifier.value,
-                    0f))
+            if (modifier == null ||
+                Mathf.Approximately(modifier.value, 0f) ||
+                item.ReplacesWeaponDamageModifier(modifier))
             {
                 continue;
             }
 
-            playerStats.AddModifier(
-                new StatModifier(
-                    modifier.stat,
-                    modifier.value,
-                    modifier.modifierType,
-                    sourceSlot,
-                    ModifierSourceType.Equipment
-                )
-            );
+            playerStats.AddModifier(new StatModifier(
+                modifier.stat,
+                modifier.value,
+                modifier.modifierType,
+                sourceSlot,
+                ModifierSourceType.Equipment));
         }
     }
 

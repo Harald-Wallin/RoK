@@ -15,7 +15,7 @@ MonoBehaviour:
   faction: {fileID: 0}
   minReputationLevel: 0
   lines:
-  - english: 'YOU HELP '
+  - english: YOU HELP
     swedish: DU HJALPER
   - english: 'HELP ME '
     swedish: HJALP MIG

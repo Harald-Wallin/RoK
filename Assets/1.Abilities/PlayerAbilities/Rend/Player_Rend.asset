@@ -17,6 +17,7 @@ MonoBehaviour:
   icon: {fileID: 21300000, guid: b0fb2c108f75e8b43bfbf34f5cd4de2b, type: 3}
   types: 0
   usageType: 0
+  advancesWeaponCombo: 1
   tags: 0100000007000000
   previewMode: 1
   targetingSettings:

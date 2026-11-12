@@ -39,9 +39,12 @@ public class ItemTooltip : MonoBehaviour
 
     private void Awake()
     {
-        Instance = this;    
+        Instance = this;
         rectTransform = GetComponent<RectTransform>();
         cachedPlayer = PlayerReference.Player;
+
+        typeText.richText = true;
+
         Hide();
         canvasGroup.blocksRaycasts = false;
     }

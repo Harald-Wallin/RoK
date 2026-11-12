@@ -573,6 +573,31 @@ public sealed class FavourGiver :
         RefreshMarkerAnchor();
     }
 
+#if UNITY_EDITOR
+
+    private void Reset()
+    {
+        if (markerPrefab == null)
+            markerPrefab = FindDefaultMarkerPrefab();
+    }
+
+    public static FavourMarker FindDefaultMarkerPrefab()
+    {
+        const string prefabGuid = "198ff14b175724b4e91bb1e6d3dceb03";
+
+        string path = UnityEditor.AssetDatabase.GUIDToAssetPath(prefabGuid);
+
+        if (string.IsNullOrEmpty(path))
+            return null;
+
+        GameObject prefab =
+            UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(path);
+
+        return prefab != null ? prefab.GetComponent<FavourMarker>() : null;
+    }
+
+#endif
+
     private void TrySubscribeToManager()
     {
         PlayerFavourManager manager =

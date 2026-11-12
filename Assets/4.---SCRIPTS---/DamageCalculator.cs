@@ -80,211 +80,88 @@ public static class DamageCalculator
     /// The existing AbilityHitResolver is authoritative
     /// for action-based hit resolution.
     /// </summary>
-    public static DamageResult
-        CalculateDamageAfterSuccessfulHit(
-            int baseDamage,
-            float critChance,
-            float critMultiplier,
-            CharacterStats attacker,
-            CharacterStats defender,
-            bool canCrit,
-            DamageType damageType = DamageType.Physical,
-            DamageSourceContext? sourceContext = null)
+    public static DamageResult CalculateDamageAfterSuccessfulHit(
+    int baseDamage,
+    float critChance,
+    float critMultiplier,
+    CharacterStats attacker,
+    CharacterStats defender,
+    bool canCrit,
+    DamageType damageType = DamageType.Physical,
+    DamageSourceContext? sourceContext = null,
+    bool applyDefaultDamageVariance = true)
     {
-        if (attacker == null ||
-            defender == null)
-        {
+        if (attacker == null || defender == null)
             return default;
-        }
 
         DamageSourceContext source =
-            sourceContext ??
-            DamageSourceContext.FromDirectSource(
-                attacker
-            );
+            sourceContext ?? DamageSourceContext.FromDirectSource(attacker);
 
-        // =================================================
-        // CONTEXTUAL EFFECTS
-        // =================================================
+        DamageContext context = new DamageContext(
+            source, attacker, defender, damageType);
 
-        DamageContext context =
-            new DamageContext(
-                source,
-                attacker,
-                defender,
-                damageType
-            );
+        attacker.GetComponent<CharacterEffectController>()?.ApplyTo(context);
 
-        CharacterEffectController attackerEffects =
-            attacker.GetComponent<
-                CharacterEffectController>();
-
-        attackerEffects?.ApplyTo(context);
-
-        // Avoid processing a shared controller twice
-        // when attacker and defender are the same.
         if (defender != attacker)
-        {
-            CharacterEffectController defenderEffects =
-                defender.GetComponent<
-                    CharacterEffectController>();
-
-            defenderEffects?.ApplyTo(context);
-        }
-
-        // =================================================
-        // BASE DAMAGE + OUTGOING MODIFIERS
-        // =================================================
+            defender.GetComponent<CharacterEffectController>()?.ApplyTo(context);
 
         float damage =
-            Mathf.Max(0f, baseDamage);
+            Mathf.Max(0f, baseDamage) * Mathf.Max(0f, 1f + context.OutgoingBonus);
 
-        float outgoingMultiplier =
-            Mathf.Max(
-                0f,
-                1f + context.OutgoingBonus
-            );
-
-        damage *= outgoingMultiplier;
-
-        // =================================================
-        // RANDOM VARIATION
-        // =================================================
-
-        damage *= Random.Range(
-            0.8f,
-            1.2f
-        );
-
-        // =================================================
-        // CRITICAL HIT
-        // =================================================
+        if (applyDefaultDamageVariance)
+            damage *= Random.Range(0.8f, 1.2f);
 
         bool isCrit = false;
 
         if (canCrit)
         {
-            float safeCritChance =
-                Mathf.Clamp01(critChance);
-
-            float safeCritMultiplier =
-                Mathf.Max(
-                    1f,
-                    critMultiplier
-                );
-
-            isCrit =
-                Random.value < safeCritChance;
+            isCrit = Random.value < Mathf.Clamp01(critChance);
 
             if (isCrit)
-            {
-                damage *= safeCritMultiplier;
-            }
+                damage *= Mathf.Max(1f, critMultiplier);
         }
-
-        // =================================================
-        // ARMOR – PHYSICAL DAMAGE
-        // =================================================
 
         if (damageType == DamageType.Physical)
         {
-            float armor =
-                Mathf.Max(
-                    0f,
-                    defender.GetStat(
-                        StatType.Armor
-                    )
-                );
-
-            damage *=
-                100f / (100f + armor);
+            float armor = Mathf.Max(0f, defender.GetStat(StatType.Armor));
+            damage *= 100f / (100f + armor);
         }
 
-        // =================================================
-        // RESISTANCES
-        // =================================================
+        float totalResistance = Mathf.Clamp(
+            GetBaseResistance(defender, damageType) + context.ResistanceBonus,
+            -1f,
+            1f);
 
-        float baseResistance =
-            GetBaseResistance(
-                defender,
-                damageType
-            );
-
-        float totalResistance =
-            Mathf.Clamp(
-                baseResistance +
-                context.ResistanceBonus,
-                -1f,
-                1f
-            );
-
-        damage *=
-            1f - totalResistance;
-
-        // =================================================
-        // BLOCK – PHYSICAL DAMAGE
-        // =================================================
+        damage *= 1f - totalResistance;
 
         bool blocked = false;
         int blockedAmount = 0;
 
         if (damageType == DamageType.Physical)
         {
-            float blockChance =
-                Mathf.Clamp01(
-                    defender.GetStat(
-                        StatType.BlockChance
-                    )
-                );
+            float blockChance = Mathf.Clamp01(defender.GetStat(StatType.BlockChance));
 
             if (Random.value < blockChance)
             {
                 blocked = true;
 
-                int blockValue =
-                    Mathf.Max(
-                        0,
-                        Mathf.RoundToInt(
-                            defender.GetStat(
-                                StatType.BlockValue
-                            )
-                        )
-                    );
+                int blockValue = Mathf.Max(
+                    0, Mathf.RoundToInt(defender.GetStat(StatType.BlockValue)));
 
-                blockedAmount =
-                    Mathf.Min(
-                        blockValue,
-                        Mathf.Max(
-                            0,
-                            Mathf.CeilToInt(damage)
-                        )
-                    );
+                blockedAmount = Mathf.Min(
+                    blockValue, Mathf.Max(0, Mathf.CeilToInt(damage)));
 
-                // Exactly one block subtraction.
                 damage -= blockedAmount;
             }
         }
 
-        // =================================================
-        // FINAL DAMAGE
-        // =================================================
-
-        int finalDamage =
-            Mathf.Max(
-                0,
-                Mathf.FloorToInt(damage)
-            );
-
         return new DamageResult
         {
-            damage = finalDamage,
+            damage = Mathf.Max(0, Mathf.FloorToInt(damage)),
             damageType = damageType,
-
             isCrit = isCrit,
-
             isMiss = false,
             isEvaded = false,
-
             isBlocked = blocked,
             blockedAmount = blockedAmount
         };

@@ -161,40 +161,30 @@ public static class CombatResolver
     // ALREADY SUCCESSFUL HIT
     // =====================================================
 
-    public static DamageResult
-        ResolveDamageAfterSuccessfulHit(
-            CharacterStats attacker,
-            CharacterStats target,
-            int baseDamage,
-            AbilityData ability,
-            DamageType damageType = DamageType.Physical,
-            DamageSourceContext? sourceContext = null)
+    public static DamageResult ResolveDamageAfterSuccessfulHit(
+    CharacterStats attacker,
+    CharacterStats target,
+    int baseDamage,
+    AbilityData ability,
+    DamageType damageType = DamageType.Physical,
+    DamageSourceContext? sourceContext = null,
+    bool applyDefaultDamageVariance = true)
     {
-        if (attacker == null ||
-            target == null)
-        {
+        if (attacker == null || target == null)
             return default;
-        }
 
-        bool canCrit =
-            ability == null ||
-            ability.canCrit;
+        bool canCrit = ability == null || ability.canCrit;
 
-        return DamageCalculator
-            .CalculateDamageAfterSuccessfulHit(
-                baseDamage,
-                attacker.GetStat(
-                    StatType.CritChance
-                ),
-                attacker.GetStat(
-                    StatType.CritMultiplier
-                ),
-                attacker,
-                target,
-                canCrit,
-                damageType,
-                sourceContext
-            );
+        return DamageCalculator.CalculateDamageAfterSuccessfulHit(
+            baseDamage,
+            attacker.GetStat(StatType.CritChance),
+            attacker.GetStat(StatType.CritMultiplier),
+            attacker,
+            target,
+            canCrit,
+            damageType,
+            sourceContext,
+            applyDefaultDamageVariance);
     }
 
     // =====================================================

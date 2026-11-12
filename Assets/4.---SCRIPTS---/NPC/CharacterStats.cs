@@ -825,98 +825,66 @@ public class CharacterStats : MonoBehaviour
         ).FinalValue;
     }
 
-    public StatValueBreakdown
-        GetStatValueBreakdown(
-            StatType stat)
+    public StatValueBreakdown GetStatValueBreakdown(StatType stat)
     {
-        float rawValue =
-            GetRawStatValue(
-                stat);
+        return GetStatValueBreakdown(stat, 0f, null);
+    }
+
+    internal StatValueBreakdown GetStatValueBreakdown(
+        StatType stat,
+        float equipmentFlatOverride,
+        object equipmentSourceToReplace)
+    {
+        float rawValue = GetRawStatValue(stat);
 
         float talentFlat = 0f;
         float talentPercent = 0f;
-
-        float equipmentFlat = 0f;
+        float equipmentFlat = equipmentFlatOverride;
         float equipmentPercent = 0f;
-
         float buffFlat = 0f;
         float buffPercent = 0f;
-
         float oathFlat = 0f;
         float oathPercent = 0f;
 
-        foreach (StatModifier modifier
-                 in modifiers)
+        foreach (StatModifier modifier in modifiers)
         {
-            if (modifier == null ||
-                modifier.stat != stat)
-            {
+            if (modifier == null || modifier.stat != stat)
                 continue;
-            }
 
             switch (modifier.sourceType)
             {
                 case ModifierSourceType.Talent:
-
-                    AddModifierValue(
-                        modifier,
-                        ref talentFlat,
-                        ref talentPercent);
-
+                    AddModifierValue(modifier, ref talentFlat, ref talentPercent);
                     break;
 
                 case ModifierSourceType.Equipment:
+                    if (equipmentSourceToReplace != null &&
+                        ReferenceEquals(modifier.source, equipmentSourceToReplace) &&
+                        modifier.type == ModifierType.Flat)
+                    {
+                        break;
+                    }
 
-                    AddModifierValue(
-                        modifier,
-                        ref equipmentFlat,
-                        ref equipmentPercent);
-
+                    AddModifierValue(modifier, ref equipmentFlat, ref equipmentPercent);
                     break;
 
                 case ModifierSourceType.Buff:
-
-                    AddModifierValue(
-                        modifier,
-                        ref buffFlat,
-                        ref buffPercent);
-
+                    AddModifierValue(modifier, ref buffFlat, ref buffPercent);
                     break;
 
                 case ModifierSourceType.Oath:
-
-                    AddModifierValue(
-                        modifier,
-                        ref oathFlat,
-                        ref oathPercent);
-
+                    AddModifierValue(modifier, ref oathFlat, ref oathPercent);
                     break;
             }
         }
 
-        float talentStage =
-            (rawValue + talentFlat) *
-            (1f + talentPercent);
-
-        float equipmentStage =
-            (talentStage + equipmentFlat) *
-            (1f + equipmentPercent);
-
-        float buffStage =
-            (equipmentStage + buffFlat) *
-            (1f + buffPercent);
-
-        float oathStage =
-            (buffStage + oathFlat) *
-            (1f + oathPercent);
+        float talentStage = (rawValue + talentFlat) * (1f + talentPercent);
+        float equipmentStage = (talentStage + equipmentFlat) * (1f + equipmentPercent);
+        float buffStage = (equipmentStage + buffFlat) * (1f + buffPercent);
+        float oathStage = (buffStage + oathFlat) * (1f + oathPercent);
 
         return new StatValueBreakdown(
-            rawValue,
-            talentStage,
-            equipmentStage,
-            buffStage,
-            oathStage
-        );
+            rawValue, talentStage, equipmentStage, buffStage, oathStage);
     }
 
     private static void AddModifierValue(

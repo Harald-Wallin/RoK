@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6508a73ca878e2344b8bf015e074ac7f, type: 3}
+  m_Name: Sword_WeaponFamily
+  m_EditorClassIdentifier: Assembly-CSharp::WeaponFamilyDefinition
+  masteryAttacks:
+  - {fileID: 11400000, guid: b104e796029c9384da757264bbfa8347, type: 2}
+  maxTargetLevelsBelowPlayer: 3
+  experiencePerLevel: 050000000a0000000f00000014000000190000001e000000
+  masteryTree: {fileID: 11400000, guid: b2d52d53fc8527c42b878b322b117c02, type: 2}
+  enableCombo: 1
+  comboSteps:
+  - windowFromPreviousHit: 0
+    weaponDamageBonusPercent: 0
+  - windowFromPreviousHit: 3
+    weaponDamageBonusPercent: 10
+  - windowFromPreviousHit: 2.4
+    weaponDamageBonusPercent: 20
+  - windowFromPreviousHit: 1.8
+    weaponDamageBonusPercent: 30
+  - windowFromPreviousHit: 1.2
+    weaponDamageBonusPercent: 40
+  - windowFromPreviousHit: 0.8
+    weaponDamageBonusPercent: 50

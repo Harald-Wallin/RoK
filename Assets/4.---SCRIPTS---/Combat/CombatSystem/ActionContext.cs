@@ -48,6 +48,8 @@ public sealed class ActionContext
         internal set;
     }
 
+    internal float WeaponComboDamageBonus { get; set; }
+
     public GameObject PrimaryTarget =>
         Targeting?.PrimaryTarget;
 
@@ -125,40 +127,22 @@ public sealed class ActionContext
     ///
     /// Targeting måste vara giltig när metoden anropas.
     /// </summary>
-    public ActionExecutionContext
-        CreateExecutionContext()
+    public ActionExecutionContext CreateExecutionContext()
     {
         if (Caster == null)
-        {
-            throw new InvalidOperationException(
-                "ActionContext saknar Caster."
-            );
-        }
+            throw new InvalidOperationException("ActionContext saknar Caster.");
 
         if (Ability == null)
-        {
-            throw new InvalidOperationException(
-                "ActionContext saknar Ability."
-            );
-        }
+            throw new InvalidOperationException("ActionContext saknar Ability.");
 
         if (Targeting == null)
-        {
-            throw new InvalidOperationException(
-                "ActionContext saknar TargetingResult."
-            );
-        }
+            throw new InvalidOperationException("ActionContext saknar TargetingResult.");
 
         if (!Targeting.IsValid)
         {
             throw new InvalidOperationException(
-                "En execution-context kan inte skapas från " +
-                "ogiltig targeting."
-            );
+                "En execution-context kan inte skapas från ogiltig targeting.");
         }
-
-        float executionTime =
-            Time.time;
 
         return new ActionExecutionContext(
             ActionId,
@@ -174,8 +158,8 @@ public sealed class ActionContext
             Targeting.AffectedTargets,
             ChargeProgress,
             StartedAt,
-            executionTime
-        );
+            Time.time,
+            WeaponComboDamageBonus);
     }
 
     internal void MarkExecuted(

@@ -49,4 +49,14 @@ public sealed class AbilityTargetHitResult
         TargetIndex = targetIndex;
         Outcome = outcome;
     }
+
+    private float? rolledWeaponDamage;
+
+    internal float GetOrRollWeaponDamage(WeaponDamageSnapshot snapshot)
+    {
+        if (!rolledWeaponDamage.HasValue)
+            rolledWeaponDamage = snapshot.Roll();
+
+        return rolledWeaponDamage.Value;
+    }
 }

@@ -46,6 +46,12 @@ public class AbilityData :
     private AbilityUsageType usageType =
         AbilityUsageType.Ability;
 
+    [SerializeField]
+    [Tooltip("This direct weapon attack can start or advance a weapon combo.")]
+    private bool advancesWeaponCombo;
+
+    public bool AdvancesWeaponCombo => advancesWeaponCombo;
+
     [Header("Tags")]
 
     public AbilityTag[] tags;

@@ -28,10 +28,17 @@ public sealed class ActionExecutionContext
 
     public CharacterStats Caster { get; }
 
+    internal WeaponDamageSnapshot WeaponDamage { get; }
+    internal float WeaponComboDamageBonus { get; }
+
+    internal float WeaponMasteryDamageBonus { get; }
+
     public GameObject CasterObject =>
         Caster != null
             ? Caster.gameObject
             : null;
+
+
 
     public AbilityTargetingSettings TargetingSettings
     {
@@ -75,78 +82,67 @@ public sealed class ActionExecutionContext
         affectedTargets.Length > 0;
 
     public ActionExecutionContext(
-        Guid actionId,
-        AbilityData ability,
-        CharacterStats caster,
-        AbilityTargetingSettings targetingSettings,
-        GameObject primaryTarget,
-        Vector2 origin,
-        Vector2 rawAimPoint,
-        Vector2 targetPoint,
-        Vector2 direction,
-        float distance,
-        IReadOnlyList<GameObject> sourceTargets,
-        float chargeProgress,
-        float startedAt,
-        float executedAt)
+    Guid actionId,
+    AbilityData ability,
+    CharacterStats caster,
+    AbilityTargetingSettings targetingSettings,
+    GameObject primaryTarget,
+    Vector2 origin,
+    Vector2 rawAimPoint,
+    Vector2 targetPoint,
+    Vector2 direction,
+    float distance,
+    IReadOnlyList<GameObject> sourceTargets,
+    float chargeProgress,
+    float startedAt,
+    float executedAt,
+    float weaponComboDamageBonus = 0f)
     {
         ActionId = actionId;
+        Ability = ability ?? throw new ArgumentNullException(nameof(ability));
+        Caster = caster ?? throw new ArgumentNullException(nameof(caster));
 
-        Ability =
-            ability ??
-            throw new ArgumentNullException(
-                nameof(ability)
-            );
+        WeaponDamage = WeaponDamageSnapshot.Capture(Caster);
+        WeaponComboDamageBonus = Mathf.Max(0f, weaponComboDamageBonus);
+        WeaponMasteryDamageBonus = CaptureWeaponMasteryDamageBonus(Caster);
 
-        Caster =
-            caster ??
-            throw new ArgumentNullException(
-                nameof(caster)
-            );
-
-        TargetingSettings =
-            targetingSettings;
-
-        PrimaryTarget =
-            primaryTarget;
-
-        PrimaryCharacterTarget =
-            TargetUtility.GetCharacterStats(
-                primaryTarget
-            );
+        TargetingSettings = targetingSettings;
+        PrimaryTarget = primaryTarget;
+        PrimaryCharacterTarget = TargetUtility.GetCharacterStats(primaryTarget);
 
         Origin = origin;
         RawAimPoint = rawAimPoint;
         TargetPoint = targetPoint;
 
-        Direction =
-            direction.sqrMagnitude > 0.0001f
-                ? direction.normalized
-                : Vector2.down;
+        Direction = direction.sqrMagnitude > 0.0001f
+            ? direction.normalized
+            : Vector2.down;
 
-        Distance =
-            Mathf.Max(
-                0f,
-                distance
-            );
-
-        ChargeProgress =
-            Mathf.Clamp01(
-                chargeProgress
-            );
-
+        Distance = Mathf.Max(0f, distance);
+        ChargeProgress = Mathf.Clamp01(chargeProgress);
         StartedAt = startedAt;
         ExecutedAt = executedAt;
 
-        affectedTargets =
-            CopyGameObjectTargets(
-                sourceTargets
-            );
+        affectedTargets = CopyGameObjectTargets(sourceTargets);
+        affectedCharacters = BuildCharacterTargets(affectedTargets);
+    }
 
-        affectedCharacters =
-            BuildCharacterTargets(
-                affectedTargets
-            );
+    private static float CaptureWeaponMasteryDamageBonus(CharacterStats caster)
+    {
+        if (caster is not PlayerStats player ||
+            !player.TryGetComponent(out PlayerWeaponMastery mastery))
+        {
+            return 0f;
+        }
+
+        EquipmentManager equipment = EquipmentManager.Instance;
+        ItemData weapon = equipment != null
+            ? equipment.GetEquippedWeapon(player)
+            : null;
+
+        WeaponFamilyDefinition family = weapon != null ? weapon.WeaponFamily : null;
+
+        return mastery.GetProgress(family).WeaponDamageBonus;
     }
 
     public bool ContainsTarget(

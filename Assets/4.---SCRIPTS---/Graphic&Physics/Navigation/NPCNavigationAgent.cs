@@ -1226,11 +1226,11 @@ public sealed class NPCNavigationAgent :
                 null &&
             navigationDebugLogs)
         {
-            Debug.Log(
+            /*Debug.Log(
                 $"[NAV REGION] {name} | " +
                 $"{previousRegion.name} -> {navigationRegion.name}",
                 this
-            );
+            );*/
         }
 
 

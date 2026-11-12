@@ -105,26 +105,11 @@ public sealed class RoKForgeNavigationInput : IDisposable
 
     private void OnKeyDown(KeyDownEvent evt)
     {
-        if (evt == null)
+        if (evt == null || !evt.altKey || IsEditingText())
             return;
 
-        // Do not interfere with text editing.
-
-        if (IsEditingText())
-            return;
-
-        bool back =
-            evt.keyCode == KeyCode.Backspace &&
-            !evt.ctrlKey &&
-            !evt.altKey;
-
-        back |=
-            evt.altKey &&
-            evt.keyCode == KeyCode.LeftArrow;
-
-        bool forward =
-            evt.altKey &&
-            evt.keyCode == KeyCode.RightArrow;
+        bool back = evt.keyCode == KeyCode.LeftArrow;
+        bool forward = evt.keyCode == KeyCode.RightArrow;
 
         if (!back && !forward)
             return;

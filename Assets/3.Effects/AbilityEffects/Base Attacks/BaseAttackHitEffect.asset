@@ -20,6 +20,7 @@ MonoBehaviour:
   maxStacks: 1
   refreshDurationOnStack: 0
   removeOnDeath: 0
+  removeOnEncounterReset: 1
   strengthMultiplier: 0.6
-  weaponDamageMultiplier: 0
+  weaponDamageMultiplier: 1
   flatDamage: 0

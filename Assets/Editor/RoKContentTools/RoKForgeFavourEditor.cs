@@ -11,18 +11,23 @@ internal static class RoKForgeFavourEditor
     private const string DialogueFolder = "Assets/ContentStudio/Favours/Dialogue";
 
     internal static VisualElement Create(
-        ScrollView workspace,
-        FavourData favour,
-        Action<ScriptableObject> openAsset = null)
+    ScrollView workspace,
+    FavourData favour,
+    Action<ScriptableObject> openAsset = null)
     {
         SerializedObject serialized = new(favour);
         VisualElement left = new();
         VisualElement right = new();
 
         left.Add(new Label("FAVOUR SETTINGS"));
+
         AddFields(left, serialized,
             "displayName", "description", "category",
-            "activationPolicy", "completionPolicy", "isCourier", "completionTarget",
+            "activationPolicy", "completionPolicy", "isCourier", "completionTarget");
+
+        left.Add(RoKForgeFavourGiverPanel.Create(favour));
+
+        AddFields(left, serialized,
             "minimumLevel", "minimumCurrency",
             "reputationRequirements", "itemRequirements",
             "requiredCompletedFavours", "forbiddenCompletedFavours",
@@ -38,8 +43,8 @@ internal static class RoKForgeFavourEditor
             right.Add(new Label("Save the Favour to create and attach new objectives."));
 
         AddDialogueField<FavourDialogueSet>(
-    right, serialized, favour, "dialogueSet",
-    "Create & Attach Dialogue Set", "Dialogue", isSaved, openAsset);
+            right, serialized, favour, "dialogueSet",
+            "Create & Attach Dialogue Set", "Dialogue", isSaved, openAsset);
 
         AddDialogueField<FavourDialogueSet>(
             right, serialized, favour, "completionDialogueSet",

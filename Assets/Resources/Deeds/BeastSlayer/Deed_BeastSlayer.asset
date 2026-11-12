@@ -19,13 +19,20 @@ MonoBehaviour:
   revealHiddenOnFirstProgress: 1
   image: {fileID: 0}
   shortDescription: Kill 5 beasts
-  longDescription: 
+  longDescription: All sorts of beats prowls for prey in the wilderness. Better be
+    hunting than eaten!
   objective: {fileID: 11400000, guid: cd933f3c69d147d4f8e5d6a9beb1208d, type: 2}
   ranks:
   - rankId: e8317f72a2a5475f8a6308d37ef2cef8
     rankLabel: I
-    requiredTotalProgress: 6
+    requiredTotalProgress: 50
     shortDescription: 
     longDescription: 
     imageOverride: {fileID: 0}
-    rewards: []
+    rewards:
+    - kind: 5
+      displayName: 
+      icon: {fileID: 0}
+      ability: {fileID: 0}
+      item: {fileID: 0}
+      amount: 120

@@ -74,6 +74,8 @@ public sealed class RoKForgeAbilitySettingsEditor
                     "Usage Type"
                 );
 
+                Field(serialized, "advancesWeaponCombo", "Advances Weapon Combo");
+
                 Field(
                     serialized,
                     "tags",

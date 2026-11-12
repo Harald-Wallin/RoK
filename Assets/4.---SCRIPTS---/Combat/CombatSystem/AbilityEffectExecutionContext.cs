@@ -76,4 +76,29 @@ public sealed class AbilityEffectExecutionContext
         Target = target;
         TargetResult = targetResult;
     }
+
+    internal float GetWeaponDamage(out bool usedWeaponRange)
+    {
+        WeaponDamageSnapshot snapshot = Action.WeaponDamage;
+
+        usedWeaponRange =
+            snapshot.HasRange &&
+            TargetResult != null &&
+            TargetResult.Outcome == AbilityTargetHitOutcome.Hit;
+
+        float weaponDamage;
+
+        if (usedWeaponRange)
+            weaponDamage = TargetResult.GetOrRollWeaponDamage(snapshot);
+        else if (snapshot.HasRange)
+            weaponDamage = snapshot.Average;
+        else
+            weaponDamage = Caster.GetStat(StatType.WeaponDamage);
+
+        float totalBonus =
+            Action.WeaponMasteryDamageBonus +
+            Action.WeaponComboDamageBonus;
+
+        return weaponDamage * (1f + totalBonus);
+    }
 }

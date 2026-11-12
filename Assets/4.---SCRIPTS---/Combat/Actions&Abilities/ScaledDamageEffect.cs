@@ -15,66 +15,52 @@ public sealed class ScaledDamageEffect :
     [SerializeField]
     private int flatDamage;
 
-    public override void Execute(
-    AbilityEffectExecutionContext context)
+    public override void Execute(AbilityEffectExecutionContext context)
     {
-        if (context == null ||
-            context.Caster == null ||
-            context.Target == null)
+        if (context == null || context.Caster == null ||
+            context.Target == null || !context.TargetWasSuccessful)
         {
             return;
         }
 
-        if (!context.TargetWasSuccessful)
-            return;
+        bool usedWeaponRange = false;
 
-        int baseDamage =
-            CalculateBaseDamage(
-                context.Caster
-            );
+        float weaponDamage = weaponDamageMultiplier != 0f
+            ? context.GetWeaponDamage(out usedWeaponRange)
+            : 0f;
 
-        DamageResult result =
-            CombatResolver
-                .ResolveDamageAfterSuccessfulHit(
-                    context.Caster,
-                    context.Target,
-                    baseDamage,
-                    context.Ability
-                );
+        int baseDamage = CalculateBaseDamage(context.Caster, weaponDamage);
 
-        context.Target.TakeDamage(
-            result,
-            context.DamageSource
-        );
+        DamageResult result = CombatResolver.ResolveDamageAfterSuccessfulHit(
+            context.Caster,
+            context.Target,
+            baseDamage,
+            context.Ability,
+            applyDefaultDamageVariance: !usedWeaponRange);
+
+        context.Target.TakeDamage(result, context.DamageSource);
     }
 
-    public int CalculateBaseDamage(
-        CharacterStats caster)
+    public int CalculateBaseDamage(CharacterStats caster)
     {
         if (caster == null)
             return 0;
 
+        float weaponDamage = weaponDamageMultiplier != 0f
+            ? WeaponDamageSnapshot.GetPreviewValue(caster)
+            : 0f;
+
+        return CalculateBaseDamage(caster, weaponDamage);
+    }
+
+    private int CalculateBaseDamage(CharacterStats caster, float weaponDamage)
+    {
         float damage =
-            flatDamage;
+            flatDamage +
+            caster.GetStat(StatType.Strength) * strengthMultiplier +
+            weaponDamage * weaponDamageMultiplier;
 
-        damage +=
-            caster.GetStat(
-                StatType.Strength
-            ) *
-            strengthMultiplier;
-
-        damage +=
-            caster.GetStat(
-                StatType.WeaponDamage
-            ) *
-            weaponDamageMultiplier;
-
-        return Mathf.Max(
-            0,
-            Mathf.RoundToInt(
-                damage
-            )
-        );
+        return Mathf.Max(0, Mathf.RoundToInt(damage));
     }
 
     public override string GetTooltipText(
