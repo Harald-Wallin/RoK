@@ -9,7 +9,8 @@ public sealed class SpellbookUI :
         All,
         Melee,
         Buff,
-        BaseAttack
+        BaseAttack,
+        General
     }
 
     [Header("Content")]
@@ -39,6 +40,11 @@ public sealed class SpellbookUI :
 
     [SerializeField]
     private SpellbookTabButton baseAttackTab;
+
+    [SerializeField] private SpellbookTabButton generalTab;
+    [SerializeField] private AbilityEntryUI generalEntryPrefab;
+
+    private PlayerDeedManager observedDeeds;
 
     private SpellbookFilter activeFilter =
         SpellbookFilter.All;
@@ -83,6 +89,8 @@ public sealed class SpellbookUI :
 
     private void OnDestroy()
     {
+        ObserveDeeds(null);
+
         if (searchInput != null)
         {
             searchInput.onValueChanged
@@ -100,6 +108,12 @@ public sealed class SpellbookUI :
 
     private void Populate()
     {
+        if (activeFilter == SpellbookFilter.General)
+        {
+            PopulateGeneralTraits();
+            return;
+        }
+
         PlayerAbilityCollection collection =
             Collection;
 
@@ -278,6 +292,9 @@ public sealed class SpellbookUI :
         baseAttackTab?.SetSelected(
             baseAttackTab == selectedTab
         );
+
+        generalTab?.SetSelected(generalTab == selectedTab);
+
     }
 
     public void Refresh()
@@ -334,6 +351,60 @@ public sealed class SpellbookUI :
         );
 
         Refresh();
+    }
+
+    public void FilterGeneral()
+    {
+        activeFilter = SpellbookFilter.General;
+        SelectTab(generalTab);
+        Refresh();
+    }
+
+    private void PopulateGeneralTraits()
+    {
+        PlayerStats player = PlayerReference.Player;
+        PlayerDeedManager manager = player != null
+            ? player.GetComponent<PlayerDeedManager>()
+            : null;
+
+        ObserveDeeds(manager);
+
+        if (manager == null || contentParent == null || generalEntryPrefab == null)
+            return;
+
+        string search = searchInput != null ? searchInput.text.Trim() : string.Empty;
+
+        foreach (GeneralTraitDefinition trait in manager.ActiveGeneralTraits)
+        {
+            if (trait.DisplayName.IndexOf(
+                    search, System.StringComparison.OrdinalIgnoreCase) < 0)
+            {
+                continue;
+            }
+
+            AbilityEntryUI entry = Instantiate(generalEntryPrefab, contentParent, false);
+            entry.Setup(trait.DisplayName, trait.Icon, trait);
+        }
+    }
+
+    private void ObserveDeeds(PlayerDeedManager manager)
+    {
+        if (ReferenceEquals(observedDeeds, manager))
+            return;
+
+        if (observedDeeds != null)
+            observedDeeds.GeneralTraitsChanged -= HandleGeneralTraitsChanged;
+
+        observedDeeds = manager;
+
+        if (observedDeeds != null)
+            observedDeeds.GeneralTraitsChanged += HandleGeneralTraitsChanged;
+    }
+
+    private void HandleGeneralTraitsChanged()
+    {
+        if (isOpen && activeFilter == SpellbookFilter.General)
+            Refresh();
     }
 
     public void FilterBaseAttack()

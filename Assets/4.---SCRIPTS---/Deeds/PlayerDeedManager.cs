@@ -9,7 +9,7 @@ using UnityEngine;
 /// </summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(PlayerStats))]
-public sealed class PlayerDeedManager : MonoBehaviour
+public sealed partial class PlayerDeedManager : MonoBehaviour
 {
     private const string ResourcesFolder = "Deeds";
     private const int MaximumTrackedDeeds = 5;
@@ -33,16 +33,25 @@ public sealed class PlayerDeedManager : MonoBehaviour
         InitializeFromResources();
     }
 
+    private void Start()
+    {
+        SynchronizeGeneralTraits();
+    }
+
     private void OnEnable()
     {
         CharacterCombatEvents.CharacterDefeated +=
             HandleCharacterDefeated;
+
+        SynchronizeGeneralTraits();
     }
 
     private void OnDisable()
     {
         CharacterCombatEvents.CharacterDefeated -=
             HandleCharacterDefeated;
+
+        ClearGeneralTraits();
     }
 
     private void InitializeFromResources()
@@ -176,6 +185,8 @@ public sealed class PlayerDeedManager : MonoBehaviour
             if (trackedCount > MaximumTrackedDeeds)
                 deed.SetTracked(false);
         }
+
+        SynchronizeGeneralTraits();
     }
 
     private void HandleProgressChanged(DeedRuntime deed) =>
@@ -222,6 +233,8 @@ public sealed class PlayerDeedManager : MonoBehaviour
         // =====================================================
         // EXISTING EVENT
         // =====================================================
+
+        SynchronizeGeneralTraits();
 
         DeedRankCompleted?.Invoke(
             deed,

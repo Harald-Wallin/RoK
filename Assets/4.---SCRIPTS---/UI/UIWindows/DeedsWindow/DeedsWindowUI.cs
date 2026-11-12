@@ -132,6 +132,70 @@ public sealed class DeedsWindowUI :
         RebuildCards();
     }
 
+    public void OpenDeed(DeedRuntime deed, DeedRankDefinition rank)
+    {
+        if (deed == null || !deed.ShouldShowCard || !deed.IsRevealed)
+            return;
+
+        Open();
+
+        if (!IsOpen)
+            return;
+
+        if (deed.Definition.Category != null)
+            SelectCategory(deed.Definition.Category);
+        else
+            SelectAll();
+
+        detailsWindow.Show(deed, manager, rank);
+
+        foreach (DeedCardUI card in deedCards)
+        {
+            if (card != null && card.Represents(deed))
+            {
+                CenterDeedCard(card);
+                break;
+            }
+        }
+    }
+
+    private void CenterDeedCard(DeedCardUI card)
+    {
+        ScrollRect scroll = deedContent.GetComponentInParent<ScrollRect>();
+
+        if (scroll == null || !scroll.vertical || scroll.content == null ||
+            card.transform is not RectTransform cardRect)
+        {
+            return;
+        }
+
+        RectTransform viewport = scroll.viewport != null
+            ? scroll.viewport
+            : scroll.transform as RectTransform;
+
+        if (viewport == null)
+            return;
+
+        Canvas.ForceUpdateCanvases();
+
+        Bounds contentBounds = RectTransformUtility
+            .CalculateRelativeRectTransformBounds(viewport, scroll.content);
+
+        float scrollableHeight = contentBounds.size.y - viewport.rect.height;
+
+        if (scrollableHeight <= 0f)
+            return;
+
+        Vector3 cardCenter = viewport.InverseTransformPoint(
+            cardRect.TransformPoint(cardRect.rect.center));
+
+        float distanceFromCenter = cardCenter.y - viewport.rect.center.y;
+
+        scroll.StopMovement();
+        scroll.verticalNormalizedPosition = Mathf.Clamp01(
+            scroll.verticalNormalizedPosition + distanceFromCenter / scrollableHeight);
+    }
+
     public void Close()
     {
         detailsWindow?.Close();

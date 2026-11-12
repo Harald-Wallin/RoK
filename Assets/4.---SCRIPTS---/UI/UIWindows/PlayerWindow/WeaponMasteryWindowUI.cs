@@ -30,6 +30,8 @@ public sealed class WeaponMasteryWindowUI : MonoBehaviour
     [SerializeField] private TMP_Text detailsExperience;
     [SerializeField] private Image detailsFill;
     [SerializeField] private Toggle trackToggle;
+    [SerializeField] private WeaponTechniqueGridUI techniqueGrid;
+    [SerializeField] private DeedsWindowUI deedsWindow;
 
     private readonly Dictionary<WeaponFamilyDefinition, WeaponMasteryFamilyRowUI>
         rows = new();
@@ -237,6 +239,9 @@ public sealed class WeaponMasteryWindowUI : MonoBehaviour
         trackToggle.interactable = mastery != null;
         trackToggle.SetIsOnWithoutNotify(
             mastery != null && mastery.TrackedFamily == selectedFamily);
+
+        if (techniqueGrid != null)
+            techniqueGrid.Bind(selectedFamily, PlayerReference.Player, deedsWindow);
     }
 
     private PlayerWeaponMastery.Progress GetProgress(WeaponFamilyDefinition family)

@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using System.Collections.Generic;
 
 [Serializable]
 public struct WeaponComboStep
@@ -48,6 +49,14 @@ public sealed class WeaponFamilyDefinition : ScriptableObject
     [SerializeField]
     private WeaponMasteryTreeDefinition masteryTree;
     public WeaponMasteryTreeDefinition MasteryTree => masteryTree;
+
+    [Header("Techniques")]
+    [SerializeField]
+    private DeedDefinition[] techniqueDeeds =
+    Array.Empty<DeedDefinition>();
+
+    public IReadOnlyList<DeedDefinition> TechniqueDeeds =>
+        techniqueDeeds ?? Array.Empty<DeedDefinition>();
 
     [Header("Weapon Combo")]
 

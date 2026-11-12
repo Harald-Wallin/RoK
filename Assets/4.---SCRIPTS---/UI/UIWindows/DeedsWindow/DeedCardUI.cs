@@ -46,6 +46,11 @@ public sealed class DeedCardUI : MonoBehaviour
     // BINDING
     // =====================================================
 
+    public bool Represents(DeedRuntime deed)
+    {
+        return ReferenceEquals(runtime, deed);
+    }
+
     public void Bind(
         DeedRuntime deed,
         DeedRankDefinition rankOverride,
@@ -302,6 +307,8 @@ public sealed class DeedCardUI : MonoBehaviour
 
             DeedRewardKind.TrainableAbility =>
                 "Ability",
+
+            DeedRewardKind.GeneralTrait => "Passive",
 
             DeedRewardKind.Item => "Item",
 

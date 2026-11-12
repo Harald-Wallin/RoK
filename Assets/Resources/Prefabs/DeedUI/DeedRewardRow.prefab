@@ -96,6 +96,8 @@ MonoBehaviour:
   iconImage: {fileID: 3777258921382030560}
   typeText: {fileID: 7412150455523772855}
   nameText: {fileID: 2407893088016894371}
+  titleIcon: {fileID: 0}
+  coinIcon: {fileID: 0}
 --- !u!114 &1613222238255130864
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -305,8 +307,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: 'Title: '
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 41fa48e27824f8746aba64e9595cf40d, type: 2}
-  m_sharedMaterial: {fileID: -7614040898404652691, guid: 41fa48e27824f8746aba64e9595cf40d, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 4a2d6614dc40bb847a653419a0068eb4, type: 2}
+  m_sharedMaterial: {fileID: -330056106542063606, guid: 4a2d6614dc40bb847a653419a0068eb4, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -442,8 +444,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: Wolfslayer
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 41fa48e27824f8746aba64e9595cf40d, type: 2}
-  m_sharedMaterial: {fileID: -7614040898404652691, guid: 41fa48e27824f8746aba64e9595cf40d, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 4a2d6614dc40bb847a653419a0068eb4, type: 2}
+  m_sharedMaterial: {fileID: -330056106542063606, guid: 4a2d6614dc40bb847a653419a0068eb4, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []

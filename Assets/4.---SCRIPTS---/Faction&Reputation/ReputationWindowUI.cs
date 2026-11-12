@@ -12,6 +12,16 @@ public class ReputationWindowUI : MonoBehaviour
     private Dictionary<FactionReputationData, ReputationEntryUI> entries
         = new Dictionary<FactionReputationData, ReputationEntryUI>();
 
+    public void OpenFaction(Faction faction)
+    {
+        if (faction == null || detailsPanel == null)
+            return;
+
+        gameObject.SetActive(true);
+        detailsPanel.gameObject.SetActive(true);
+        detailsPanel.ShowFaction(faction);
+    }
+
 
     void OnEnable()
     {

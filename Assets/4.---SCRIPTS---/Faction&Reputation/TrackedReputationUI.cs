@@ -33,6 +33,9 @@ public sealed class TrackedReputationUI :
     [SerializeField]
     private GameObject[] trackedContentObjects;
 
+    [SerializeField]
+    private Button murderModeButton;
+
 
     [Header("No Tracked Reputation")]
 
@@ -49,6 +52,8 @@ public sealed class TrackedReputationUI :
         );
 
         ConfigureUntrackedButton();
+        if (murderModeButton != null)
+            murderModeButton.onClick.AddListener(HandleMurderModeClicked);
 
         /*
          * Viktigt:
@@ -139,6 +144,12 @@ public sealed class TrackedReputationUI :
 
         ShowTrackedState();
 
+        if (murderModeButton != null)
+        {
+            murderModeButton.gameObject.SetActive(
+                reputationManager.IsMurderEnabled(tracked.faction));
+        }
+
 
         if (factionNameText != null)
         {
@@ -213,9 +224,10 @@ public sealed class TrackedReputationUI :
     {
         ClearTrackedPresentation();
 
-        SetTrackedContentVisible(
-            false
-        );
+        SetTrackedContentVisible(false);
+
+        if (murderModeButton != null)
+            murderModeButton.gameObject.SetActive(false);
 
         if (untrackedReputationButton != null)
         {
@@ -297,6 +309,18 @@ public sealed class TrackedReputationUI :
             );
     }
 
+    private void HandleMurderModeClicked()
+    {
+        if (reputationManager == null)
+            return;
+
+        FactionReputationData tracked = reputationManager.GetTrackedFaction();
+
+        if (tracked == null || tracked.faction == null)
+            return;
+
+        GlobalUIManager.Instance?.OpenReputationForFaction(tracked.faction);
+    }
 
     private void HandleUntrackedReputationClicked()
     {

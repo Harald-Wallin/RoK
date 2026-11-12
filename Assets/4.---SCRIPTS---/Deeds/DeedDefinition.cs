@@ -19,7 +19,8 @@ public enum DeedRewardKind
 
     // Numeric rewards
     Currency = 4,
-    Experience = 5
+    Experience = 5,
+    GeneralTrait = 6
 }
 
 
@@ -35,6 +36,7 @@ public sealed class DeedRewardPreview
     [SerializeField] private Sprite icon;
     [SerializeField] private AbilityData ability;
     [SerializeField] private ItemData item;
+    [SerializeField] private GeneralTraitDefinition generalTrait;
     [SerializeField]
     [Min(0)]
     private int amount;
@@ -42,9 +44,18 @@ public sealed class DeedRewardPreview
     public DeedRewardKind Kind => kind;
     public AbilityData Ability => ability;
     public ItemData Item => item;
-    public Sprite Icon => icon;
+    public GeneralTraitDefinition GeneralTrait => generalTrait;
+
+    public Sprite Icon =>
+        icon != null
+            ? icon
+            : kind == DeedRewardKind.GeneralTrait && generalTrait != null
+                ? generalTrait.Icon
+                : null;
+
     public string DisplayName =>
         !string.IsNullOrWhiteSpace(displayName) ? displayName :
+        kind == DeedRewardKind.GeneralTrait && generalTrait != null ? generalTrait.DisplayName :
         kind == DeedRewardKind.TrainableAbility && ability != null ? ability.abilityName :
         kind == DeedRewardKind.Item && item != null ? item.DisplayName :
         kind.ToString();

@@ -11,7 +11,8 @@ public enum ModifierSourceType
     Talent,
     Equipment,
     Buff,
-    Oath
+    Oath,
+    GeneralTrait
 }
 
 public class StatModifier

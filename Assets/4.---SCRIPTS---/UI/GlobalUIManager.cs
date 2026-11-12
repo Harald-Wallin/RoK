@@ -355,6 +355,12 @@ public sealed class GlobalUIManager : MonoBehaviour
             !reputationWindow.gameObject.activeSelf);
     }
 
+    public void OpenReputationForFaction(Faction faction)
+    {
+        if (reputationWindow != null)
+            reputationWindow.OpenFaction(faction);
+    }
+
     public void ToggleDeedsWindow()
     {
         deedsWindow?.Toggle();

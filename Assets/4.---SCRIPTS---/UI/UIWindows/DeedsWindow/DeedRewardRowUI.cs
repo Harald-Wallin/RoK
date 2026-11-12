@@ -105,6 +105,11 @@ public sealed class DeedRewardRowUI :
                 valueLabel = reward.DisplayName;
 
                 break;
+
+            case DeedRewardKind.GeneralTrait:
+                typeLabel = "Passive:";
+                valueLabel = reward.DisplayName;
+                break;
         }
 
         // =================================================
