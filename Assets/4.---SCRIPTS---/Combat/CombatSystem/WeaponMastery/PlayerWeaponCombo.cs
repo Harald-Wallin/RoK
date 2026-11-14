@@ -6,6 +6,7 @@ public sealed class PlayerWeaponCombo : MonoBehaviour
 {
     private PlayerStats player;
     private CharacterActionController actions;
+    private PlayerDeedManager deedManager;
 
     private ItemData chainWeapon;
     private int nextStepIndex;
@@ -21,6 +22,7 @@ public sealed class PlayerWeaponCombo : MonoBehaviour
     {
         player = GetComponent<PlayerStats>();
         actions = GetComponent<CharacterActionController>();
+        deedManager = GetComponent<PlayerDeedManager>();
     }
 
     private void OnEnable()
@@ -99,15 +101,15 @@ public sealed class PlayerWeaponCombo : MonoBehaviour
     }
 
     private void HandleEffectsExecuted(
-        ActionExecutionContext action,
-        AbilityEffectPipelineResult result)
+    ActionExecutionContext action,
+    AbilityEffectPipelineResult result)
     {
         if (pendingAction == null || pendingAction.ActionId != action.ActionId)
             return;
 
         ItemData weapon = pendingWeapon;
         WeaponFamilyDefinition family = pendingFamily;
-        int stepIndex = pendingStepIndex;
+        int landedHits = pendingStepIndex + 1;
         float bonus = pendingStep.WeaponDamageBonus;
 
         ClearPendingAttack();
@@ -123,22 +125,24 @@ public sealed class PlayerWeaponCombo : MonoBehaviour
 
 #if UNITY_EDITOR
         Debug.Log(
-            $"[Weapon Combo] {family.name}, hit {stepIndex + 1}, " +
+            $"[Weapon Combo] {family.name}, hit {landedHits}, " +
             $"+{bonus * 100f:0.#}% weapon damage",
             this);
 #endif
 
-        int followingStepIndex = stepIndex + 1;
-
-        if (!family.TryGetComboStep(followingStepIndex, out WeaponComboStep followingStep))
+        if (family.TryGetComboStep(landedHits, out WeaponComboStep followingStep))
+        {
+            chainWeapon = weapon;
+            nextStepIndex = landedHits;
+            nextAttackDeadline = action.ExecutedAt + followingStep.WindowFromPreviousHit;
+        }
+        else
         {
             ResetChain();
-            return;
         }
 
-        chainWeapon = weapon;
-        nextStepIndex = followingStepIndex;
-        nextAttackDeadline = action.ExecutedAt + followingStep.WindowFromPreviousHit;
+        if (deedManager != null)
+            deedManager.Report(new DeedWeaponComboHitEvent(player, family, landedHits));
     }
 
     private bool HasConfirmedHit(AbilityEffectPipelineResult result)

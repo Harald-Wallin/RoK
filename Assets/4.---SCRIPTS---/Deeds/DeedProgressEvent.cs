@@ -24,3 +24,20 @@ public sealed class DeedCharacterDefeatedEvent : DeedProgressEvent
 
     public CharacterDefeatedResult Defeat { get; }
 }
+
+public sealed class DeedWeaponComboHitEvent : DeedProgressEvent
+{
+    public DeedWeaponComboHitEvent(
+        PlayerStats actor,
+        WeaponFamilyDefinition weaponFamily,
+        int landedHits)
+        : base(actor)
+    {
+        WeaponFamily = weaponFamily;
+        LandedHits = landedHits;
+    }
+
+    public WeaponFamilyDefinition WeaponFamily { get; }
+
+    public int LandedHits { get; }
+}

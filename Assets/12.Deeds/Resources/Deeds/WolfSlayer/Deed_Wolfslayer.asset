@@ -36,10 +36,11 @@ MonoBehaviour:
       icon: {fileID: 0}
       ability: {fileID: 0}
       item: {fileID: 0}
+      generalTrait: {fileID: 0}
       amount: 8
   - rankId: b5bc41d19e3f48f194d2f0fa729c1b1a
     rankLabel: II
-    requiredTotalProgress: 20
+    requiredTotalProgress: 5
     shortDescription: 
     longDescription: 
     imageOverride: {fileID: 0}
@@ -49,13 +50,22 @@ MonoBehaviour:
       icon: {fileID: 0}
       ability: {fileID: 11400000, guid: f5968349c0446ed41aed94abca0babff, type: 2}
       item: {fileID: 0}
+      generalTrait: {fileID: 0}
       amount: 0
     - kind: 5
       displayName: 
       icon: {fileID: 0}
       ability: {fileID: 0}
       item: {fileID: 0}
+      generalTrait: {fileID: 0}
       amount: 120
+    - kind: 6
+      displayName: 
+      icon: {fileID: 0}
+      ability: {fileID: 0}
+      item: {fileID: 0}
+      generalTrait: {fileID: 11400000, guid: 87518aec9089a5340bd3d1d9ccdcdd77, type: 2}
+      amount: 0
   - rankId: 34c57c4c36064f6bb62a46722944c373
     rankLabel: III
     requiredTotalProgress: 100
@@ -68,4 +78,5 @@ MonoBehaviour:
       icon: {fileID: 0}
       ability: {fileID: 0}
       item: {fileID: 0}
+      generalTrait: {fileID: 0}
       amount: 0

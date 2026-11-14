@@ -192,6 +192,9 @@ public sealed class SpellbookUI :
                     ability;
             }
         }
+
+        if (activeFilter == SpellbookFilter.All)
+            PopulateGeneralTraits();
     }
 
     private static bool MatchesSearch(
@@ -403,8 +406,12 @@ public sealed class SpellbookUI :
 
     private void HandleGeneralTraitsChanged()
     {
-        if (isOpen && activeFilter == SpellbookFilter.General)
+        if (isOpen &&
+            (activeFilter == SpellbookFilter.All ||
+             activeFilter == SpellbookFilter.General))
+        {
             Refresh();
+        }
     }
 
     public void FilterBaseAttack()
