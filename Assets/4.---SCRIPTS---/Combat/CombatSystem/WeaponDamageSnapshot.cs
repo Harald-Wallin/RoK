@@ -9,11 +9,18 @@ internal readonly struct WeaponDamageSnapshot
 
     internal float Average => minimum + (maximum - minimum) * 0.5f;
 
-    private WeaponDamageSnapshot(float first, float second)
+    internal WeaponFamilyDefinition WeaponFamily { get; }
+
+    private WeaponDamageSnapshot(
+        float first,
+        float second,
+        WeaponFamilyDefinition weaponFamily,
+        bool hasRange = true)
     {
         minimum = Mathf.Max(0f, Mathf.Min(first, second));
         maximum = Mathf.Max(0f, Mathf.Max(first, second));
-        HasRange = true;
+        WeaponFamily = weaponFamily;
+        HasRange = hasRange;
     }
 
     internal float Roll()
@@ -46,8 +53,13 @@ internal readonly struct WeaponDamageSnapshot
             weapon = equipment != null ? equipment.weapon : null;
         }
 
-        if (weapon == null || !weapon.TryGetWeaponDamageRange(out Vector2Int range))
+        if (weapon == null)
             return default;
+
+        WeaponFamilyDefinition family = weapon.WeaponFamily;
+
+        if (!weapon.TryGetWeaponDamageRange(out Vector2Int range))
+            return new WeaponDamageSnapshot(0f, 0f, family, hasRange: false);
 
         float minimum = caster.GetStatValueBreakdown(
             StatType.WeaponDamage, range.x, equipmentSource).FinalValue;
@@ -55,7 +67,7 @@ internal readonly struct WeaponDamageSnapshot
         float maximum = caster.GetStatValueBreakdown(
             StatType.WeaponDamage, range.y, equipmentSource).FinalValue;
 
-        return new WeaponDamageSnapshot(minimum, maximum);
+        return new WeaponDamageSnapshot(minimum, maximum, family);
     }
 
     internal static float GetPreviewValue(CharacterStats caster)

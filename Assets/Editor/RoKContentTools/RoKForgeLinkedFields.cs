@@ -26,6 +26,22 @@ public static class RoKForgeLinkedField
     // =====================================================
 
     public static void Draw(
+    SerializedProperty property,
+    GUIContent label,
+    Action<ScriptableObject> openAsset)
+    {
+        if (property == null)
+            return;
+
+        float height = EditorGUI.GetPropertyHeight(
+            property, label, includeChildren: true);
+
+        Rect position = EditorGUILayout.GetControlRect(true, height);
+        Draw(position, property, label, openAsset);
+    }
+
+    public static void Draw(
+        Rect position,
         SerializedProperty property,
         GUIContent label,
         Action<ScriptableObject> openAsset)
@@ -33,49 +49,22 @@ public static class RoKForgeLinkedField
         if (property == null)
             return;
 
-        float height =
-            EditorGUI.GetPropertyHeight(
-                property,
-                label,
-                true
-            );
+        Event current = Event.current;
 
-        Rect rect =
-            EditorGUILayout.GetControlRect(
-                true,
-                height
-            );
-
-        ScriptableObject linked =
-            property.objectReferenceValue
-                as ScriptableObject;
-
-        Event current =
-            Event.current;
-
-        bool doubleClick =
+        if (openAsset != null &&
             current.type == EventType.MouseDown &&
+            current.button == 0 &&
             current.clickCount >= 2 &&
-            rect.Contains(current.mousePosition);
-
-        if (doubleClick &&
+            position.Contains(current.mousePosition) &&
+            property.objectReferenceValue is ScriptableObject linked &&
             linked != null &&
             AssetDatabase.Contains(linked))
         {
             current.Use();
-
-            QueueOpen(
-                linked,
-                openAsset
-            );
+            QueueOpen(linked, openAsset);
         }
 
-        EditorGUI.PropertyField(
-            rect,
-            property,
-            label,
-            true
-        );
+        EditorGUI.PropertyField(position, property, label, includeChildren: true);
     }
 
     // =====================================================

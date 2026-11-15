@@ -41,3 +41,35 @@ public sealed class DeedWeaponComboHitEvent : DeedProgressEvent
 
     public int LandedHits { get; }
 }
+
+public sealed class DeedWeaponAttackHitEvent : DeedProgressEvent
+{
+    public DeedWeaponAttackHitEvent(
+        PlayerStats actor,
+        WeaponFamilyDefinition weaponFamily,
+        AbilityData ability,
+        int enemiesHit)
+        : base(actor)
+    {
+        WeaponFamily = weaponFamily;
+        Ability = ability;
+        EnemiesHit = enemiesHit;
+    }
+
+    public WeaponFamilyDefinition WeaponFamily { get; }
+    public AbilityData Ability { get; }
+    public int EnemiesHit { get; }
+}
+
+public sealed class DeedCriticalHitEvent : DeedProgressEvent
+{
+    public DeedCriticalHitEvent(
+        PlayerStats actor,
+        WeaponFamilyDefinition weaponFamily)
+        : base(actor)
+    {
+        WeaponFamily = weaponFamily;
+    }
+
+    public WeaponFamilyDefinition WeaponFamily { get; }
+}

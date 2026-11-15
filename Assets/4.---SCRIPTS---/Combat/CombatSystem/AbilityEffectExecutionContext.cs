@@ -14,12 +14,16 @@ public sealed class AbilityEffectExecutionContext
     public CharacterStats Caster =>
         Action.Caster;
 
+    private bool usesWeaponDamage;
+
     public DamageSourceContext DamageSource =>
-    new DamageSourceContext(
-        Caster,
-        Caster,
-        Ability
-    );
+        new DamageSourceContext(
+            Caster,
+            Caster,
+            Ability,
+            Ability.IsBaseAttack || usesWeaponDamage
+                ? Action.WeaponDamage.WeaponFamily
+                : null);
 
     public GameObject TargetObject { get; }
 
@@ -79,6 +83,8 @@ public sealed class AbilityEffectExecutionContext
 
     internal float GetWeaponDamage(out bool usedWeaponRange)
     {
+        usesWeaponDamage = true;
+
         WeaponDamageSnapshot snapshot = Action.WeaponDamage;
 
         usedWeaponRange =

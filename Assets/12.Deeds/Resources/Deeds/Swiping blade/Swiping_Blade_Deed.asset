@@ -10,22 +10,24 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: eed32523161bad34da31231f8f225313, type: 3}
-  m_Name: Blade_Finesse_2_Deed
+  m_Name: Swiping_Blade_Deed
   m_EditorClassIdentifier: Assembly-CSharp::DeedDefinition
-  persistentId: 83c7c8b50882de54db9de450b9f2fefe
-  displayName: Sword Finesse
+  persistentId: ecf03cd8f18782a4589ea8f89f5655c7
+  displayName: Swiping Blade
   category: {fileID: 11400000, guid: a2de811df26c5d34a905d092753cc8a3, type: 2}
   visibility: 0
   revealHiddenOnFirstProgress: 1
   image: {fileID: 21300000, guid: 25475527ef5434e42819b4ece122b4ba, type: 3}
-  shortDescription: Short description here
-  longDescription: Land consecutive combo blows on your enemies
-  objective: {fileID: 11400000, guid: 1f79af276b9545b4b8e9a3904554abe0, type: 2}
+  shortDescription: Hit multiple enemies with a sword
+  longDescription: 
+  objective: {fileID: 0}
+  useRankObjectives: 1
   ranks:
-  - rankId: 973c9c6cbabf4bdf8073639feb9dc698
+  - rankId: 7ba4238b061a422cb8cff0bcfb236056
     rankLabel: I
-    requiredTotalProgress: 10
+    requiredTotalProgress: 3
     shortDescription: 
-    longDescription: Land the third combo blow on an enemy with a sword
+    longDescription: Hit atleast 3 enemies with a swiping sword attack
     imageOverride: {fileID: 0}
     rewards: []
+    objective: {fileID: 11400000, guid: a5068bd9a3d15464ab7757e79e6577ca, type: 2}

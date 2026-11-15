@@ -72,6 +72,9 @@ public sealed class DeedRankDefinition
     [SerializeField, TextArea(3, 7)] private string longDescription;
     [SerializeField] private Sprite imageOverride;
     [SerializeField] private List<DeedRewardPreview> rewards = new();
+    [SerializeField] private DeedObjectiveDefinition objective;
+
+    public DeedObjectiveDefinition Objective => objective;
 
     public string RankId => rankId;
     public string RankLabel => rankLabel;
@@ -109,8 +112,13 @@ public sealed class DeedDefinition : ScriptableObject
 
     [Header("Objective")]
     [SerializeField] private DeedObjectiveDefinition objective;
+    [SerializeField]
+    [Tooltip("Each rank uses its own objective and starts at zero.")]
+    private bool useRankObjectives;
 
-    [Header("Cumulative Ranks (ascending thresholds)")]
+    public bool UseRankObjectives => useRankObjectives;
+
+    [Header("Ranks")]
     [SerializeField] private List<DeedRankDefinition> ranks = new();
 
     public string PersistentId => persistentId;
@@ -130,20 +138,37 @@ public sealed class DeedDefinition : ScriptableObject
         get
         {
             if (string.IsNullOrWhiteSpace(persistentId) ||
-                objective == null || ranks == null || ranks.Count == 0)
+                ranks == null || ranks.Count == 0 ||
+                (!useRankObjectives && objective == null))
+            {
                 return false;
+            }
 
-            int previous = 0;
+            int previousThreshold = 0;
             HashSet<string> seen = new();
+
             foreach (DeedRankDefinition rank in ranks)
             {
                 if (rank == null ||
                     string.IsNullOrWhiteSpace(rank.RankId) ||
-                    !seen.Add(rank.RankId) ||
-                    rank.RequiredTotalProgress <= previous)
+                    !seen.Add(rank.RankId))
+                {
                     return false;
-                previous = rank.RequiredTotalProgress;
+                }
+
+                if (useRankObjectives)
+                {
+                    if (rank.Objective == null)
+                        return false;
+                }
+                else if (rank.RequiredTotalProgress <= previousThreshold)
+                {
+                    return false;
+                }
+
+                previousThreshold = rank.RequiredTotalProgress;
             }
+
             return true;
         }
     }
@@ -170,8 +195,8 @@ public sealed class DeedDefinition : ScriptableObject
         if (ranks.Count > 0 && !IsValid)
         {
             Debug.LogWarning(
-                $"Deed '{name}': assign an objective and ensure strictly " +
-                "increasing rank thresholds and valid IDs.", this);
+                $"Deed '{name}' needs valid rank IDs and either a shared objective " +
+                "with ascending thresholds or an objective on every rank.", this);
         }
     }
 #endif

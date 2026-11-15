@@ -10,6 +10,7 @@ public sealed class DeedStateSnapshot
 {
     public string deedId;
     public int progress;
+    public string progressRankId;
     public bool discovered;
     public bool tracked;
     public List<string> completedRankIds = new();

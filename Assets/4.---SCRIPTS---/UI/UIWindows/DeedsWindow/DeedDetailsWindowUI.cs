@@ -254,12 +254,7 @@ public sealed class DeedDetailsWindowUI :
                 rank.RequiredTotalProgress
             );
 
-        int current =
-            Mathf.Clamp(
-                currentDeed.Progress,
-                0,
-                required
-            );
+        int current = currentDeed.GetProgressForRank(rank);
 
         SetText(
             progressText,

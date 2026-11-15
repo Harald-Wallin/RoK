@@ -96,6 +96,8 @@ public sealed class RoKContentStudioWindow :
     private readonly RoKForgeDraftSession
         contentDraftSession = new();
 
+    private readonly RoKForgeDeedCreator.ObjectiveDraftState deedObjectiveDraft = new();
+
 
 
 
@@ -129,236 +131,107 @@ public sealed class RoKContentStudioWindow :
     {
         try
         {
-            Debug.Log(
-                "[The Forge] Initializing UI..."
-            );
+            Debug.Log("[The Forge] Initializing UI...");
 
+            RoKForgeCallbacks callbacks = new()
+            {
+                Home = () => Navigate(RoKForgeRoute.Home()),
+                Back = NavigateBack,
+                Forward = NavigateForward,
+                NavigateToHistory = NavigateToHistory,
+                OpenAsset = ShowAsset,
 
-            RoKForgeCallbacks callbacks =
-                new RoKForgeCallbacks
+                CreateAbility = () =>
+                    Navigate(RoKForgeRoute.ForPage(RoKForgePage.CreateAbility)),
+
+                CreateItem = () =>
+                    Navigate(RoKForgeRoute.ForPage(RoKForgePage.CreateItem)),
+
+                CreateTalent = () =>
+                    Navigate(RoKForgeRoute.ForPage(RoKForgePage.CreateTalent)),
+
+                CreateFavour = () =>
+                    Navigate(RoKForgeRoute.ForPage(RoKForgePage.CreateFavour)),
+
+                CreateDeed = () =>
+                    Navigate(RoKForgeRoute.ForPage(RoKForgePage.CreateDeed)),
+
+                CreateGeneralTrait = () =>
+                    Navigate(RoKForgeRoute.ForPage(RoKForgePage.CreateGeneralTrait)),
+
+                CreateBuff = () =>
                 {
-                    // =================================================
-                    // NAVIGATION
-                    // =================================================
+                    recipe = RoKContentRecipe.BuffDefinition;
+                    Navigate(RoKForgeRoute.ForPage(RoKForgePage.GuidedCreator));
+                },
 
-                    Home = () =>
-                        Navigate(RoKForgeRoute.Home()),
+                CreateEffect = () =>
+                    Navigate(RoKForgeRoute.ForPage(RoKForgePage.EffectRegistry)),
 
-                    Back = NavigateBack,
+                AdvancedAbilityRecipes = () =>
+                    Navigate(RoKForgeRoute.ForPage(RoKForgePage.AbilityRecipes)),
 
-                    Forward = NavigateForward,
+                GuidedCreator = () =>
+                    Navigate(RoKForgeRoute.ForPage(RoKForgePage.GuidedCreator)),
 
-                    NavigateToHistory = NavigateToHistory,
+                ContentAudit = () =>
+                    Navigate(RoKForgeRoute.ForPage(RoKForgePage.ContentAudit)),
 
-                    OpenAsset = ShowAsset,
+                EffectRegistry = () =>
+                    Navigate(RoKForgeRoute.ForPage(RoKForgePage.EffectRegistry)),
 
-                    // =================================================
-                    // CREATION
-                    // =================================================
+                RefreshLibrary = RefreshLibrary,
 
-                    CreateAbility = () =>
-                        Navigate(
-                            RoKForgeRoute.ForPage(
-                                RoKForgePage.CreateAbility
-                            )
-                        ),
+                CategoryChanged = value =>
+                {
+                    category = value;
+                    RefreshLibrary();
+                },
 
+                SearchChanged = value =>
+                {
+                    search = value;
+                    RefreshLibrary();
+                }
+            };
 
-                    CreateItem = () =>
-                        Navigate(RoKForgeRoute.ForPage(
-                            RoKForgePage.CreateItem)),
+            forgeShell.Build(rootVisualElement, category, search, callbacks);
+            navigationInput.Bind(this, rootVisualElement, NavigateBack, NavigateForward);
 
-                    CreateTalent = () =>
-                        Navigate(RoKForgeRoute.ForPage(
-                            RoKForgePage.CreateTalent)),
-
-                    CreateFavour = () =>
-                        Navigate(RoKForgeRoute.ForPage(
-                            RoKForgePage.CreateFavour)),
-
-
-                    CreateBuff = () =>
-                    {
-                        recipe = RoKContentRecipe.BuffDefinition;
-
-                        Navigate(
-                            RoKForgeRoute.ForPage(
-                                RoKForgePage.GuidedCreator
-                            )
-                        );
-                    },
-
-                    CreateEffect = () =>
-                        Navigate(
-                            RoKForgeRoute.ForPage(
-                                RoKForgePage.EffectRegistry
-                            )
-                        ),
-
-                    AdvancedAbilityRecipes = () =>
-                        Navigate(
-                            RoKForgeRoute.ForPage(
-                                RoKForgePage.AbilityRecipes
-                            )
-                        ),
-
-                    GuidedCreator = () =>
-                        Navigate(
-                            RoKForgeRoute.ForPage(
-                                RoKForgePage.GuidedCreator
-                            )
-                        ),
-
-                    // =================================================
-                    // TOOLS
-                    // =================================================
-
-                    ContentAudit = () =>
-                        Navigate(
-                            RoKForgeRoute.ForPage(
-                                RoKForgePage.ContentAudit
-                            )
-                        ),
-
-                    EffectRegistry = () =>
-                        Navigate(
-                            RoKForgeRoute.ForPage(
-                                RoKForgePage.EffectRegistry
-                            )
-                        ),
-
-                    RefreshLibrary = RefreshLibrary,
-
-                    // =================================================
-                    // LIBRARY
-                    // =================================================
-
-                    CategoryChanged = value =>
-                    {
-                        category = value;
-                        RefreshLibrary();
-                    },
-
-                    SearchChanged = value =>
-                    {
-                        search = value;
-                        RefreshLibrary();
-                    }
-                };
-
-
-            // =============================================
-            // BUILD SHELL
-            // =============================================
-
-            forgeShell.Build(
-                rootVisualElement,
-                category,
-                search,
-                callbacks
-            );
-
-
-            // =====================================================
-            // FORGE INPUT SHORTCUTS
-            // =====================================================
-
-            navigationInput.Bind(
-                this,
-                rootVisualElement,
-                NavigateBack,
-                NavigateForward
-            );
-
-
-            // =============================================
-            // CONNECT REFERENCES
-            // =============================================
-
-            libraryView =
-                forgeShell.LibraryView;
-
-            workspace =
-                forgeShell.Workspace;
-
-            helpLabel =
-                forgeShell.HelpLabel;
-
+            libraryView = forgeShell.LibraryView;
+            workspace = forgeShell.Workspace;
+            helpLabel = forgeShell.HelpLabel;
 
             RoKForgeVisualStyle.ApplyShell(
-                rootVisualElement,
-                libraryView,
-                workspace,
-                helpLabel
-            );
-
-
-            // =============================================
-            // INITIALIZE CONTENT
-            // =============================================
-
+                rootVisualElement, libraryView, workspace, helpLabel);
 
             RefreshLibrary();
-
             RenderCurrentRoute();
 
-
-            Debug.Log(
-                "[The Forge] UI initialized successfully."
-            );
+            Debug.Log("[The Forge] UI initialized successfully.");
         }
         catch (Exception exception)
         {
             Debug.LogException(exception);
 
-            // =============================================
-            // VISIBLE ERROR FALLBACK
-            // =============================================
-
-            VisualElement root =
-                rootVisualElement;
-
+            VisualElement root = rootVisualElement;
             root.Clear();
-
             root.style.paddingLeft = 16;
-            root.style.paddingRight = 16;
             root.style.paddingTop = 16;
 
-            Label title =
-                new Label(
-                    "THE FORGE - INITIALIZATION FAILED"
-                );
-
+            Label title = new("THE FORGE - INITIALIZATION FAILED");
             title.style.fontSize = 17;
-
-            title.style.unityFontStyleAndWeight =
-                FontStyle.Bold;
-
-            title.style.color =
-                new Color(1f, 0.35f, 0.35f);
-
+            title.style.unityFontStyleAndWeight = FontStyle.Bold;
+            title.style.color = new Color(1f, 0.35f, 0.35f);
             root.Add(title);
 
-            Label message =
-                new Label(
-                    exception.ToString()
-                );
-
-            message.style.whiteSpace =
-                WhiteSpace.Normal;
-
+            Label message = new(exception.ToString());
+            message.style.whiteSpace = WhiteSpace.Normal;
             message.style.marginTop = 12;
-
             root.Add(message);
 
-            Label instructions =
-                new Label(
-                    "Check the Unity Console for " +
-                    "the complete stack trace."
-                );
-
+            Label instructions = new("Check the Unity Console for the complete stack trace.");
             instructions.style.marginTop = 16;
-
             root.Add(instructions);
         }
     }
@@ -456,46 +329,56 @@ public sealed class RoKContentStudioWindow :
     // =====================================================
 
 
-    private bool CanLeaveCurrentRoute(
-        RoKForgeRoute destination)
+    private bool CanLeaveCurrentRoute(RoKForgeRoute destination)
     {
         if (destination == null)
             return false;
 
-        if (navigation.Current.SameAs(destination))
+        if (navigation.Current.SameAs(destination) ||
+            destination.Page == RoKForgePage.Asset)
+        {
             return true;
+        }
 
-        bool hasAbilityDraft =
-            navigation.Current.Page ==
-                RoKForgePage.CreateAbility &&
-            abilityCreationPanel.Draft != null;
+        bool discardAbilityDraft =
+            abilityCreationPanel.Draft != null &&
+            destination.Page != RoKForgePage.CreateAbility;
 
-        bool hasContentDraft =
-            (navigation.Current.Page == RoKForgePage.CreateItem ||
-             navigation.Current.Page == RoKForgePage.CreateTalent ||
-             navigation.Current.Page == RoKForgePage.CreateFavour) &&
-            contentDraftSession.Draft != null;
+        ScriptableObject contentDraft = contentDraftSession.Draft;
 
-        if (!hasAbilityDraft && !hasContentDraft)
+        bool returningToContentDraft = destination.Page switch
+        {
+            RoKForgePage.CreateItem => contentDraft is ItemData,
+            RoKForgePage.CreateTalent => contentDraft is TalentData,
+            RoKForgePage.CreateFavour => contentDraft is FavourData,
+            RoKForgePage.CreateDeed => contentDraft is DeedDefinition,
+            RoKForgePage.CreateGeneralTrait => contentDraft is GeneralTraitDefinition,
+            _ => false
+        };
+
+        bool discardContentDraft =
+            contentDraft != null && !returningToContentDraft;
+
+        if (!discardAbilityDraft && !discardContentDraft)
             return true;
 
         bool discard = EditorUtility.DisplayDialog(
             "Discard Unsaved Content?",
-            "Leaving this page will discard the current " +
-            "draft and its temporary changes.\n\n" +
-            "Existing project assets will not be modified.",
+            "Leaving this page will discard the current draft and its temporary changes.",
             "Discard Draft",
-            "Keep Editing"
-        );
+            "Keep Editing");
 
         if (!discard)
             return false;
 
-        if (hasAbilityDraft)
+        if (discardAbilityDraft)
             abilityCreationPanel.Cancel();
 
-        if (hasContentDraft)
+        if (discardContentDraft)
+        {
+            deedObjectiveDraft.Reset();
             contentDraftSession.Cancel();
+        }
 
         return true;
     }
@@ -507,57 +390,35 @@ public sealed class RoKContentStudioWindow :
 
     private void RenderCurrentRoute()
     {
-        if (workspace == null ||
-            helpLabel == null)
-        {
+        if (workspace == null || helpLabel == null)
             return;
-        }
 
-        RoKForgeRoute route =
-            navigation.Current;
-
-
-        // Remove home-only layout when editing content.
+        RoKForgeRoute route = navigation.Current;
 
         if (route.Page != RoKForgePage.Home)
         {
-            VisualElement content =
-                workspace.contentContainer;
-
+            VisualElement content = workspace.contentContainer;
             content.RemoveFromClassList("forge-home");
             content.style.minHeight = 0;
         }
 
-
         switch (route.Page)
         {
-            case RoKForgePage.Home:
-
-                DrawWelcome();
-                break;
-
             case RoKForgePage.Asset:
-
                 if (route.Asset != null)
                 {
                     RenderAsset(route.Asset);
                 }
                 else
                 {
-                    navigation.Push(
-                        RoKForgeRoute.Home()
-                    );
-
+                    navigation.Push(RoKForgeRoute.Home());
                     DrawWelcome();
                 }
-
                 break;
 
             case RoKForgePage.CreateAbility:
-
                 DrawNewAbility();
                 break;
-
 
             case RoKForgePage.CreateItem:
                 DrawNewContent(typeof(ItemData), "Item", "Assets/ContentStudio/Items");
@@ -571,33 +432,37 @@ public sealed class RoKContentStudioWindow :
                 DrawNewContent(typeof(FavourData), "Favour", "Assets/ContentStudio/Favours");
                 break;
 
+            case RoKForgePage.CreateDeed:
+                DrawNewDeed();
+                break;
+
+            case RoKForgePage.CreateGeneralTrait:
+                DrawNewContent(
+                    typeof(GeneralTraitDefinition),
+                    "General Trait",
+                    "Assets/12.Deeds/Deed-traits");
+                break;
 
             case RoKForgePage.AbilityRecipes:
-
                 DrawAbilityRecipes();
                 break;
 
             case RoKForgePage.EffectRegistry:
-
                 DrawEffectRegistry();
                 break;
 
             case RoKForgePage.ContentAudit:
-
                 DrawContentAudit();
                 break;
 
             case RoKForgePage.GuidedCreator:
-
                 DrawCreator();
                 break;
 
             default:
-
                 DrawWelcome();
                 break;
         }
-
 
         forgeShell.UpdateNavigation(navigation);
 
@@ -606,11 +471,7 @@ public sealed class RoKContentStudioWindow :
                 ? navigation.Current.Asset
                 : null;
 
-        RoKForgeVisualStyle.UpdateLibrarySelection(
-            libraryView,
-            activeAsset
-        );
-
+        RoKForgeVisualStyle.UpdateLibrarySelection(libraryView, activeAsset);
     }
 
 
@@ -649,6 +510,36 @@ public sealed class RoKContentStudioWindow :
         );
     }
 
+    private void DrawNewDeed()
+    {
+        contentDraftSession.Begin(typeof(DeedDefinition));
+        DeedDefinition draft = (DeedDefinition)contentDraftSession.Draft;
+
+        forgeShell.SetWelcomeMode(false);
+        workspace.Clear();
+        workspace.Add(Heading("Create New Deed"));
+
+        workspace.Add(RoKForgeDeedCreator.Create(
+            workspace,
+            draft,
+            deedObjectiveDraft,
+            created =>
+            {
+                workspace.Clear();
+                deedObjectiveDraft.Reset();
+                contentDraftSession.Cancel();
+                RefreshLibrary();
+                ShowAsset(created);
+
+                Selection.activeObject = created;
+                EditorGUIUtility.PingObject(created);
+            },
+            () => Navigate(RoKForgeRoute.Home()),
+            RefreshLibrary));
+
+        helpLabel.text =
+            "Unsaved Deed draft. Objectives you save are reusable project assets.";
+    }
 
     private void DrawNewContent(Type type, string label, string folder)
     {
@@ -669,9 +560,11 @@ public sealed class RoKContentStudioWindow :
                     break;
 
                 case FavourData favour:
-                    // DisplayName falls back to the object name.
-                    // Keep the fallback empty until the user enters a name.
                     favour.name = string.Empty;
+                    break;
+
+                case GeneralTraitDefinition trait:
+                    trait.name = string.Empty;
                     break;
             }
         }
@@ -685,6 +578,7 @@ public sealed class RoKContentStudioWindow :
                 ItemData item => item.itemName,
                 TalentData talent => talent.talentName,
                 FavourData favour => favour.DisplayName,
+                GeneralTraitDefinition trait => trait.DisplayName,
                 _ => string.Empty
             };
         }
@@ -693,17 +587,21 @@ public sealed class RoKContentStudioWindow :
         workspace.Clear();
         workspace.Add(Heading("Create New " + label));
 
-        bool isFavour = draft is FavourData;
+        switch (draft)
+        {
+            case FavourData favour:
+                workspace.Add(RoKForgeFavourEditor.Create(workspace, favour));
+                break;
 
-        if (draft is FavourData favourDraft)
-        {
-            workspace.Add(RoKForgeFavourEditor.Create(workspace, favourDraft));
-        }
-        else
-        {
-            VisualElement header = RoKForgeIdentityHeader.Create(draft);
-            header.style.maxWidth = 640;
-            workspace.Add(header);
+            case GeneralTraitDefinition trait:
+                workspace.Add(RoKForgeGeneralTraitEditor.Create(workspace, trait, null));
+                break;
+
+            default:
+                VisualElement header = RoKForgeIdentityHeader.Create(draft);
+                header.style.maxWidth = 640;
+                workspace.Add(header);
+                break;
         }
 
         IMGUIContainer panel = new(() =>
@@ -711,103 +609,114 @@ public sealed class RoKContentStudioWindow :
             if (draft == null || contentDraftSession.Draft != draft)
                 return;
 
-            if (!isFavour)
+            if (draft is ItemData || draft is TalentData)
                 DrawItemOrTalentFields(draft);
 
+            string effectIssue = draft is GeneralTraitDefinition trait
+                ? RoKForgeGeneralTraitEditor.GetEffectIssue(trait)
+                : null;
+
+            if (effectIssue != null)
+                EditorGUILayout.HelpBox(effectIssue, MessageType.Info);
+
             EditorGUILayout.Space(12);
-            EditorGUILayout.BeginHorizontal();
 
-            if (GUILayout.Button("Cancel", GUILayout.Height(34)))
+            using (new EditorGUILayout.HorizontalScope())
             {
-                EditorApplication.delayCall += () =>
-                {
-                    if (contentDraftSession.Draft != draft)
-                        return;
-
-                    contentDraftSession.Cancel();
-                    Navigate(RoKForgeRoute.Home());
-                };
-            }
-
-            using (new EditorGUI.DisabledScope(
-                string.IsNullOrWhiteSpace(GetDraftName()) ||
-                EditorApplication.isPlayingOrWillChangePlaymode))
-            {
-                if (GUILayout.Button("Create " + label, GUILayout.Height(34)))
+                if (GUILayout.Button("Cancel", GUILayout.Height(34)))
                 {
                     EditorApplication.delayCall += () =>
                     {
-                        if (draft == null ||
-                            contentDraftSession.Draft != draft ||
-                            EditorApplication.isPlayingOrWillChangePlaymode)
-                        {
-                            return;
-                        }
-
-                        string name = GetDraftName();
-
-                        if (string.IsNullOrWhiteSpace(name))
+                        if (this == null || contentDraftSession.Draft != draft)
                             return;
 
-                        try
-                        {
-                            if (draft is FavourData favour)
-                            {
-                                string id = favour.Id;
-
-                                if (string.IsNullOrWhiteSpace(id))
-                                {
-                                    throw new InvalidOperationException(
-                                        "Enter a name that produces a valid Favour ID.");
-                                }
-
-                                foreach (ScriptableObject asset in
-                                    RoKContentStudioCatalog.Find(RoKContentCategory.Favours))
-                                {
-                                    if (asset is FavourData existing && existing.Id == id)
-                                    {
-                                        throw new InvalidOperationException(
-                                            $"Favour ID '{id}' is already used by " +
-                                            $"'{existing.DisplayName}'. Choose another name.");
-                                    }
-                                }
-                            }
-
-                            ScriptableObject created =
-                                contentDraftSession.Commit(name, folder);
-
-                            RefreshLibrary();
-                            ShowAsset(created);
-
-                            Selection.activeObject = created;
-                            EditorGUIUtility.PingObject(created);
-                        }
-                        catch (Exception exception)
-                        {
-                            Debug.LogException(exception);
-
-                            EditorUtility.DisplayDialog(
-                                "Creation Failed",
-                                exception.Message,
-                                "OK");
-                        }
+                        contentDraftSession.Cancel();
+                        Navigate(RoKForgeRoute.Home());
                     };
                 }
-            }
 
-            EditorGUILayout.EndHorizontal();
+                using (new EditorGUI.DisabledScope(
+                    effectIssue != null ||
+                    string.IsNullOrWhiteSpace(GetDraftName()) ||
+                    EditorApplication.isPlayingOrWillChangePlaymode))
+                {
+                    if (GUILayout.Button("Create " + label, GUILayout.Height(34)))
+                    {
+                        EditorApplication.delayCall += () =>
+                        {
+                            if (this == null ||
+                                draft == null ||
+                                contentDraftSession.Draft != draft ||
+                                EditorApplication.isPlayingOrWillChangePlaymode)
+                            {
+                                return;
+                            }
+
+                            string name = GetDraftName();
+
+                            if (string.IsNullOrWhiteSpace(name))
+                                return;
+
+                            try
+                            {
+                                if (draft is GeneralTraitDefinition currentTrait)
+                                {
+                                    string issue =
+                                        RoKForgeGeneralTraitEditor.GetEffectIssue(currentTrait);
+
+                                    if (issue != null)
+                                        throw new InvalidOperationException(issue);
+                                }
+
+                                if (draft is FavourData favour)
+                                {
+                                    string id = favour.Id;
+
+                                    if (string.IsNullOrWhiteSpace(id))
+                                    {
+                                        throw new InvalidOperationException(
+                                            "Enter a name that produces a valid Favour ID.");
+                                    }
+
+                                    foreach (ScriptableObject asset in
+                                        RoKContentStudioCatalog.Find(RoKContentCategory.Favours))
+                                    {
+                                        if (asset is FavourData existing && existing.Id == id)
+                                        {
+                                            throw new InvalidOperationException(
+                                                $"Favour ID '{id}' is already used by " +
+                                                $"'{existing.DisplayName}'. Choose another name.");
+                                        }
+                                    }
+                                }
+
+                                ScriptableObject created =
+                                    contentDraftSession.Commit(name, folder);
+
+                                RefreshLibrary();
+                                ShowAsset(created);
+
+                                Selection.activeObject = created;
+                                EditorGUIUtility.PingObject(created);
+                            }
+                            catch (Exception exception)
+                            {
+                                Debug.LogException(exception);
+                                EditorUtility.DisplayDialog(
+                                    "Creation Failed", exception.Message, "OK");
+                            }
+                        };
+                    }
+                }
+            }
         });
 
-        panel.style.width = Length.Percent(100);
-        panel.style.maxWidth = 720;
-        panel.style.alignSelf = Align.FlexStart;
+        RoKForgeFormLayout.Constrain(panel);
         panel.style.marginTop = 10;
-
         workspace.Add(panel);
 
         helpLabel.text =
-            "Unsaved " + label +
-            " draft. Cancel discards all temporary changes.";
+            "Unsaved " + label + " draft. Cancel discards all temporary changes.";
     }
 
 
@@ -925,14 +834,12 @@ public sealed class RoKContentStudioWindow :
     // OPEN ASSET
     // =====================================================
 
-    private void ShowAsset(ScriptableObject asset)
+    internal void ShowAsset(ScriptableObject asset)
     {
         if (asset == null)
             return;
 
-        Navigate(
-            RoKForgeRoute.ForAsset(asset)
-        );
+        Navigate(RoKForgeRoute.ForAsset(asset));
     }
 
     // =====================================================
@@ -945,229 +852,158 @@ public sealed class RoKContentStudioWindow :
             return;
 
         selectedAsset = asset;
-
         forgeShell.SetWelcomeMode(false);
-
         forgeShell.RememberAsset(asset);
-
         workspace.Clear();
 
+        GeneralTraitDefinition generalTrait = asset as GeneralTraitDefinition;
 
-        // =====================================================
-        // SHARED ASSET IDENTITY HEADER
-        // =====================================================
+        if (generalTrait == null)
+        {
+            workspace.Add(RoKForgeIdentityHeader.Create(asset, RefreshLibrary));
+        }
 
-        workspace.Add(
-            RoKForgeIdentityHeader.Create(
-                asset,
-                RefreshLibrary
-            )
-        );
+        workspace.Add(new Button(() =>
+        {
+            Selection.activeObject = asset;
+            EditorGUIUtility.PingObject(asset);
+        })
+        { text = "Show in Project" });
 
+        switch (asset)
+        {
+            case GeneralTraitDefinition trait:
+                workspace.Add(RoKForgeGeneralTraitEditor.Create(
+                    workspace, trait, ShowAsset, RefreshLibrary));
+                break;
 
-        Button ping =
-            new Button(
-                () =>
+            case BuffDefinition buff:
                 {
-                    Selection.activeObject = asset;
-                    EditorGUIUtility.PingObject(asset);
+                    IMGUIContainer composer = new(() =>
+                    {
+                        if (buff != null)
+                        {
+                            effectComposer.Draw(
+                                buff, ShowAsset, RefreshLibrary,
+                                RoKForgeFormLayout.UseTwoColumns(workspace));
+                        }
+                    });
+
+                    composer.style.marginTop = 10;
+                    RoKForgeFormLayout.Constrain(composer);
+                    workspace.Add(composer);
+                    break;
                 }
-            )
-            {
-                text = "Show in Project"
-            };
 
-        workspace.Add(ping);
-
-
-        // =================================================
-        // CONTENT-SPECIFIC EDITORS
-        // =================================================
-
-        VisualElement assetDetails = workspace;
-
-        if (asset is BuffDefinition buff)
-        {
-            IMGUIContainer composer =
-                new IMGUIContainer(
-                    () =>
+            case AbilityData ability:
+                {
+                    IMGUIContainer composer = new(() =>
                     {
-                        if (buff == null)
-                            return;
+                        if (ability != null)
+                        {
+                            actionComposer.Draw(
+                                ability, ShowAsset, RefreshLibrary,
+                                RoKForgeFormLayout.UseTwoColumns(workspace));
+                        }
+                    });
 
-                        effectComposer.Draw(
-                            buff,
-                            ShowAsset,
-                            RefreshLibrary,
-                            RoKForgeFormLayout.UseTwoColumns(workspace)
-                        );
-                    }
-                );
+                    composer.style.marginTop = 10;
+                    RoKForgeFormLayout.Constrain(composer);
+                    workspace.Add(composer);
+                    break;
+                }
 
-            composer.style.marginTop = 10;
-
-            RoKForgeFormLayout.Constrain(composer);
-
-            workspace.Add(composer);
-        }
-        else if (asset is AbilityData ability)
-        {
-            IMGUIContainer composer =
-                new IMGUIContainer(
-                    () =>
+            case ItemData _:
+            case TalentData _:
+                {
+                    IMGUIContainer editor = new(() =>
                     {
-                        if (ability == null)
-                            return;
+                        if (asset != null)
+                            DrawItemOrTalentFields(asset);
+                    });
 
-                        actionComposer.Draw(
-                            ability,
-                            ShowAsset,
-                            RefreshLibrary,
-                            RoKForgeFormLayout.UseTwoColumns(workspace)
-                        );
-                    }
-                );
+                    editor.style.marginTop = 10;
+                    RoKForgeFormLayout.Constrain(editor);
+                    workspace.Add(editor);
+                    break;
+                }
 
-            composer.style.marginTop = 10;
+            case FavourData favour:
+                workspace.Add(RoKForgeFavourEditor.Create(workspace, favour, ShowAsset));
+                break;
 
-            workspace.Add(composer);
+            default:
+                {
+                    InspectorElement inspector = new(asset);
+                    RoKForgeLinkedField.EnableNestedNavigation(inspector, asset, ShowAsset);
+                    inspector.style.marginTop = 10;
+
+                    workspace.Add(RoKForgeFormLayout.CreateColumns(
+                        workspace, inspector, new VisualElement()));
+                    break;
+                }
         }
-        else if (asset is ItemData || asset is TalentData)
+
+        workspace.Add(Heading("Linked Assets"));
+        List<ScriptableObject> links = RoKContentStudioCatalog.GetLinks(asset);
+
+        if (generalTrait != null)
         {
-            IMGUIContainer editor = new(() =>
+            foreach (EffectDefinition effect in generalTrait.Effects)
             {
-                if (asset != null)
-                    DrawItemOrTalentFields(asset);
-            });
-
-            editor.style.width = Length.Percent(100);
-            editor.style.maxWidth = 720;
-            editor.style.alignSelf = Align.FlexStart;
-            editor.style.marginTop = 10;
-
-            workspace.Add(editor);
+                if (effect != null && !links.Contains(effect))
+                    links.Add(effect);
+            }
         }
-        else if (asset is FavourData favour)
-        {
-            workspace.Add(RoKForgeFavourEditor.Create(workspace, favour, ShowAsset));
-        }
-
-        else
-        {
-
-            InspectorElement inspector =
-                new InspectorElement(asset);
-
-            RoKForgeLinkedField.EnableNestedNavigation(
-                inspector,
-                asset,
-                ShowAsset
-            );
-
-            inspector.style.marginTop = 10;
-
-
-            assetDetails = new VisualElement();
-
-            workspace.Add(
-                RoKForgeFormLayout.CreateColumns(workspace, inspector, assetDetails));
-        }
-
-
-        // =================================================
-        // DEPENDENCIES
-        // =================================================
-
-        workspace.Add(
-            Heading("Linked Assets")
-        );
-
-        List<ScriptableObject> links =
-            RoKContentStudioCatalog.GetLinks(
-                asset
-            );
 
         if (links.Count == 0)
-        {
-            workspace.Add(
-                Paragraph("No direct links found.")
-            );
-        }
+            workspace.Add(Paragraph("No direct links found."));
 
         foreach (ScriptableObject linked in links)
         {
             ScriptableObject captured = linked;
-
-            workspace.Add(
-                new Button(
-                    () => ShowAsset(captured)
-                )
-                {
-                    text =
-                        $"{linked.name} " +
-                        $"[{linked.GetType().Name}]"
-                }
-            );
+            workspace.Add(new Button(() => ShowAsset(captured))
+            {
+                text = $"{captured.name} [{captured.GetType().Name}]"
+            });
         }
 
-        // =================================================
-        // VALIDATION
-        // =================================================
+        workspace.Add(Heading("Validation"));
+        workspace.Add(new Button(() => ShowAsset(asset))
+        {
+            text = "Refresh Validation"
+        });
 
-        workspace.Add(
-            Heading("Validation")
-        );
+        List<string> issues = RoKContentStudioCatalog.Validate(asset);
 
-        Button validate =
-            new Button(
-                () => ShowAsset(asset)
-            )
-            {
-                text = "Refresh Validation"
-            };
+        if (generalTrait != null)
+        {
+            string issue = RoKForgeGeneralTraitEditor.GetEffectIssue(generalTrait);
 
-        workspace.Add(validate);
-
-        List<string> issues =
-            RoKContentStudioCatalog.Validate(
-                asset
-            );
+            if (issue != null)
+                issues.Add($"FEL: {issue}");
+        }
 
         if (issues.Count == 0)
         {
-            workspace.Add(
-                Paragraph(
-                    "No configuration issues detected."
-                )
-            );
+            workspace.Add(Paragraph("No configuration issues detected."));
         }
         else
         {
             foreach (string issue in issues)
-            {
-                workspace.Add(
-                    Paragraph(issue)
-                );
-            }
+                workspace.Add(Paragraph(issue));
         }
 
-        // =================================================
-        // HELP
-        // =================================================
-
-        workspace.Add(
-            Heading("Understanding this Asset")
-        );
-
-        workspace.Add(
-            Paragraph(GetAssetHelp(asset))
-        );
+        workspace.Add(Heading("Understanding this Asset"));
+        workspace.Add(Paragraph(generalTrait != null
+            ? "Use a General Trait as a Deed rank reward to grant passive effects. " +
+              "The learned trait appears in Spellbook → General."
+            : GetAssetHelp(asset)));
 
         if (TryGetDeletePath(asset, out _))
         {
-            workspace.Add(
-                RoKForgeVisualStyle.CreateDeleteAssetButton(
-                    () => QueueDeleteAsset(asset)));
+            workspace.Add(RoKForgeVisualStyle.CreateDeleteAssetButton(
+                () => QueueDeleteAsset(asset)));
         }
 
         helpLabel.text =
@@ -1963,15 +1799,26 @@ public sealed class RoKContentStudioWindow :
     // WINDOW CLEANUP
     // =====================================================
 
+    private void OnEnable()
+    {
+        rootVisualElement.RegisterCallback<MouseDownEvent>(
+            HandleAssetFieldMouseDown, TrickleDown.TrickleDown);
+    }
+
+    private void HandleAssetFieldMouseDown(MouseDownEvent evt)
+    {
+        RoKForgeAssetFieldNavigation.HandleMouseDown(this, evt);
+    }
 
     private void OnDisable()
     {
+        rootVisualElement.UnregisterCallback<MouseDownEvent>(
+            HandleAssetFieldMouseDown, TrickleDown.TrickleDown);
+
         navigationInput?.Dispose();
-
         abilityCreationPanel?.Dispose();
-
+        deedObjectiveDraft.Reset();
         contentDraftSession?.Cancel();
-
     }
 
 

@@ -24,6 +24,7 @@ public sealed class AbilityTargetHitResult
     public int TargetIndex { get; }
 
     public AbilityTargetHitOutcome Outcome { get; }
+    internal bool EffectExecuted { get; set; }
 
     public bool WasRolled =>
         Outcome != AbilityTargetHitOutcome.NotRolled;

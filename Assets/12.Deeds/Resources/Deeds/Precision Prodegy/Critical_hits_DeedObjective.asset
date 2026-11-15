@@ -9,9 +9,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 84c84baeb1e8d9c408da20e5d1817cca, type: 3}
-  m_Name: Test_strength_bonus_10str
-  m_EditorClassIdentifier: Assembly-CSharp::StatModifierEffectDefinition
-  stat: 0
-  modifierType: 0
-  value: 10
+  m_Script: {fileID: 11500000, guid: 45069b35f998f1f48a43c2df653b611a, type: 3}
+  m_Name: Critical_hits_DeedObjective
+  m_EditorClassIdentifier: Assembly-CSharp::CriticalHitDeedObjectiveDefinition
+  weaponFamily: {fileID: 0}

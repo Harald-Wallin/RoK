@@ -20,6 +20,8 @@ public readonly struct DamageSourceContext
 
     public AbilityData Ability { get; }
 
+    public WeaponFamilyDefinition WeaponFamily { get; }
+
     public bool HasDirectSource =>
         DirectSource != null;
 
@@ -33,7 +35,8 @@ public readonly struct DamageSourceContext
     public DamageSourceContext(
         CharacterStats directSource,
         CharacterStats creditOwner = null,
-        AbilityData ability = null)
+        AbilityData ability = null,
+        WeaponFamilyDefinition weaponFamily = null)
     {
         DirectSource = directSource;
 
@@ -43,6 +46,7 @@ public readonly struct DamageSourceContext
                 : directSource;
 
         Ability = ability;
+        WeaponFamily = weaponFamily;
     }
 
     public static DamageSourceContext FromDirectSource(

@@ -15,4 +15,11 @@ public static class CharacterCombatEvents
             result
         );
     }
+
+    public static event Action<DamageAppliedEvent> DamageApplied;
+
+    public static void RaiseDamageApplied(DamageAppliedEvent damage)
+    {
+        DamageApplied?.Invoke(damage);
+    }
 }

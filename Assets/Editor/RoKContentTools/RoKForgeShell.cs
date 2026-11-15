@@ -22,6 +22,8 @@ public sealed class RoKForgeCallbacks
     public Action CreateTalent;
 
     public Action CreateFavour;
+    public Action CreateDeed;
+    public Action CreateGeneralTrait;
 
 
     public Action AdvancedAbilityRecipes;
@@ -494,125 +496,74 @@ public sealed class RoKForgeShell
     // MAIN WORKSPACE + QUICK CREATE
     // =====================================================
 
-    private void BuildMainArea(
-        TwoPaneSplitView split)
+    private void BuildMainArea(TwoPaneSplitView split)
     {
-        VisualElement content =
-            new VisualElement();
-
-        content.style.flexDirection =
-            FlexDirection.Row;
-
+        VisualElement content = new();
+        content.style.flexDirection = FlexDirection.Row;
         content.style.flexGrow = 1;
         content.style.minWidth = 0;
         content.style.minHeight = 0;
 
-        // Primary workspace
-
         Workspace = new ScrollView();
-
         Workspace.style.flexGrow = 1;
         Workspace.style.minWidth = 0;
         Workspace.style.minHeight = 0;
-
         Workspace.style.paddingLeft = 12;
         Workspace.style.paddingRight = 8;
-
         content.Add(Workspace);
 
-        // Home-only create panel
-
-        quickCreatePanel =
-            new VisualElement();
-
+        quickCreatePanel = new VisualElement();
         quickCreatePanel.style.width = 215;
         quickCreatePanel.style.flexShrink = 0;
         quickCreatePanel.style.minHeight = 0;
         quickCreatePanel.style.marginLeft = 8;
 
-        ScrollView createScroll =
-            new ScrollView();
-
+        ScrollView createScroll = new();
         createScroll.style.flexGrow = 1;
         createScroll.style.minHeight = 0;
+        createScroll.Add(SectionLabel("CREATE NEW"));
 
-        createScroll.Add(
-            SectionLabel("CREATE NEW")
-        );
+        createScroll.Add(QuickButton(
+            "ABILITY", "Create an ability through the Ability Recipe Builder.",
+            () => callbacks.CreateAbility?.Invoke()));
 
-        createScroll.Add(
-            QuickButton(
-                "ABILITY",
-                "Create an ability through " +
-                "the Ability Recipe Builder.",
-                () => callbacks.CreateAbility?.Invoke()
-            )
-        );
+        createScroll.Add(QuickButton(
+            "BUFF", "Create a BuffDefinition and its initial passive effect.",
+            () => callbacks.CreateBuff?.Invoke()));
 
-        createScroll.Add(
-            QuickButton(
-                "BUFF",
-                "Create a BuffDefinition and " +
-                "its initial passive effect.",
-                () => callbacks.CreateBuff?.Invoke()
-            )
-        );
+        createScroll.Add(QuickButton(
+            "STANDALONE EFFECT", "Create a reusable effect through the Effect Registry.",
+            () => callbacks.CreateEffect?.Invoke()));
 
-        createScroll.Add(
-            QuickButton(
-                "STANDALONE EFFECT",
-                "Create a reusable effect through " +
-                "the dynamic Effect Registry.",
-                () => callbacks.CreateEffect?.Invoke()
-            )
-        );
+        createScroll.Add(QuickButton(
+            "ITEM", "Create a new ItemData.",
+            () => callbacks.CreateItem?.Invoke()));
 
+        createScroll.Add(QuickButton(
+            "TALENT", "Create a new TalentData.",
+            () => callbacks.CreateTalent?.Invoke()));
 
-        createScroll.Add(
-            QuickButton(
-                "ITEM",
-                "Create a new ItemData.",
-                () => callbacks.CreateItem?.Invoke()
-            )
-        );
+        createScroll.Add(QuickButton(
+            "FAVOUR", "Create a new Favour draft.",
+            () => callbacks.CreateFavour?.Invoke()));
 
-        createScroll.Add(
-            QuickButton(
-                "TALENT",
-                "Create a new TalentData.",
-                () => callbacks.CreateTalent?.Invoke()
-            )
-        );
+        createScroll.Add(QuickButton(
+            "DEED", "Create a Deed with objectives, ranks and rewards.",
+            () => callbacks.CreateDeed?.Invoke()));
 
-        createScroll.Add(
-            QuickButton(
-                "FAVOUR",
-                "Create a new Favour draft.",
-                () => callbacks.CreateFavour?.Invoke()
-            )
-        );
+        createScroll.Add(QuickButton(
+            "GENERAL TRAIT", "Create a passive trait for the General spellbook tab.",
+            () => callbacks.CreateGeneralTrait?.Invoke()));
 
-
-        Label upcoming =
-            new Label(
-                "PLANNED\n" +
-                "Title · Oath"
-            );
-
-        upcoming.style.whiteSpace =
-            WhiteSpace.Normal;
-
+        Label upcoming = new("PLANNED\nTitle · Oath");
+        upcoming.style.whiteSpace = WhiteSpace.Normal;
         upcoming.style.fontSize = 11;
         upcoming.style.color = MutedColor;
-
         upcoming.style.marginTop = 16;
-
         createScroll.Add(upcoming);
 
         quickCreatePanel.Add(createScroll);
-
         content.Add(quickCreatePanel);
-
         split.Add(content);
     }
 

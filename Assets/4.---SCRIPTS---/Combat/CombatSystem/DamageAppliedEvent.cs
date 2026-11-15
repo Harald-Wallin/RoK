@@ -15,10 +15,14 @@ public readonly struct DamageAppliedEvent
         get;
     }
 
+    public bool IsCriticalHit { get; }
+
+
+
     public DamageAppliedEvent(
         CharacterStats victim,
         DamageSourceContext source,
-        int appliedDamage)
+        int appliedDamage, bool isCriticalHit = false)
     {
         Victim =
             victim;
@@ -31,5 +35,9 @@ public readonly struct DamageAppliedEvent
                 0,
                 appliedDamage
             );
+
+        IsCriticalHit = isCriticalHit;
+
     }
+
 }

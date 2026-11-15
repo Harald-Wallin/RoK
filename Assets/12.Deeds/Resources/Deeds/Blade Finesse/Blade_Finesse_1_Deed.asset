@@ -19,13 +19,52 @@ MonoBehaviour:
   revealHiddenOnFirstProgress: 1
   image: {fileID: 21300000, guid: 25475527ef5434e42819b4ece122b4ba, type: 3}
   shortDescription: Short description here
-  longDescription: Land consecutive combo blows on your enemies
-  objective: {fileID: 11400000, guid: 1f79af276b9545b4b8e9a3904554abe0, type: 2}
+  longDescription: 
+  objective: {fileID: 0}
+  useRankObjectives: 1
   ranks:
-  - rankId: 973c9c6cbabf4bdf8073639feb9dc698
+  - rankId: d6f7dcb3703b4b8cafe74cff0d0e1855
     rankLabel: I
-    requiredTotalProgress: 10
-    shortDescription: 
-    longDescription: Land the third combo blow on an enemy with a sword
+    requiredTotalProgress: 5
+    shortDescription: Three combo hits
+    longDescription: Reach the third combo blow on an enemy with a sword
     imageOverride: {fileID: 0}
-    rewards: []
+    rewards:
+    - kind: 4
+      displayName: 
+      icon: {fileID: 0}
+      ability: {fileID: 0}
+      item: {fileID: 0}
+      generalTrait: {fileID: 0}
+      amount: 100
+    objective: {fileID: 11400000, guid: 1f79af276b9545b4b8e9a3904554abe0, type: 2}
+  - rankId: 08a9a95c0a1941c4b1dfa70fb2938b5e
+    rankLabel: II
+    requiredTotalProgress: 5
+    shortDescription: Four combo hits
+    longDescription: Reach the fourth combo blow on an enemy with a sword
+    imageOverride: {fileID: 0}
+    rewards:
+    - kind: 4
+      displayName: 
+      icon: {fileID: 0}
+      ability: {fileID: 0}
+      item: {fileID: 0}
+      generalTrait: {fileID: 0}
+      amount: 100
+    objective: {fileID: 11400000, guid: 2f3124407c979aa4090306edad5a65f0, type: 2}
+  - rankId: 51e4c8094aec4877b9e670c110f5c733
+    rankLabel: III
+    requiredTotalProgress: 5
+    shortDescription: Five combo hits
+    longDescription: Reach the fifth combo blow on an enemy with a sword
+    imageOverride: {fileID: 0}
+    rewards:
+    - kind: 4
+      displayName: 
+      icon: {fileID: 0}
+      ability: {fileID: 0}
+      item: {fileID: 0}
+      generalTrait: {fileID: 0}
+      amount: 100
+    objective: {fileID: 11400000, guid: 222958b4b41beb04a845455fa7c350b2, type: 2}

@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 41cfa763fd197a145b5e5ec789c47902, type: 3}
+  m_Name: Swiping_blade_deed_objective
+  m_EditorClassIdentifier: Assembly-CSharp::WeaponMultiHitDeedObjectiveDefinition
+  weaponFamily: {fileID: 11400000, guid: d9266842b73a7ef458bd4fd6db9c9e30, type: 2}
+  minimumEnemies: 3
+  requireSpecificAbilities: 0
+  requiredAbilities: []
+  requiredAbility: {fileID: 0}

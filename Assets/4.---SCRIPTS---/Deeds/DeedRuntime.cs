@@ -1,10 +1,6 @@
 using System;
 using System.Collections.Generic;
 
-/// <summary>
-/// One player's independent progress for one deed definition.
-/// Progress thresholds are cumulative, e.g. 10 / 100 / 500.
-/// </summary>
 public sealed class DeedRuntime
 {
     private readonly HashSet<string> completedRankIds = new();
@@ -12,16 +8,15 @@ public sealed class DeedRuntime
     private bool tracked;
 
     public DeedDefinition Definition { get; }
-    public DeedObjectiveRuntime Objective { get; }
+    public DeedObjectiveRuntime Objective { get; private set; }
     public int Progress => Objective.Progress;
     public bool IsDiscovered => discovered;
     public bool IsTracked => tracked;
     public int CompletedRankCount => completedRankIds.Count;
+
     public bool AllRanksComplete =>
         completedRankIds.Count >= Definition.Ranks.Count;
 
-    // Hidden: the UI can show a mystery card.
-    // Secret: no card appears until at least one rank is completed.
     public bool ShouldShowCard =>
         Definition.Visibility != DeedVisibility.Secret ||
         CompletedRankCount > 0;
@@ -39,9 +34,8 @@ public sealed class DeedRuntime
                 if (!completedRankIds.Contains(rank.RankId))
                     return rank;
             }
-            return Definition.Ranks.Count > 0
-                ? Definition.Ranks[Definition.Ranks.Count - 1]
-                : null;
+
+            return Definition.Ranks[Definition.Ranks.Count - 1];
         }
     }
 
@@ -53,21 +47,36 @@ public sealed class DeedRuntime
     public DeedRuntime(DeedDefinition definition)
     {
         Definition = definition;
-        Objective = definition.Objective.CreateRuntime();
+        Objective = CreateCurrentObjective();
         discovered = definition.Visibility == DeedVisibility.Visible;
     }
 
     public bool HasCompleted(DeedRankDefinition rank) =>
         rank != null && completedRankIds.Contains(rank.RankId);
 
+    public int GetProgressForRank(DeedRankDefinition rank)
+    {
+        if (rank == null)
+            return 0;
+
+        if (HasCompleted(rank))
+            return rank.RequiredTotalProgress;
+
+        if (Definition.UseRankObjectives && rank != CurrentRank)
+            return 0;
+
+        return Math.Min(Progress, rank.RequiredTotalProgress);
+    }
+
     public void Receive(DeedProgressEvent progressEvent)
     {
         if (progressEvent == null || AllRanksComplete)
             return;
 
-        int before = Objective.Progress;
+        int before = Progress;
         Objective.Receive(progressEvent);
-        if (Objective.Progress <= before)
+
+        if (Progress <= before)
             return;
 
         if (Definition.Visibility == DeedVisibility.Hidden &&
@@ -77,13 +86,31 @@ public sealed class DeedRuntime
             DiscoveryChanged?.Invoke(this);
         }
 
-        foreach (DeedRankDefinition rank in Definition.Ranks)
+        if (Definition.UseRankObjectives)
         {
-            if (Objective.Progress < rank.RequiredTotalProgress ||
-                !completedRankIds.Add(rank.RankId))
-                continue;
+            DeedRankDefinition rank = CurrentRank;
 
-            RankCompleted?.Invoke(this, rank);
+            if (Progress >= rank.RequiredTotalProgress &&
+                completedRankIds.Add(rank.RankId))
+            {
+                if (!AllRanksComplete)
+                    Objective = CreateCurrentObjective();
+
+                RankCompleted?.Invoke(this, rank);
+            }
+        }
+        else
+        {
+            foreach (DeedRankDefinition rank in Definition.Ranks)
+            {
+                if (Progress < rank.RequiredTotalProgress ||
+                    !completedRankIds.Add(rank.RankId))
+                {
+                    continue;
+                }
+
+                RankCompleted?.Invoke(this, rank);
+            }
         }
 
         ProgressChanged?.Invoke(this);
@@ -114,42 +141,71 @@ public sealed class DeedRuntime
         {
             deedId = Definition.PersistentId,
             progress = Progress,
+            progressRankId = Definition.UseRankObjectives
+                ? CurrentRank.RankId
+                : null,
             discovered = discovered,
             tracked = tracked,
             completedRankIds = new List<string>(completedRankIds)
         };
     }
 
-    /// <summary>
-    /// Restoration never grants rewards or replays completion notifications.
-    /// Rank IDs survive rank reordering and threshold adjustments.
-    /// </summary>
     public void RestoreState(DeedStateSnapshot snapshot)
     {
-        if (snapshot == null ||
-            snapshot.deedId != Definition.PersistentId)
+        if (snapshot == null || snapshot.deedId != Definition.PersistentId)
             return;
 
-        Objective.RestoreProgress(snapshot.progress);
+        bool useRankObjectives = Definition.UseRankObjectives;
+        bool savedSharedProgress = string.IsNullOrEmpty(snapshot.progressRankId);
 
         completedRankIds.Clear();
+
         HashSet<string> saved = new(
             snapshot.completedRankIds ?? new List<string>());
 
         foreach (DeedRankDefinition rank in Definition.Ranks)
         {
             if (saved.Contains(rank.RankId) ||
-                Progress >= rank.RequiredTotalProgress)
+                (!useRankObjectives && savedSharedProgress &&
+                 snapshot.progress >= rank.RequiredTotalProgress))
+            {
                 completedRankIds.Add(rank.RankId);
+            }
+        }
+
+        Objective = CreateCurrentObjective();
+
+        if (useRankObjectives)
+        {
+            DeedRankDefinition rank = CurrentRank;
+
+            if (AllRanksComplete)
+                Objective.RestoreProgress(rank.RequiredTotalProgress);
+            else if (snapshot.progressRankId == rank.RankId)
+                Objective.RestoreProgress(snapshot.progress);
+        }
+        else if (savedSharedProgress)
+        {
+            Objective.RestoreProgress(snapshot.progress);
         }
 
         discovered = snapshot.discovered ||
                      Definition.Visibility == DeedVisibility.Visible ||
                      CompletedRankCount > 0;
+
         tracked = snapshot.tracked && ShouldShowCard;
 
         ProgressChanged?.Invoke(this);
         DiscoveryChanged?.Invoke(this);
         TrackingChanged?.Invoke(this);
+    }
+
+    private DeedObjectiveRuntime CreateCurrentObjective()
+    {
+        DeedObjectiveDefinition objective = Definition.UseRankObjectives
+            ? CurrentRank.Objective
+            : Definition.Objective;
+
+        return objective.CreateRuntime();
     }
 }

@@ -76,25 +76,25 @@ public sealed class RoKForgeDraftSession
     // Complex creators can reuse draft handling
     // but keep their own specialized save pipelines.
     public static ScriptableObject SaveCopy(
-        ScriptableObject source,
-        string displayName,
-        string folder)
+    ScriptableObject source,
+    string displayName,
+    string folder,
+    Action<ScriptableObject> validateCreated = null)
     {
         if (EditorApplication.isPlayingOrWillChangePlaymode)
             throw new InvalidOperationException(
                 "Cannot create content in Play Mode.");
 
-        if (source == null ||
-            string.IsNullOrWhiteSpace(displayName))
-            throw new InvalidOperationException(
-                "A content name is required.");
+        if (source == null || string.IsNullOrWhiteSpace(displayName))
+            throw new InvalidOperationException("A content name is required.");
 
         if (string.IsNullOrWhiteSpace(folder) ||
             !folder.StartsWith("Assets/", StringComparison.Ordinal) ||
             folder.Contains("..") ||
             folder.Contains("\\"))
-            throw new ArgumentException(
-                "Invalid project folder.");
+        {
+            throw new ArgumentException("Invalid project folder.");
+        }
 
         string safeName = Regex.Replace(
             displayName.Trim(),
@@ -103,8 +103,7 @@ public sealed class RoKForgeDraftSession
         ).TrimEnd('.', ' ');
 
         if (string.IsNullOrWhiteSpace(safeName))
-            throw new InvalidOperationException(
-                "Invalid content name.");
+            throw new InvalidOperationException("Invalid content name.");
 
         EnsureFolder(folder);
 
@@ -115,19 +114,15 @@ public sealed class RoKForgeDraftSession
 
         try
         {
-            created = ScriptableObject.CreateInstance(
-                source.GetType());
-
+            created = ScriptableObject.CreateInstance(source.GetType());
             EditorUtility.CopySerialized(source, created);
-
             created.hideFlags = HideFlags.None;
             created.name = safeName;
 
             AssetDatabase.CreateAsset(created, path);
+            validateCreated?.Invoke(created);
 
-            Undo.RegisterCreatedObjectUndo(
-                created, "Create Forge Content");
-
+            Undo.RegisterCreatedObjectUndo(created, "Create Forge Content");
             EditorUtility.SetDirty(created);
             AssetDatabase.SaveAssets();
 
@@ -135,13 +130,11 @@ public sealed class RoKForgeDraftSession
         }
         catch
         {
-            if (created != null &&
-                AssetDatabase.GetAssetPath(created) == path)
+            if (created != null && AssetDatabase.GetAssetPath(created) == path)
             {
                 AssetDatabase.DeleteAsset(path);
             }
-            else if (created != null &&
-                     !AssetDatabase.Contains(created))
+            else if (created != null && !AssetDatabase.Contains(created))
             {
                 UnityEngine.Object.DestroyImmediate(created);
             }

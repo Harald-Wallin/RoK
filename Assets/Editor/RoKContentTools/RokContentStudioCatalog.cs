@@ -15,7 +15,10 @@ public enum RoKContentCategory
     PassiveEffects,
     Talents,
     Items,
-    Favours
+    Favours,
+    Deeds,
+    DeedObjectives,
+    GeneralTraits
 }
 
 
@@ -84,14 +87,10 @@ public static class RoKContentStudioCatalog
     {
         return category switch
         {
-            RoKContentCategory.All =>
-                asset is AbilityData ||
-                asset is BuffDefinition ||
-                asset is AbilityEffect ||
-                asset is EffectDefinition ||
-                asset is TalentData ||
-                asset is ItemData ||
-                asset is FavourData,
+            RoKContentCategory.All => asset is
+                AbilityData or BuffDefinition or AbilityEffect or
+                EffectDefinition or TalentData or ItemData or FavourData or
+                DeedDefinition or DeedObjectiveDefinition or GeneralTraitDefinition,
 
             RoKContentCategory.Abilities => asset is AbilityData,
             RoKContentCategory.Buffs => asset is BuffDefinition,
@@ -100,7 +99,9 @@ public static class RoKContentStudioCatalog
             RoKContentCategory.Talents => asset is TalentData,
             RoKContentCategory.Items => asset is ItemData,
             RoKContentCategory.Favours => asset is FavourData,
-
+            RoKContentCategory.Deeds => asset is DeedDefinition,
+            RoKContentCategory.DeedObjectives => asset is DeedObjectiveDefinition,
+            RoKContentCategory.GeneralTraits => asset is GeneralTraitDefinition,
             _ => false
         };
     }
@@ -109,9 +110,11 @@ public static class RoKContentStudioCatalog
     // VALIDATION
     // =====================================================
 
-    public static List<string> Validate(
-        ScriptableObject asset)
+    public static List<string> Validate(ScriptableObject asset)
     {
+        if (asset is DeedDefinition deed)
+            return RoKForgeDeedReview.Validate(deed);
+
         List<string> issues = new();
 
         if (asset == null)
@@ -122,25 +125,19 @@ public static class RoKContentStudioCatalog
 
         if (asset is AbilityData ability)
         {
-            if (ability.effects == null ||
-                ability.effects.Length == 0)
+            if (ability.effects == null || ability.effects.Length == 0)
             {
                 issues.Add(
                     "VARNING: Abilityn saknar actions. " +
-                    "Den utför inget gameplay-beteende."
-                );
+                    "Den utför inget gameplay-beteende.");
             }
             else
             {
-                foreach (AbilityEffect action
-                         in ability.effects)
+                foreach (AbilityEffect action in ability.effects)
                 {
                     if (action == null)
                     {
-                        issues.Add(
-                            "FEL: En action-referens är tom."
-                        );
-
+                        issues.Add("FEL: En action-referens är tom.");
                         continue;
                     }
 
@@ -148,23 +145,16 @@ public static class RoKContentStudioCatalog
                     {
                         if (GetLinkedBuff(action) == null)
                         {
-                            issues.Add(
-                                "FEL: Apply Buff saknar " +
-                                "BuffDefinition."
-                            );
+                            issues.Add("FEL: Apply Buff saknar BuffDefinition.");
                         }
 
                         if (!ability.EffectiveIsSelfCast &&
-                            action.TargetMode ==
-                                AbilityEffectTargetMode
-                                    .EachAffectedTarget)
+                            action.TargetMode == AbilityEffectTargetMode.EachAffectedTarget)
                         {
                             issues.Add(
-                                "INFO: Denna buff appliceras " +
-                                "på varje påverkat mål, " +
+                                "INFO: Denna buff appliceras på varje påverkat mål, " +
                                 "inte automatiskt på castern. " +
-                                "Kontrollera att detta är avsiktligt."
-                            );
+                                "Kontrollera att detta är avsiktligt.");
                         }
                     }
                 }
@@ -173,64 +163,40 @@ public static class RoKContentStudioCatalog
 
         if (asset is BuffDefinition buff)
         {
-            if (buff.Effects == null ||
-                buff.Effects.Count == 0)
+            if (buff.Effects == null || buff.Effects.Count == 0)
             {
-                issues.Add(
-                    "VARNING: Buffen har inga " +
-                    "gameplay-effekter."
-                );
+                issues.Add("VARNING: Buffen har inga gameplay-effekter.");
             }
             else
             {
-                foreach (EffectDefinition effect
-                         in buff.Effects)
+                foreach (EffectDefinition effect in buff.Effects)
                 {
                     if (effect == null)
                     {
-                        issues.Add(
-                            "FEL: Buffen innehåller " +
-                            "en tom effekt-referens."
-                        );
+                        issues.Add("FEL: Buffen innehåller en tom effekt-referens.");
                     }
                 }
             }
         }
 
-        if (asset is ApplyBuffDefinitionEffect apply)
+        if (asset is ApplyBuffDefinitionEffect apply && GetLinkedBuff(apply) == null)
         {
-            if (GetLinkedBuff(apply) == null)
-            {
-                issues.Add(
-                    "FEL: Buff Definition saknas."
-                );
-            }
+            issues.Add("FEL: Buff Definition saknas.");
         }
 
         if (asset is TalentData talent)
         {
-            SerializedObject serialized =
-                new SerializedObject(talent);
-
-            SerializedProperty passive =
-                serialized.FindProperty(
-                    "passiveEffects"
-                );
+            using SerializedObject serialized = new(talent);
+            SerializedProperty passive = serialized.FindProperty("passiveEffects");
 
             if (passive != null)
             {
-                for (int i = 0;
-                     i < passive.arraySize;
-                     i++)
+                for (int i = 0; i < passive.arraySize; i++)
                 {
-                    if (passive
-                            .GetArrayElementAtIndex(i)
-                            .objectReferenceValue == null)
+                    if (passive.GetArrayElementAtIndex(i).objectReferenceValue == null)
                     {
                         issues.Add(
-                            "FEL: Talent har en tom " +
-                            "passive effect-referens."
-                        );
+                            "FEL: Talent har en tom passive effect-referens.");
                     }
                 }
             }
@@ -239,7 +205,9 @@ public static class RoKContentStudioCatalog
         if (asset is FavourData favour)
         {
             foreach (string warning in favour.GetValidationWarnings())
+            {
                 issues.Add($"VARNING: {warning}");
+            }
         }
 
         return issues;
@@ -270,16 +238,16 @@ public static class RoKContentStudioCatalog
             as BuffDefinition;
     }
 
-    public static List<ScriptableObject> GetLinks(
-        ScriptableObject asset)
+    public static List<ScriptableObject> GetLinks(ScriptableObject asset)
     {
+        if (asset is DeedDefinition deed)
+            return RoKForgeDeedReview.GetLinks(deed);
+
         List<ScriptableObject> links = new();
 
-        if (asset is AbilityData ability &&
-            ability.effects != null)
+        if (asset is AbilityData ability && ability.effects != null)
         {
-            foreach (AbilityEffect action
-                     in ability.effects)
+            foreach (AbilityEffect action in ability.effects)
             {
                 if (action != null)
                     links.Add(action);
@@ -288,24 +256,20 @@ public static class RoKContentStudioCatalog
 
         if (asset is ApplyBuffDefinitionEffect actionAsset)
         {
-            BuffDefinition buff =
-                GetLinkedBuff(actionAsset);
+            BuffDefinition buff = GetLinkedBuff(actionAsset);
 
             if (buff != null)
                 links.Add(buff);
         }
 
-        if (asset is BuffDefinition definition &&
-            definition.Effects != null)
+        if (asset is BuffDefinition definition && definition.Effects != null)
         {
-            foreach (EffectDefinition effect
-                     in definition.Effects)
+            foreach (EffectDefinition effect in definition.Effects)
             {
                 if (effect != null)
                     links.Add(effect);
             }
         }
-
 
         if (asset is TalentData talent)
         {
@@ -320,14 +284,10 @@ public static class RoKContentStudioCatalog
 
             if (talent.requirements != null)
             {
-                foreach (TalentRequirement requirement
-                         in talent.requirements)
+                foreach (TalentRequirement requirement in talent.requirements)
                 {
-                    if (requirement?.talent != null &&
-                        !links.Contains(requirement.talent))
-                    {
+                    if (requirement?.talent != null && !links.Contains(requirement.talent))
                         links.Add(requirement.talent);
-                    }
                 }
             }
         }
@@ -337,11 +297,8 @@ public static class RoKContentStudioCatalog
             if (item.RequiredFavour != null)
                 links.Add(item.RequiredFavour);
 
-            if (item.reputationFaction != null &&
-                !links.Contains(item.reputationFaction))
-            {
+            if (item.reputationFaction != null && !links.Contains(item.reputationFaction))
                 links.Add(item.reputationFaction);
-            }
 
             foreach (FavourData linkedFavour in item.LinkedFavours)
             {
@@ -352,15 +309,13 @@ public static class RoKContentStudioCatalog
 
         if (asset is FavourData favour)
         {
-            SerializedObject serialized = new(favour);
-            SerializedProperty property = serialized.GetIterator();
+            using SerializedObject serialized = new(favour);
+            using SerializedProperty property = serialized.GetIterator();
 
             while (property.NextVisible(true))
             {
-                if (property.propertyType != SerializedPropertyType.ObjectReference)
-                    continue;
-
-                if (property.objectReferenceValue is ScriptableObject linked &&
+                if (property.propertyType == SerializedPropertyType.ObjectReference &&
+                    property.objectReferenceValue is ScriptableObject linked &&
                     linked != null &&
                     linked != favour &&
                     !links.Contains(linked))

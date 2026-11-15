@@ -18,11 +18,11 @@ public enum RoKForgePage
     EffectRegistry,
     ContentAudit,
     GuidedCreator,
-
     CreateItem,
     CreateTalent,
-    CreateFavour
-
+    CreateFavour,
+    CreateDeed,
+    CreateGeneralTrait
 }
 
 // =========================================================
@@ -87,33 +87,17 @@ public sealed class RoKForgeRoute
             return Page switch
             {
                 RoKForgePage.Home => "Home",
-
-                RoKForgePage.Asset =>
-                    Asset != null
-                        ? Asset.name
-                        : "Missing Asset",
-
-                RoKForgePage.CreateAbility =>
-                    "New Ability",
-
-                RoKForgePage.AbilityRecipes =>
-                    "Ability Recipes",
-
-                RoKForgePage.EffectRegistry =>
-                    "Effect Registry",
-
-                RoKForgePage.ContentAudit =>
-                    "Content Audit",
-
-                RoKForgePage.GuidedCreator =>
-                    "Guided Creator",
-
-
+                RoKForgePage.Asset => Asset != null ? Asset.name : "Missing Asset",
+                RoKForgePage.CreateAbility => "New Ability",
+                RoKForgePage.AbilityRecipes => "Ability Recipes",
+                RoKForgePage.EffectRegistry => "Effect Registry",
+                RoKForgePage.ContentAudit => "Content Audit",
+                RoKForgePage.GuidedCreator => "Guided Creator",
                 RoKForgePage.CreateItem => "New Item",
                 RoKForgePage.CreateTalent => "New Talent",
                 RoKForgePage.CreateFavour => "New Favour",
-
-
+                RoKForgePage.CreateDeed => "New Deed",
+                RoKForgePage.CreateGeneralTrait => "New General Trait",
                 _ => Page.ToString()
             };
         }

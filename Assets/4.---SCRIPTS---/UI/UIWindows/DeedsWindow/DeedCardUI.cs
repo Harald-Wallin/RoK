@@ -174,12 +174,7 @@ public sealed class DeedCardUI : MonoBehaviour
                 rank.RequiredTotalProgress
             );
 
-        int current =
-            Mathf.Clamp(
-                runtime.Progress,
-                0,
-                required
-            );
+        int current = runtime.GetProgressForRank(rank);
 
         if (progressFill != null)
         {

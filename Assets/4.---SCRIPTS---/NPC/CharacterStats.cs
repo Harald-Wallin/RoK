@@ -415,13 +415,14 @@ public class CharacterStats : MonoBehaviour
             appliedDamage
         );
 
-        OnDamageApplied?.Invoke(
-            new DamageAppliedEvent(
-                this,
-                source,
-                appliedDamage
-            )
-        );
+        DamageAppliedEvent damageEvent = new(
+            this,
+            source,
+            appliedDamage,
+            result.isCrit);
+
+        OnDamageApplied?.Invoke(damageEvent);
+        CharacterCombatEvents.RaiseDamageApplied(damageEvent);
 
         RaiseHealthChanged();
 

@@ -43,7 +43,12 @@ public sealed partial class PlayerDeedManager : MonoBehaviour
         CharacterCombatEvents.CharacterDefeated +=
             HandleCharacterDefeated;
 
+        CharacterCombatEvents.DamageApplied += HandleCriticalHit;
+
+        SubscribeToWeaponAttacks();
+
         SynchronizeGeneralTraits();
+
     }
 
     private void OnDisable()
@@ -51,6 +56,9 @@ public sealed partial class PlayerDeedManager : MonoBehaviour
         CharacterCombatEvents.CharacterDefeated -=
             HandleCharacterDefeated;
 
+        CharacterCombatEvents.DamageApplied -= HandleCriticalHit;
+
+        UnsubscribeFromWeaponAttacks();
         ClearGeneralTraits();
     }
 
@@ -109,6 +117,20 @@ public sealed partial class PlayerDeedManager : MonoBehaviour
             return;
 
         Report(new DeedCharacterDefeatedEvent(player, result));
+    }
+
+    private void HandleCriticalHit(DamageAppliedEvent damage)
+    {
+        if (player == null ||
+            !damage.IsCriticalHit ||
+            damage.AppliedDamage <= 0 ||
+            damage.Source.DirectSource != player ||
+            damage.Victim == player)
+        {
+            return;
+        }
+
+        Report(new DeedCriticalHitEvent(player, damage.Source.WeaponFamily));
     }
 
     /// <summary>
@@ -245,7 +267,7 @@ public sealed partial class PlayerDeedManager : MonoBehaviour
             $"Deed completed: " +
             $"{deed.Definition.DisplayName} " +
             $"{rank.RankLabel} " +
-            $"({deed.Progress} progress)",
+            $"({deed.GetProgressForRank(rank)} progress)",
             this
         );
     }

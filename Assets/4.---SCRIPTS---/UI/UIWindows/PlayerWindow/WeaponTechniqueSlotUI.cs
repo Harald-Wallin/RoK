@@ -102,7 +102,7 @@ public sealed class WeaponTechniqueSlotUI : MonoBehaviour,
         }
 
         int required = rank.RequiredTotalProgress;
-        int current = Mathf.Clamp(deed.Progress, 0, required);
+        int current = deed.GetProgressForRank(rank);
 
         tooltip.requirements.Add(
             $"Deed: {deed.Definition.DisplayName} {rank.RankLabel} · {current}/{required}");

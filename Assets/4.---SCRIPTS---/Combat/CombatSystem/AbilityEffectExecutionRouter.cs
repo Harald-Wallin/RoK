@@ -326,6 +326,8 @@ public static class AbilityEffectExecutionRouter
                 context
             );
 
+            if (context.TargetResult != null) context.TargetResult.EffectExecuted = true;
+
             if (pipelineResult != null)
             {
                 pipelineResult.EffectExecutions++;

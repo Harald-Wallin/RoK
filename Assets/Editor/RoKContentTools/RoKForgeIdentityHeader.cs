@@ -338,25 +338,17 @@ public static class RoKForgeIdentityHeader
     // SERIALIZED NAME MAPPING
     // =====================================================
 
-    private static string GetNameProperty(
-        ScriptableObject asset)
+    private static string GetNameProperty(ScriptableObject asset)
     {
-        if (asset is AbilityData)
-            return "abilityName";
-
-        if (asset is BuffDefinition)
-            return "displayName";
-
-        if (asset is TalentData)
-            return "talentName";
-
-        // Other asset types currently use
-        // their Unity asset filename.
-
-        if (asset is ItemData)
-            return "itemName";
-
-        return null;
+        return asset switch
+        {
+            AbilityData _ => "abilityName",
+            BuffDefinition _ => "displayName",
+            TalentData _ => "talentName",
+            ItemData _ => "itemName",
+            GeneralTraitDefinition _ => "displayName",
+            _ => null
+        };
     }
 
     // =====================================================
