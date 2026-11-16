@@ -95,28 +95,18 @@ public sealed class HealEffect :
         );
     }
 
-    public override void Execute(
-        AbilityEffectExecutionContext context)
+    public override void Execute(AbilityEffectExecutionContext context)
     {
-        if (context == null ||
-            context.Target == null)
-        {
+        if (context == null || context.Target == null)
             return;
-        }
 
-        int healing =
-            CalculateHealing(
-                context.Caster,
-                context.Target,
-                context.ChargeProgress
-            );
+        int healing = CalculateHealing(
+            context.Caster, context.Target, context.ChargeProgress);
 
         if (healing <= 0)
             return;
 
-        context.Target.Heal(
-            healing
-        );
+        context.Target.ApplyHealing(context.Caster, healing, canCrit: false);
     }
 
     public override string GetTooltipText(

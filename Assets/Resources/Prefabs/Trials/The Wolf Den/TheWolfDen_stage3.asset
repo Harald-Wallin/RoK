@@ -12,13 +12,28 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d85d034c463c2b74cb0b1ba852163f95, type: 3}
   m_Name: TheWolfDen_stage3
   m_EditorClassIdentifier: Assembly-CSharp::TrialStageDefinition
-  stageLabel: I
-  timeLimitSeconds: 0
-  killObjectives:
-  - {fileID: 11400000, guid: a60bd40993df8d741aeb2a20422732e6, type: 2}
-  spawnGroups:
-  - prefab: {fileID: 788226862973081087, guid: b9de6843122ef56428e1de012fe8fd45, type: 3}
-    count: 5
+  stageLabel: III
+  timeLimitSeconds: 240
+  objectives:
+  - id: c911e77aeffc4a12bdde618187fa04ea
+    type: 0
+    displayName: Kill the Wolf Mates
+    target:
+      entityId: wolf_mate
+      displayName: Wolf Mate
+    requiredCount: 2
+  - id: b3bea56eedf249ffa682df653d30e446
+    type: 0
+    displayName: Kill the Wolf Mother
+    target:
+      entityId: wolf_mother
+      displayName: Wolf Mother
+    requiredCount: 1
+  killObjectives: []
+  spawnGroups: []
+  respawnDefeatedEnemies: 0
+  respawnDelaySeconds: 10
   weight: 15
   damageBenchmark: 100
+  healingBenchmark: 50
   tankingBenchmark: 30

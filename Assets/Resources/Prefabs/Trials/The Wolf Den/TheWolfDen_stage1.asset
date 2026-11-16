@@ -14,11 +14,22 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TrialStageDefinition
   stageLabel: I
   timeLimitSeconds: 0
+  objectives:
+  - id: a1a1dc5fdfb94c9abf16bfe77856d794
+    type: 0
+    displayName: Slay starving wolves
+    target:
+      entityId: starving_wolf
+      displayName: 'Starving Wolf '
+    requiredCount: 5
   killObjectives:
-  - {fileID: 11400000, guid: 9b1cb386d8e2c364dad65ed2e649f51a, type: 2}
+  - {fileID: 0}
   spawnGroups:
-  - prefab: {fileID: 788226862973081087, guid: b9de6843122ef56428e1de012fe8fd45, type: 3}
-    count: 5
+  - prefab: {fileID: 0}
+    count: 1
+  respawnDefeatedEnemies: 1
+  respawnDelaySeconds: 3
   weight: 15
   damageBenchmark: 100
+  healingBenchmark: 50
   tankingBenchmark: 30

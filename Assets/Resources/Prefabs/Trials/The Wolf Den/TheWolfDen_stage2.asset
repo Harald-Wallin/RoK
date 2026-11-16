@@ -12,13 +12,21 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d85d034c463c2b74cb0b1ba852163f95, type: 3}
   m_Name: TheWolfDen_stage2
   m_EditorClassIdentifier: Assembly-CSharp::TrialStageDefinition
-  stageLabel: III
-  timeLimitSeconds: 25
-  killObjectives:
-  - {fileID: 11400000, guid: 8abce6850e84c4b4993e1f07de1cd612, type: 2}
-  spawnGroups:
-  - prefab: {fileID: 788226862973081087, guid: b9de6843122ef56428e1de012fe8fd45, type: 3}
-    count: 5
+  stageLabel: II
+  timeLimitSeconds: 60
+  objectives:
+  - id: 8dc32d9cbd1d4b46a0f000c689dec9a1
+    type: 1
+    displayName: Destroy feeding pits
+    target:
+      entityId: feeding_pit
+      displayName: Feeding pit
+    requiredCount: 3
+  killObjectives: []
+  spawnGroups: []
+  respawnDefeatedEnemies: 0
+  respawnDelaySeconds: 10
   weight: 50
   damageBenchmark: 100
+  healingBenchmark: 50
   tankingBenchmark: 30

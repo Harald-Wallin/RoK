@@ -142,6 +142,22 @@ MonoBehaviour:
   - {fileID: 662831884021542343}
   - {fileID: 5004613460320087569}
   resetSeconds: 30
+  rewards:
+    baseExperience: 1000
+    minimumContributionPercent: 5
+    failedRewardPercent: 50
+    completedRewardPercent: 120
+    factionRewards: []
+    rewardContainerPrefab: {fileID: 3809560112823285367, guid: 57acc5f1726ba1042a829f34e8ed6ee0, type: 3}
+    rewardContainerPoint: {fileID: 0}
+    fullChestSprite: {fileID: 21300000, guid: 2a2a32202577a9b4e907161c8f3d8fad, type: 3}
+    emptyChestSprite: {fileID: 21300000, guid: 3990cf359298772448acd5d8c745c5cb, type: 3}
+    tierOnePercent: 10
+    tierOneLoot: {fileID: 0}
+    tierTwoPercent: 30
+    tierTwoLoot: {fileID: 0}
+    tierThreePercent: 85
+    tierThreeLoot: {fileID: 0}
 --- !u!1 &2619557306891658832
 GameObject:
   m_ObjectHideFlags: 0

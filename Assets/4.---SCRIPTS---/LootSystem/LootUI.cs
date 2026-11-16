@@ -274,6 +274,12 @@ public sealed class LootUI :
         );
     }
 
+    public void CloseIfShowing(ILootSource source)
+    {
+        if (ReferenceEquals(currentSource, source))
+            Close();
+    }
+
     public void Close()
     {
         currentSource =

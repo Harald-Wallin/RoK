@@ -2,56 +2,33 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-/// <summary>
-/// Gemensam UI-bar för alla channels.
-///
-/// Scriptobjektet ska alltid vara aktivt.
-/// Själva presentationen göms med CanvasGroup.
-/// </summary>
 [DisallowMultipleComponent]
-public sealed class ChannelingBarUI :
-    MonoBehaviour
+public sealed class ChannelingBarUI : MonoBehaviour
 {
-    [Header("Visibility")]
+    private const float CancelFadeSeconds = 0.25f;
 
-    [SerializeField]
-    private CanvasGroup canvasGroup;
+    [Header("Visibility")]
+    [SerializeField] private CanvasGroup canvasGroup;
 
     [Header("Content")]
-
-    [SerializeField]
-    private Image iconImage;
-
-    [SerializeField]
-    private TMP_Text nameText;
-
-    [SerializeField]
-    private TMP_Text remainingTimeText;
-
-    [SerializeField]
-    private Slider progressSlider;
-
-    [Tooltip(
-        "Valfri direktreferens till sliderns Fill-image. " +
-        "Använd Fill Amount om Slider-layouten inte fungerar.")]
-    [SerializeField]
-    private Image progressFillImage;
+    [SerializeField] private Image iconImage;
+    [SerializeField] private TMP_Text nameText;
+    [SerializeField] private TMP_Text remainingTimeText;
+    [SerializeField] private Slider progressSlider;
+    [SerializeField] private Image progressFillImage;
 
     [Header("References")]
+    [SerializeField] private CharacterChannelController channelController;
 
-    [SerializeField]
-    private CharacterChannelController
-        channelController;
-
-    private bool isSubscribed;
+    private CharacterActionController actionController;
+    private Graphic fillGraphic;
+    private Color normalFillColor;
+    private float cancelFadeUntil;
 
     private void Awake()
     {
         if (canvasGroup == null)
-        {
-            canvasGroup =
-                GetComponent<CanvasGroup>();
-        }
+            canvasGroup = GetComponent<CanvasGroup>();
 
         if (progressSlider != null)
         {
@@ -59,243 +36,213 @@ public sealed class ChannelingBarUI :
             progressSlider.maxValue = 1f;
             progressSlider.wholeNumbers = false;
             progressSlider.interactable = false;
-            progressSlider.value = 0f;
         }
 
         if (progressFillImage != null)
         {
-            progressFillImage.type =
-                Image.Type.Filled;
-
-            progressFillImage.fillMethod =
-                Image.FillMethod.Horizontal;
-
+            progressFillImage.type = Image.Type.Filled;
+            progressFillImage.fillMethod = Image.FillMethod.Horizontal;
             progressFillImage.fillOrigin = 0;
-            progressFillImage.fillAmount = 0f;
+            fillGraphic = progressFillImage;
+        }
+        else if (progressSlider != null && progressSlider.fillRect != null)
+        {
+            fillGraphic = progressSlider.fillRect.GetComponent<Graphic>();
         }
 
-        HideImmediately();
+        if (fillGraphic != null)
+            normalFillColor = fillGraphic.color;
+
+        HideBar();
     }
 
     private void OnEnable()
     {
-        TryResolveAndSubscribe();
-        RefreshFromController();
+        ResolveControllers();
+        RefreshBar();
     }
 
     private void OnDisable()
     {
-        Unsubscribe();
+        if (actionController != null)
+            actionController.OnCastCancelledByMovement -= HandleMovementCancel;
+
+        actionController = null;
+        ClearCancelFeedback();
+        HideBar();
     }
 
-    private void Update()
+    private void LateUpdate()
     {
-        /*
-         * PlayerReference kan initieras efter UI:t.
-         * Därför försöker vi igen tills controllern hittas.
-         */
-        if (channelController == null)
-        {
-            TryResolveAndSubscribe();
-        }
+        if (channelController == null || actionController == null)
+            ResolveControllers();
 
-        /*
-         * Polling gör baren robust även om UI:t aktiverades
-         * mitt under en redan pågående channel.
-         */
-        RefreshFromController();
+        RefreshBar();
     }
 
-    private void TryResolveAndSubscribe()
+    private void ResolveControllers()
     {
         if (channelController == null)
         {
-            PlayerStats player =
-                PlayerReference.Player;
+            PlayerStats player = PlayerReference.Player;
 
             if (player == null)
-            {
-                player =
-                    FindFirstObjectByType<
-                        PlayerStats>();
-            }
+                player = FindFirstObjectByType<PlayerStats>();
 
             if (player != null)
-            {
-                channelController =
-                    player.GetComponent<
-                        CharacterChannelController>();
-            }
+                channelController = player.GetComponent<CharacterChannelController>();
         }
 
-        if (channelController == null ||
-            isSubscribed)
-        {
+        if (actionController != null)
             return;
+
+        if (channelController != null)
+        {
+            actionController =
+                channelController.GetComponent<CharacterActionController>();
+        }
+        else if (PlayerReference.Player != null)
+        {
+            actionController =
+                PlayerReference.Player.GetComponent<CharacterActionController>();
         }
 
-        channelController.ChannelStarted +=
-            HandleChannelStarted;
-
-        channelController.ChannelCompleted +=
-            HandleChannelEnded;
-
-        channelController.ChannelCancelled +=
-            HandleChannelEnded;
-
-        isSubscribed = true;
+        if (actionController != null)
+            actionController.OnCastCancelledByMovement += HandleMovementCancel;
     }
 
-    private void Unsubscribe()
+    private void RefreshBar()
     {
-        if (!isSubscribed ||
-            channelController == null)
-        {
-            isSubscribed = false;
-            return;
-        }
-
-        channelController.ChannelStarted -=
-            HandleChannelStarted;
-
-        channelController.ChannelCompleted -=
-            HandleChannelEnded;
-
-        channelController.ChannelCancelled -=
-            HandleChannelEnded;
-
-        isSubscribed = false;
-    }
-
-    private void RefreshFromController()
-    {
-        if (channelController == null ||
-            !channelController.IsChanneling ||
-            channelController.ActiveChannel == null)
-        {
-            SetVisible(false);
-            ResetProgress();
-
-            return;
-        }
-
         ChannelRuntime channel =
-            channelController.ActiveChannel;
+            channelController != null ? channelController.ActiveChannel : null;
 
-        SetVisible(true);
-        RefreshContent(channel);
-    }
-
-    private void HandleChannelStarted(
-        ChannelRuntime channel)
-    {
-        if (channel == null)
-            return;
-
-        SetVisible(true);
-        RefreshContent(channel);
-    }
-
-    private void HandleChannelEnded(
-        ChannelRuntime channel)
-    {
-        SetVisible(false);
-        ResetProgress();
-    }
-
-    private void RefreshContent(
-        ChannelRuntime channel)
-    {
-        if (channel == null)
-            return;
-
-        if (nameText != null)
+        if (channel != null)
         {
-            nameText.text =
-                channel.DisplayName;
+            ClearCancelFeedback();
+
+            float progress = Mathf.Clamp01(channel.NormalizedProgress);
+
+            if (channel.IsReversed)
+                progress = 1f - progress;
+
+            DrawTimingContent(
+                channel.DisplayName, channel.Icon, progress,
+                $"{channel.RemainingTime:0.0}");
+
+            SetAlpha(1f);
+            return;
         }
+
+        ActionContext action =
+            actionController != null ? actionController.CurrentContext : null;
+
+        if (action != null &&
+            action.Phase == ActionPhase.Casting &&
+            action.Ability != null)
+        {
+            ClearCancelFeedback();
+
+            float progress = Mathf.Clamp01(action.NormalizedProgress);
+            float remaining =
+                action.Ability.TimingSettings.CastDuration * (1f - progress);
+
+            DrawTimingContent(
+                action.Ability.abilityName, action.Ability.icon,
+                progress, $"{remaining:0.0}");
+
+            SetAlpha(1f);
+            return;
+        }
+
+        if (cancelFadeUntil > Time.unscaledTime)
+        {
+            SetAlpha(Mathf.Clamp01(
+                (cancelFadeUntil - Time.unscaledTime) / CancelFadeSeconds));
+            return;
+        }
+
+        ClearCancelFeedback();
+        HideBar();
+    }
+
+    private void HandleMovementCancel(ActionContext action)
+    {
+        if (action?.Ability == null)
+            return;
+
+        float progress = Mathf.Clamp(action.NormalizedProgress, 0.06f, 1f);
+
+        DrawTimingContent(
+            action.Ability.abilityName, action.Ability.icon,
+            progress, string.Empty);
+
+        if (fillGraphic != null)
+        {
+            fillGraphic.color = new Color(
+                0.9f, 0.18f, 0.18f, normalFillColor.a);
+        }
+
+        cancelFadeUntil = Time.unscaledTime + CancelFadeSeconds;
+        SetAlpha(1f);
+    }
+
+    private void ClearCancelFeedback()
+    {
+        if (cancelFadeUntil == 0f)
+            return;
+
+        cancelFadeUntil = 0f;
+
+        if (fillGraphic != null)
+            fillGraphic.color = normalFillColor;
+    }
+
+    private void DrawTimingContent(
+        string displayName,
+        Sprite icon,
+        float progress,
+        string remainingTime)
+    {
+        if (nameText != null)
+            nameText.text = displayName;
 
         if (iconImage != null)
         {
-            bool hasIcon =
-                channel.Icon != null;
-
-            iconImage.sprite =
-                channel.Icon;
-
-            iconImage.gameObject.SetActive(
-                hasIcon);
+            iconImage.sprite = icon;
+            iconImage.gameObject.SetActive(icon != null);
         }
 
-        float progress =
-    channel.IsReversed
-        ? 1f -
-            Mathf.Clamp01(
-                channel.NormalizedProgress)
-        : Mathf.Clamp01(
-                channel.NormalizedProgress);
-
-        if (progressSlider != null)
-        {
-            progressSlider.SetValueWithoutNotify(
-                progress);
-        }
-
-        if (progressFillImage != null)
-        {
-            progressFillImage.fillAmount =
-                progress;
-        }
+        SetProgress(progress);
 
         if (remainingTimeText != null)
-        {
-            remainingTimeText.text =
-                $"{channel.RemainingTime:0.0}";
-        }
+            remainingTimeText.text = remainingTime;
     }
 
-    private void ResetProgress()
+    private void SetProgress(float progress)
     {
         if (progressSlider != null)
-        {
-            progressSlider.SetValueWithoutNotify(
-                0f);
-        }
+            progressSlider.SetValueWithoutNotify(progress);
 
         if (progressFillImage != null)
-        {
-            progressFillImage.fillAmount =
-                0f;
-        }
-
-        if (remainingTimeText != null)
-        {
-            remainingTimeText.text =
-                string.Empty;
-        }
+            progressFillImage.fillAmount = progress;
     }
 
-    private void SetVisible(
-        bool visible)
+    private void HideBar()
+    {
+        SetAlpha(0f);
+        SetProgress(0f);
+
+        if (remainingTimeText != null)
+            remainingTimeText.text = string.Empty;
+    }
+
+    private void SetAlpha(float alpha)
     {
         if (canvasGroup == null)
             return;
 
-        canvasGroup.alpha =
-            visible
-                ? 1f
-                : 0f;
-
-        canvasGroup.interactable =
-            false;
-
-        canvasGroup.blocksRaycasts =
-            false;
-    }
-
-    private void HideImmediately()
-    {
-        SetVisible(false);
-        ResetProgress();
+        canvasGroup.alpha = alpha;
+        canvasGroup.interactable = false;
+        canvasGroup.blocksRaycasts = false;
     }
 }

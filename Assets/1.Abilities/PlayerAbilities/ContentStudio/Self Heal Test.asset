@@ -44,6 +44,7 @@ MonoBehaviour:
   timingSettings:
     timingType: 1
     castDuration: 2
+    cancelOnMove: 1
     channelDuration: 0
     channelTickInterval: 1
     maximumChargeDuration: 1

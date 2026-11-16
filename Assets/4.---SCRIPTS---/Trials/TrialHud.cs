@@ -65,7 +65,7 @@ public sealed class TrialHud : MonoBehaviour
         if (visible && showDebugScoreboard && debugPanel != null)
             DrawScores();
 #else
-        SetVisible(debugPanel, false);
+    SetVisible(debugPanel, false);
 #endif
 
         if (!visible)
@@ -89,6 +89,11 @@ public sealed class TrialHud : MonoBehaviour
         if (zone.IsCoolingDown)
         {
             objectiveLines.Append(zone.ResetStatus);
+
+            string rewardSummary = zone.GetRewardSummary(player);
+
+            if (!string.IsNullOrWhiteSpace(rewardSummary))
+                objectiveLines.AppendLine().Append(rewardSummary);
         }
         else
         {
@@ -128,14 +133,15 @@ public sealed class TrialHud : MonoBehaviour
 
             previousContribution = contribution;
 
+            double total = (double)score.Damage + score.Healing + score.Tanking;
+
             columnLines[0].AppendLine(placement.ToString());
             columnLines[1].AppendLine(score.Name);
             columnLines[2].AppendLine(score.Damage.ToString());
-            columnLines[3].AppendLine("0");
+            columnLines[3].AppendLine(score.Healing.ToString());
             columnLines[4].AppendLine(score.Tanking.ToString("0.0"));
             columnLines[5].AppendLine("0");
-            columnLines[6].AppendLine(
-                $"{score.Damage + (double)score.Tanking:0.#} ({contribution:P0})");
+            columnLines[6].AppendLine($"{total:0.#} ({contribution:P0})");
         }
 
         for (int i = 0; i < debugColumns.Length; i++)

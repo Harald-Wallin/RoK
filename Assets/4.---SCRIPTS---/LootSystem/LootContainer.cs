@@ -5,7 +5,8 @@ using UnityEngine;
 public enum LootContainerLifecycleMode
 {
     DespawnAndRespawn,
-    RefillInPlace
+    RefillInPlace,
+    TrialManaged
 }
 
 [DisallowMultipleComponent]
@@ -183,6 +184,15 @@ public sealed class LootContainer :
 
     private GameObject shimmerInstance;
 
+    [SerializeField] private SpriteRenderer trialSpriteRenderer;
+
+    private PlayerStats trialOwner;
+    private Sprite trialFullSprite;
+    private Sprite trialEmptySprite;
+
+    public bool IsTrialManaged =>
+        lifecycleMode == LootContainerLifecycleMode.TrialManaged;
+
 
     // =====================================================
     // PRESENTATION STATE
@@ -276,32 +286,26 @@ public sealed class LootContainer :
     }
 
 
-    public bool CanInteract(
-        in InteractionContext context)
+    public bool CanInteract(in InteractionContext context)
     {
-        return
-            context.IsValid &&
-            initialized &&
-            isSpawned &&
-            HasLoot &&
-            LootUI.Instance != null;
+        return context.IsValid &&
+               initialized &&
+               isSpawned &&
+               HasLoot &&
+               LootUI.Instance != null &&
+               (!IsTrialManaged || context.Player == trialOwner);
     }
 
 
-    public void Interact(
-        in InteractionContext context)
+    public void Interact(in InteractionContext context)
     {
-        if (!CanInteract(
-                context))
-        {
+        if (!CanInteract(context))
             return;
-        }
 
-        StartLifetimeIfNeeded();
+        if (!IsTrialManaged)
+            StartLifetimeIfNeeded();
 
-        LootUI.Instance.Show(
-            this
-        );
+        LootUI.Instance.Show(this);
     }
 
 
@@ -311,39 +315,25 @@ public sealed class LootContainer :
 
     private void Awake()
     {
-        originalPosition =
-            transform.position;
-
+        originalPosition = transform.position;
         CachePresentationState();
 
-        CacheSpawnFootprint();
+        if (!IsTrialManaged)
+            CacheSpawnFootprint();
 
-        /*
-         * Objektet hålls dolt tills Start har verifierat
-         * att den initiala spawnpositionen faktiskt är fri.
-         */
-        SetWorldPresentationVisible(
-            false
-        );
+        SetWorldPresentationVisible(false);
     }
 
 
     private void Start()
     {
+        if (IsTrialManaged)
+            return;
+
         initialized = true;
 
-        /*
-         * Även den första spawnen valideras.
-         *
-         * Om exempelvis spelaren redan står på platsen
-         * väntar containern tills ytan är fri.
-         */
         if (!TrySpawnAtAvailablePosition())
-        {
-            StartSpawnAttemptRoutine(
-                blockedRespawnRetryDelay
-            );
-        }
+            StartSpawnAttemptRoutine(blockedRespawnRetryDelay);
     }
 
 
@@ -1074,12 +1064,65 @@ public sealed class LootContainer :
 
     private void HandleContentsChanged()
     {
+        if (IsTrialManaged)
+        {
+            if (trialSpriteRenderer != null)
+            {
+                Sprite sprite = HasLoot ? trialFullSprite : trialEmptySprite;
+
+                if (sprite != null)
+                    trialSpriteRenderer.sprite = sprite;
+            }
+
+            UpdateShimmer();
+            return;
+        }
+
         UpdateShimmer();
 
         if (!HasLoot)
-        {
             ScheduleEmptyLifecycleEnd();
-        }
+    }
+
+    public void InitializeTrialLoot(
+        PlayerStats owner,
+        LootGenerationResult result,
+        Sprite fullSprite,
+        Sprite emptySprite)
+    {
+        if (!IsTrialManaged || initialized || owner == null || result == null)
+            return;
+
+        if (trialSpriteRenderer == null)
+            trialSpriteRenderer = GetComponentInChildren<SpriteRenderer>(true);
+
+        trialOwner = owner;
+        trialFullSprite = fullSprite;
+        trialEmptySprite = emptySprite;
+
+        contents.Apply(result);
+        initialized = true;
+        isSpawned = true;
+
+        SetWorldPresentationVisible(true);
+        HandleContentsChanged();
+    }
+
+    public void ExpireTrialLoot()
+    {
+        if (!IsTrialManaged)
+            return;
+
+        isSpawned = false;
+        trialOwner = null;
+        contents.Clear();
+
+        if (LootUI.Instance != null)
+            LootUI.Instance.CloseIfShowing(this);
+
+        SetWorldPresentationVisible(false);
+        DestroyShimmer();
+        gameObject.SetActive(false);
     }
 
 

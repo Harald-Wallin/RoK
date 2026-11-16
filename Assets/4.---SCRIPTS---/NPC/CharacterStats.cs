@@ -537,82 +537,49 @@ public class CharacterStats : MonoBehaviour
     }
 
     public virtual HealingResult ApplyHealing(
+    int amount,
+    bool canCrit,
+    float criticalChance = 0f,
+    float criticalMultiplier = 1.5f)
+    {
+        return ApplyHealing(
+            null, amount, canCrit, criticalChance, criticalMultiplier);
+    }
+
+    public HealingResult ApplyHealing(
+        CharacterStats healer,
         int amount,
         bool canCrit,
         float criticalChance = 0f,
         float criticalMultiplier = 1.5f)
     {
-        if (amount <= 0 ||
-            !IsAlive)
-        {
-            return new HealingResult(
-                amount,
-                0,
-                false
-            );
-        }
+        if (amount <= 0 || !IsAlive)
+            return new HealingResult(amount, 0, false);
 
         bool isCritical =
             canCrit &&
             criticalChance > 0f &&
-            UnityEngine.Random.value <=
-            Mathf.Clamp01(
-                criticalChance
-            );
+            UnityEngine.Random.value <= Mathf.Clamp01(criticalChance);
 
-        int finalAmount =
-            amount;
+        int finalAmount = isCritical
+            ? Mathf.Max(1, Mathf.RoundToInt(amount * Mathf.Max(1f, criticalMultiplier)))
+            : amount;
 
-        if (isCritical)
-        {
-            finalAmount =
-                Mathf.Max(
-                    1,
-                    Mathf.RoundToInt(
-                        amount *
-                        Mathf.Max(
-                            1f,
-                            criticalMultiplier
-                        )
-                    )
-                );
-        }
+        int oldHealth = currentHP;
+        currentHP = Mathf.Clamp(currentHP + finalAmount, 0, GetMaxHP());
 
-        int oldHealth =
-            currentHP;
-
-        currentHP =
-            Mathf.Clamp(
-                currentHP +
-                finalAmount,
-                0,
-                GetMaxHP()
-            );
-
-        int restoredHealth =
-            currentHP -
-            oldHealth;
-
-        HealingResult result =
-            new HealingResult(
-                finalAmount,
-                restoredHealth,
-                isCritical
-            );
+        int restoredHealth = currentHP - oldHealth;
+        HealingResult result = new(finalAmount, restoredHealth, isCritical);
 
         if (restoredHealth <= 0)
             return result;
 
         RaiseHealthChanged();
+        OnHealed?.Invoke(result);
 
-        OnHealed?.Invoke(
-            result
-        );
+        CharacterCombatEvents.RaiseHealingApplied(healer, this, result);
 
-        SpawnHealingFloatingText(
-            result
-        );
-
+        SpawnHealingFloatingText(result);
         return result;
     }
 

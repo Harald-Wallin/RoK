@@ -51,6 +51,12 @@ public sealed class CharacterActionController :
     private float phaseTimer;
     private float phaseDuration;
     private bool fullChargeReached;
+    private const float CastMovementThreshold = 0.02f;
+
+    private Rigidbody2D castMovementBody;
+    private Vector2 castStartPosition;
+
+    public event Action<ActionContext> OnCastCancelledByMovement;
 
     public ActionExecutionContext
     LastExecutionContext
@@ -831,30 +837,7 @@ public sealed class CharacterActionController :
         );
     }
 
-    private void BeginCast(
-        float duration)
-    {
-        float safeDuration =
-            Mathf.Max(
-                0f,
-                duration
-            );
-
-        if (safeDuration <= 0f)
-        {
-            ExecuteCurrentAction();
-            return;
-        }
-
-        phaseTimer = 0f;
-        phaseDuration = safeDuration;
-
-        currentContext.NormalizedProgress = 0f;
-
-        SetPhase(
-            ActionPhase.Casting
-        );
-    }
+  
 
     private void UpdateActiveAction()
     {
@@ -877,8 +860,43 @@ public sealed class CharacterActionController :
         }
     }
 
+    private void BeginCast(float duration)
+    {
+        float safeDuration = Mathf.Max(0f, duration);
+
+        if (safeDuration <= 0f)
+        {
+            ExecuteCurrentAction();
+            return;
+        }
+
+        phaseTimer = 0f;
+        phaseDuration = safeDuration;
+
+        castMovementBody = GetComponent<Rigidbody2D>();
+        castStartPosition = GetCastPosition();
+
+        currentContext.NormalizedProgress = 0f;
+        SetPhase(ActionPhase.Casting);
+    }
+
     private void UpdateCasting()
     {
+        if (currentContext.Ability.TimingSettings.CancelOnMove)
+        {
+            Vector2 displacement = GetCastPosition() - castStartPosition;
+
+            if (displacement.sqrMagnitude >
+                CastMovementThreshold * CastMovementThreshold)
+            {
+                ActionContext cancelledCast = currentContext;
+
+                FailCurrentAction();
+                OnCastCancelledByMovement?.Invoke(cancelledCast);
+                return;
+            }
+        }
+
         if (!CanContinueActiveAction())
         {
             InterruptCurrentAction();
@@ -886,16 +904,20 @@ public sealed class CharacterActionController :
         }
 
         phaseTimer += Time.deltaTime;
-
-        currentContext.NormalizedProgress =
-            GetNormalizedPhaseProgress();
+        currentContext.NormalizedProgress = GetNormalizedPhaseProgress();
 
         if (phaseTimer < phaseDuration)
             return;
 
         currentContext.NormalizedProgress = 1f;
-
         ExecuteCurrentAction();
+    }
+
+    private Vector2 GetCastPosition()
+    {
+        return castMovementBody != null
+            ? castMovementBody.position
+            : (Vector2)transform.position;
     }
 
     private void UpdateCharging()

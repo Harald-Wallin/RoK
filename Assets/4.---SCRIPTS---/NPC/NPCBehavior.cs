@@ -302,6 +302,11 @@ public class NPCBehavior : MonoBehaviour
         }
     }
 
+    public void DisableAutomaticRespawn()
+    {
+        canRespawn = false;
+    }
+
     public void PrepareForRespawn()
     {
         aggroDisableTimer =
