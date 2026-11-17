@@ -83,7 +83,7 @@ GameObject:
   - component: {fileID: 281917258791041388}
   - component: {fileID: 7361426543973049389}
   - component: {fileID: 2158494333938104129}
-  m_Layer: 10
+  m_Layer: 0
   m_Name: TheWolfDen_Feeding_pit
   m_TagString: Untagged
   m_Icon: {fileID: 0}

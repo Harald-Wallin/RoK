@@ -6,12 +6,25 @@ using UnityEngine;
 [RequireComponent(typeof(PolygonCollider2D))]
 public sealed class TrialZone : MonoBehaviour
 {
-    [SerializeField] private string trialTitle = "Trial - The Wolf Den";
+    private const double ActivitySeconds = 15d;
+
+    private enum TrialDifficulty
+    {
+        [InspectorName("1")] OneSkull = 1,
+        [InspectorName("2")] TwoSkulls = 2,
+        [InspectorName("3")] ThreeSkulls = 3
+    }
+
+    [SerializeField] private TrialDifficulty difficulty = TrialDifficulty.OneSkull;
+    [SerializeField] private string trialTitle = "The Wolf Den";
     [SerializeField]
     private TrialStageDefinition[] stages =
         Array.Empty<TrialStageDefinition>();
     [SerializeField] private Transform[] spawnPoints = Array.Empty<Transform>();
     [SerializeField, Min(0f)] private float resetSeconds = 30f;
+
+    [Header("Entry Announcement")]
+    [SerializeField, Min(0f)] private float entryAnnouncementCooldown = 20f;
 
     [Header("Rewards")]
     [SerializeField] private TrialRewards rewards = new();
@@ -19,6 +32,7 @@ public sealed class TrialZone : MonoBehaviour
     private sealed class SpawnSlot
     {
         public TrialStagePlan.Spawn Placement;
+        public GameObject Instance;
         public CharacterStats Entity;
         public NPCBehavior Behavior;
         public double RespawnAt = double.PositiveInfinity;
@@ -35,15 +49,19 @@ public sealed class TrialZone : MonoBehaviour
         public long Damage { get; internal set; }
         public long Healing { get; internal set; }
         public float Tanking { get; internal set; }
+        public long Objectives { get; internal set; }
 
         internal long StageDamage;
         internal long StageHealing;
         internal float StageTanking;
+        internal long StageObjectives;
         internal float FinishedContribution;
+        internal double ActiveUntil;
     }
 
     private readonly List<SpawnSlot> spawnSlots = new();
     private readonly Dictionary<CharacterStats, SpawnSlot> livingSpawns = new();
+    private readonly Dictionary<GameObject, SpawnSlot> interactionSpawns = new();
     private readonly Dictionary<PlayerStats, Score> scores = new();
     private readonly Dictionary<PlayerStats, int> trialWounds = new();
 
@@ -57,22 +75,44 @@ public sealed class TrialZone : MonoBehaviour
     private bool coolingDown;
     private bool victory;
 
+    private bool playerWasInside;
+    private double nextEntryAnnouncement;
+
     private TrialStageDefinition CurrentStage => stages[stageIndex];
     private TrialStagePlan CurrentPlan => stagePlans[stageIndex];
 
     public IReadOnlyList<TrialStageDefinition> Stages => stages;
-    public string TrialTitle => trialTitle;
+    public int DifficultySkullCount => Mathf.Clamp((int)difficulty, 1, 3);
+
+    public string TrialName
+    {
+        get
+        {
+            string name = trialTitle?.Trim() ?? string.Empty;
+            const string prefix = "Trial - ";
+
+            return name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+                ? name.Substring(prefix.Length).Trim()
+                : name;
+        }
+    }
+
+    public string TrialTitle => $"Trial - {TrialName}";
     public bool IsActive => stageIndex >= 0 && !coolingDown;
     public bool IsCoolingDown => coolingDown;
     public bool HasTimer => coolingDown ||
         (IsActive && CurrentStage.TimeLimitSeconds > 0f);
+
     public double RemainingSeconds =>
         HasTimer ? Math.Max(0d, deadline - Time.timeAsDouble) : 0d;
+
     public string StageLabel =>
         stageIndex >= 0 ? CurrentStage.StageLabel : string.Empty;
+
     public string ResetStatus => victory
-        ? "Trial complete. The den is quiet."
-        : "Trial failed. The den is resetting.";
+        ? "Trial complete. The area is quiet."
+        : "Trial failed. The area is resetting.";
+
     public int ObjectiveCount => IsActive ? objectiveCounts.Length : 0;
 
     private void Reset()
@@ -90,6 +130,7 @@ public sealed class TrialZone : MonoBehaviour
 
     private void OnEnable()
     {
+        playerWasInside = false;
         CharacterCombatEvents.CharacterDefeated += HandleDefeat;
         CharacterCombatEvents.DamageApplied += HandleDamage;
         CharacterCombatEvents.HealingApplied += HandleHealing;
@@ -114,6 +155,22 @@ public sealed class TrialZone : MonoBehaviour
     {
         TrialStagePlan.Goal goal = CurrentPlan.Goals[index];
         return $"{goal.Label}: {objectiveCounts[index]}/{goal.RequiredCount}";
+    }
+
+    private void LateUpdate()
+    {
+        bool inside = Contains(PlayerReference.Player);
+
+        if (inside && !playerWasInside &&
+            Time.unscaledTimeAsDouble >= nextEntryAnnouncement &&
+            AnnouncementSpawner.Instance != null)
+        {
+            AnnouncementSpawner.Instance.ShowTrialEntered(TrialName);
+            nextEntryAnnouncement =
+                Time.unscaledTimeAsDouble + entryAnnouncementCooldown;
+        }
+
+        playerWasInside = inside;
     }
 
     private void Update()
@@ -158,7 +215,6 @@ public sealed class TrialZone : MonoBehaviour
     private void StartStage(int index)
     {
         ClearStage();
-
         stageIndex = index;
         stageComplete = false;
         objectiveCounts = new int[CurrentPlan.Goals.Count];
@@ -175,23 +231,75 @@ public sealed class TrialZone : MonoBehaviour
     private void SpawnEntity(SpawnSlot slot, bool isRespawn)
     {
         Transform point = slot.Placement.Point;
-        CharacterStats entity = Instantiate(
+        GameObject instance = Instantiate(
             slot.Placement.Prefab, point.position, point.rotation);
 
-        NPCBehavior behavior = entity.GetComponent<NPCBehavior>();
+        slot.Instance = instance;
+        slot.Entity = instance.GetComponent<CharacterStats>();
+        slot.Behavior = instance.GetComponent<NPCBehavior>();
+        slot.RespawnAt = double.PositiveInfinity;
 
-        if (behavior != null)
+        int objectiveIndex = slot.Placement.ObjectiveIndex;
+
+        if (objectiveIndex >= 0 &&
+            CurrentPlan.Goals[objectiveIndex].Type == TrialObjectiveType.Interact)
         {
-            behavior.DisableAutomaticRespawn();
+            TrialObjectiveInteraction interaction =
+                instance.GetComponent<TrialObjectiveInteraction>();
 
-            if (isRespawn)
-                behavior.PrepareForRespawn();
+            if (interaction == null)
+                interaction = instance.AddComponent<TrialObjectiveInteraction>();
+
+            TrialStagePlan.Goal goal = CurrentPlan.Goals[objectiveIndex];
+            interaction.Initialize(this, goal.Label, goal.Timing);
+            interactionSpawns.Add(instance, slot);
+            return;
         }
 
-        slot.Entity = entity;
-        slot.Behavior = behavior;
-        slot.RespawnAt = double.PositiveInfinity;
-        livingSpawns.Add(entity, slot);
+        if (slot.Behavior != null)
+        {
+            slot.Behavior.DisableAutomaticRespawn();
+
+            if (isRespawn)
+                slot.Behavior.PrepareForRespawn();
+        }
+
+        livingSpawns.Add(slot.Entity, slot);
+    }
+
+    internal bool CanUseInteraction(GameObject instance, PlayerStats player)
+    {
+        if (!CanRecord() || player == null || !player.IsAlive ||
+            !Contains(player) || instance == null || !instance.activeInHierarchy ||
+            !interactionSpawns.TryGetValue(instance, out SpawnSlot slot))
+        {
+            return false;
+        }
+
+        int index = slot.Placement.ObjectiveIndex;
+        return objectiveCounts[index] < CurrentPlan.Goals[index].RequiredCount;
+    }
+
+    internal void CompleteInteraction(GameObject instance, PlayerStats player)
+    {
+        if (!CanUseInteraction(instance, player))
+            return;
+
+        SpawnSlot slot = interactionSpawns[instance];
+        interactionSpawns.Remove(instance);
+
+        int index = slot.Placement.ObjectiveIndex;
+        objectiveCounts[index]++;
+
+        Score score = GetOrCreateScore(player);
+        score.Objectives++;
+        score.StageObjectives++;
+        score.ActiveUntil = Time.timeAsDouble + ActivitySeconds;
+
+        stageComplete = AreObjectivesComplete();
+
+        instance.SetActive(false);
+        Destroy(instance);
     }
 
     private void ProcessRespawns()
@@ -236,6 +344,17 @@ public sealed class TrialZone : MonoBehaviour
                (!HasTimer || Time.timeAsDouble < deadline);
     }
 
+    private bool AreObjectivesComplete()
+    {
+        for (int index = 0; index < CurrentPlan.Goals.Count; index++)
+        {
+            if (objectiveCounts[index] < CurrentPlan.Goals[index].RequiredCount)
+                return false;
+        }
+
+        return true;
+    }
+
     private void HandleDefeat(CharacterDefeatedResult result)
     {
         if (!CanRecord() || result == null || result.Victim == null ||
@@ -244,23 +363,20 @@ public sealed class TrialZone : MonoBehaviour
             return;
         }
 
-        bool allComplete = true;
-
         for (int index = 0; index < CurrentPlan.Goals.Count; index++)
         {
             TrialStagePlan.Goal goal = CurrentPlan.Goals[index];
 
-            if (objectiveCounts[index] < goal.RequiredCount &&
+            if (goal.Type != TrialObjectiveType.Interact &&
+                objectiveCounts[index] < goal.RequiredCount &&
                 CurrentPlan.Matches(index, slot.Placement) &&
                 EntityTargetUtility.Matches(goal.TargetId, result.VictimEntityId))
             {
                 objectiveCounts[index]++;
             }
-
-            allComplete &= objectiveCounts[index] >= goal.RequiredCount;
         }
 
-        stageComplete = allComplete;
+        stageComplete = AreObjectivesComplete();
 
         if (!stageComplete && CurrentStage.RespawnDefeatedEnemies && NeedsRespawn(slot))
             slot.RespawnAt = Time.timeAsDouble + CurrentStage.RespawnDelaySeconds;
@@ -287,6 +403,7 @@ public sealed class TrialZone : MonoBehaviour
             Score score = GetOrCreateScore(player);
             score.Damage += damage.AppliedDamage;
             score.StageDamage += damage.AppliedDamage;
+            score.ActiveUntil = Time.timeAsDouble + ActivitySeconds;
         }
     }
 
@@ -329,6 +446,7 @@ public sealed class TrialZone : MonoBehaviour
         Score score = GetOrCreateScore(player);
         score.Healing += restoredTrialHealth;
         score.StageHealing += restoredTrialHealth;
+        score.ActiveUntil = Time.timeAsDouble + ActivitySeconds;
     }
 
     private void ForgetWounds(CharacterStats target)
@@ -348,12 +466,13 @@ public sealed class TrialZone : MonoBehaviour
 
             if (enemy == null || !enemy.IsInCombat ||
                 enemy.CurrentTarget is not PlayerStats player ||
-                !Contains(player) || !player.IsAlive)
+                !Contains(player) || !player.IsAlive ||
+                !scores.TryGetValue(player, out Score score) ||
+                Time.timeAsDouble >= score.ActiveUntil)
             {
                 continue;
             }
 
-            Score score = GetOrCreateScore(player);
             score.Tanking += seconds;
             score.StageTanking += seconds;
         }
@@ -399,7 +518,8 @@ public sealed class TrialZone : MonoBehaviour
         float fraction = Mathf.Clamp01(
             score.StageDamage / stage.DamageBenchmark +
             score.StageHealing / stage.HealingBenchmark +
-            score.StageTanking / stage.TankingBenchmark);
+            score.StageTanking / stage.TankingBenchmark +
+            score.StageObjectives / stage.ObjectiveBenchmark);
 
         return fraction * (stage.Weight / totalWeight);
     }
@@ -412,6 +532,7 @@ public sealed class TrialZone : MonoBehaviour
             score.StageDamage = 0;
             score.StageHealing = 0;
             score.StageTanking = 0f;
+            score.StageObjectives = 0;
         }
     }
 
@@ -428,8 +549,8 @@ public sealed class TrialZone : MonoBehaviour
 
         foreach (var entry in scores)
         {
-            if (entry.Key is PlayerStats player && player != null)
-                participants.Add((player, GetContribution(entry.Value)));
+            if (entry.Key != null)
+                participants.Add((entry.Key, GetContribution(entry.Value)));
         }
 
         ClearStage();
@@ -440,7 +561,6 @@ public sealed class TrialZone : MonoBehaviour
     {
         rewards.ResetRound();
         scores.Clear();
-
         stageIndex = -1;
         objectiveCounts = Array.Empty<int>();
         stageComplete = false;
@@ -457,14 +577,15 @@ public sealed class TrialZone : MonoBehaviour
     private void ClearStage()
     {
         livingSpawns.Clear();
+        interactionSpawns.Clear();
 
         foreach (SpawnSlot slot in spawnSlots)
         {
-            if (slot.Entity == null)
+            if (slot.Instance == null)
                 continue;
 
-            slot.Entity.gameObject.SetActive(false);
-            Destroy(slot.Entity.gameObject);
+            slot.Instance.SetActive(false);
+            Destroy(slot.Instance);
         }
 
         spawnSlots.Clear();

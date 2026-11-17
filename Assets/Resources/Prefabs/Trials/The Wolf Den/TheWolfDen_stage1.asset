@@ -18,10 +18,14 @@ MonoBehaviour:
   - id: a1a1dc5fdfb94c9abf16bfe77856d794
     type: 0
     displayName: Slay starving wolves
+    spawnPrefab: {fileID: 3459725347379031730, guid: f827811950f436d43b99adef7744c8c7, type: 3}
     target:
       entityId: starving_wolf
       displayName: 'Starving Wolf '
     requiredCount: 5
+    timing:
+      mode: 0
+      seconds: 3
   killObjectives:
   - {fileID: 0}
   spawnGroups:
@@ -33,3 +37,4 @@ MonoBehaviour:
   damageBenchmark: 100
   healingBenchmark: 50
   tankingBenchmark: 30
+  objectiveBenchmark: 10

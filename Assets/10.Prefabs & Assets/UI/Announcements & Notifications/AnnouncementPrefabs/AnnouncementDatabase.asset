@@ -18,3 +18,4 @@ MonoBehaviour:
   reputationRankChanged: {fileID: 11400000, guid: 8387e6f716abd144e8a4d28055750047, type: 2}
   favourFailed: {fileID: 11400000, guid: 6686674a14df472429e0bb14daf6b302, type: 2}
   deedCompleted: {fileID: 11400000, guid: 02e366bbcc9b09345934a0228bbab4c4, type: 2}
+  trialEntered: {fileID: 11400000, guid: 8e6676dd9988f864294295c3aee6c210, type: 2}

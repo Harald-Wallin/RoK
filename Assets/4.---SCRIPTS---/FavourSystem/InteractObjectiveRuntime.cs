@@ -1,133 +1,94 @@
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 
-public sealed class InteractObjectiveRuntime :
-    FavourObjectiveRuntime
+public sealed class InteractObjectiveRuntime : FavourObjectiveRuntime
 {
-    private readonly InteractObjectiveData
-        interactData;
-
-    private readonly HashSet<string>
-        completedTargetIds =
-            new(
-                StringComparer.Ordinal
-            );
+    private readonly InteractObjectiveData interactData;
+    private readonly HashSet<string> completedTargetIds = new(StringComparer.Ordinal);
+    private readonly HashSet<GameObject> completedInstances = new();
 
     public InteractObjectiveRuntime(
         InteractObjectiveData data,
         FavourRuntime favour)
-        : base(
-            data,
-            favour)
+        : base(data, favour)
     {
-        interactData =
-            data;
+        interactData = data;
     }
 
     public override bool IsComplete =>
-        RequiredProgress > 0 &&
-        CurrentProgress >=
-        RequiredProgress;
+        RequiredProgress > 0 && CurrentProgress >= RequiredProgress;
 
     public override int CurrentProgress =>
-        completedTargetIds.Count;
+        interactData.CountMode == InteractionCountMode.ObjectInstances
+            ? completedInstances.Count
+            : completedTargetIds.Count;
 
-    public override int RequiredProgress =>
-        interactData != null
-            ? interactData
-                .RequiredInteractions
-            : 0;
-
-    public override bool IsRelevantToEntity(
-    string entityId)
-    {
-        if (interactData == null ||
-            string.IsNullOrWhiteSpace(
-                entityId))
-        {
-            return false;
-        }
-
-        if (!interactData.ContainsTarget(
-                entityId))
-        {
-            return false;
-        }
-
-        if (IsComplete)
-            return true;
-
-        return !completedTargetIds.Contains(
-            entityId
-        );
-    }
+    public override int RequiredProgress => interactData.RequiredInteractions;
 
     protected override void OnActivated()
     {
-        InteractionEvents
-            .InteractionCommitted +=
-            HandleInteractionCommitted;
+        InteractionTimingQuery.Resolving += ResolveTiming;
+        InteractionEvents.InteractionCommitted += HandleInteraction;
     }
 
     protected override void OnDeactivated()
     {
-        InteractionEvents
-            .InteractionCommitted -=
-            HandleInteractionCommitted;
+        InteractionTimingQuery.Resolving -= ResolveTiming;
+        InteractionEvents.InteractionCommitted -= HandleInteraction;
     }
 
-    public bool RequiresTarget(
-        string entityId)
+    public bool RequiresTarget(string entityId)
     {
-        return interactData != null &&
-               interactData.ContainsTarget(
-                   entityId
-               );
+        return interactData.ContainsTarget(entityId);
     }
 
-    private void HandleInteractionCommitted(
-        InteractionContext context)
+    public override bool IsRelevantToEntity(string entityId)
     {
-        if (!IsActive ||
-            IsComplete ||
-            interactData == null ||
-            context.Target == null)
-        {
+        if (!interactData.ContainsTarget(entityId))
+            return false;
+
+        return IsComplete ||
+               interactData.CountMode == InteractionCountMode.ObjectInstances ||
+               !completedTargetIds.Contains(entityId);
+    }
+
+    private bool Matches(InteractionContext context)
+    {
+        return IsActive &&
+               !IsComplete &&
+               context.IsValid &&
+               context.Player == Favour?.Manager?.Player &&
+               context.Target.Identity != null &&
+               interactData.ContainsTarget(context.Target.Identity.Id);
+    }
+
+    private void ResolveTiming(InteractionTimingQuery query)
+    {
+        if (Matches(query.Context))
+            query.Use(interactData.Timing, DisplayName);
+    }
+
+    private void HandleInteraction(InteractionContext context)
+    {
+        if (!Matches(context))
             return;
-        }
 
-        EntityIdentity identity =
-            context.Target.Identity;
+        bool added = interactData.CountMode == InteractionCountMode.ObjectInstances
+            ? completedInstances.Add(context.Target.InteractionOwner)
+            : completedTargetIds.Add(context.Target.Identity.Id);
 
-        if (identity == null ||
-            string.IsNullOrWhiteSpace(
-                identity.Id))
-        {
-            return;
-        }
-
-        if (!interactData.ContainsTarget(
-                identity.Id))
-        {
-            return;
-        }
-
-        if (!completedTargetIds.Add(
-                identity.Id))
-        {
-            return;
-        }
-
-        RaiseProgressChanged();
+        if (added)
+            RaiseProgressChanged();
     }
 
     public override void ResetProgress()
     {
-        if (completedTargetIds.Count == 0)
+        if (CurrentProgress == 0)
             return;
 
         completedTargetIds.Clear();
-
+        completedInstances.Clear();
         RaiseProgressChanged();
     }
 }

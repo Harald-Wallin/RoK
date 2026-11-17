@@ -18,17 +18,25 @@ MonoBehaviour:
   - id: c911e77aeffc4a12bdde618187fa04ea
     type: 0
     displayName: Kill the Wolf Mates
+    spawnPrefab: {fileID: 3459725347379031730, guid: 08b9bb727582e6a409152600c7b1736b, type: 3}
     target:
       entityId: wolf_mate
       displayName: Wolf Mate
     requiredCount: 2
+    timing:
+      mode: 0
+      seconds: 3
   - id: b3bea56eedf249ffa682df653d30e446
     type: 0
     displayName: Kill the Wolf Mother
+    spawnPrefab: {fileID: 3459725347379031730, guid: b686718a514400448ade2ccaea527629, type: 3}
     target:
       entityId: wolf_mother
       displayName: Wolf Mother
     requiredCount: 1
+    timing:
+      mode: 0
+      seconds: 3
   killObjectives: []
   spawnGroups: []
   respawnDefeatedEnemies: 0
@@ -37,3 +45,4 @@ MonoBehaviour:
   damageBenchmark: 100
   healingBenchmark: 50
   tankingBenchmark: 30
+  objectiveBenchmark: 10

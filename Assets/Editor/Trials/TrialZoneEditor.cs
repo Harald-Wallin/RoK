@@ -17,7 +17,6 @@ public sealed class TrialZoneEditor : Editor
             return;
 
         TrialZone zone = (TrialZone)target;
-
         DrawRewardPoint(zone);
 
         TrialSpawnPoint[] markers =
@@ -68,7 +67,6 @@ public sealed class TrialZoneEditor : Editor
                 pointProperty, new GUIContent("Reward Container Point"));
 
             serializedObject.ApplyModifiedProperties();
-
             Transform point = pointProperty.objectReferenceValue as Transform;
 
             if (point == null)
@@ -89,8 +87,8 @@ public sealed class TrialZoneEditor : Editor
                 Undo.AddComponent<TrialRewardContainerPoint>(marker);
 
                 serializedObject.Update();
-
-                pointProperty = serializedObject.FindProperty("rewards.rewardContainerPoint");
+                pointProperty =
+                    serializedObject.FindProperty("rewards.rewardContainerPoint");
                 pointProperty.objectReferenceValue = marker.transform;
                 serializedObject.ApplyModifiedProperties();
 
@@ -109,7 +107,9 @@ public sealed class TrialZoneEditor : Editor
     }
 
     private static void DrawStage(
-        TrialZone zone, TrialStageDefinition stage, TrialSpawnPoint[] markers)
+        TrialZone zone,
+        TrialStageDefinition stage,
+        TrialSpawnPoint[] markers)
     {
         using SerializedObject serializedStage = new(stage);
         serializedStage.Update();
@@ -128,8 +128,10 @@ public sealed class TrialZoneEditor : Editor
             return;
         }
 
-        foreach (TrialObjectiveDefinition objective in stage.Objectives)
+        for (int index = 0; index < stage.Objectives.Length; index++)
         {
+            TrialObjectiveDefinition objective = stage.Objectives[index];
+
             if (objective == null || string.IsNullOrWhiteSpace(objective.Id))
                 continue;
 
@@ -139,36 +141,127 @@ public sealed class TrialZoneEditor : Editor
                     $"{objective.Type} · {objective.DisplayName} ({objective.RequiredCount})",
                     EditorStyles.boldLabel);
 
-                foreach (TrialSpawnPoint marker in markers)
+                GameObject defaultPrefab = DrawDefaultPrefab(stage, index);
+
+                bool canAdd = IsPrefab(defaultPrefab);
+
+                if (!canAdd)
                 {
-                    if (marker != null && marker.Zone == zone &&
-                        marker.Stage == stage && marker.ObjectiveId == objective.Id)
-                    {
-                        DrawSpawnRow(marker);
-                    }
+                    EditorGUILayout.HelpBox(
+                        "Choose a Spawn Prefab from Project. New spawn rows will use it automatically.",
+                        MessageType.Info);
                 }
 
-                if (GUILayout.Button("+ Spawn"))
+                foreach (TrialSpawnPoint marker in markers)
                 {
-                    AddSpawn(zone, stage, objective);
-                    GUIUtility.ExitGUI();
+                    if (!BelongsTo(marker, zone, stage, objective.Id))
+                        continue;
+
+                    DrawSpawnRow(marker);
+                }
+
+                using (new EditorGUI.DisabledScope(!canAdd))
+                {
+                    if (GUILayout.Button("Repair Empty/Invalid Rows"))
+                        RepairRows(markers, zone, stage, objective.Id, defaultPrefab);
+
+                    if (GUILayout.Button("+ Spawn"))
+                    {
+                        AddSpawn(zone, stage, objective, defaultPrefab);
+                        GUIUtility.ExitGUI();
+                    }
                 }
             }
         }
     }
 
+    private static GameObject DrawDefaultPrefab(
+        TrialStageDefinition stage,
+        int objectiveIndex)
+    {
+        using SerializedObject serializedStage = new(stage);
+        serializedStage.Update();
+
+        SerializedProperty property = serializedStage
+            .FindProperty("objectives")
+            .GetArrayElementAtIndex(objectiveIndex)
+            .FindPropertyRelative("spawnPrefab");
+
+        GameObject current = property.objectReferenceValue as GameObject;
+
+        EditorGUI.BeginChangeCheck();
+
+        GameObject selected = EditorGUILayout.ObjectField(
+            new GUIContent("Spawn Prefab", "Prefab copied into new spawn rows."),
+            current,
+            typeof(GameObject),
+            allowSceneObjects: false) as GameObject;
+
+        if (!EditorGUI.EndChangeCheck())
+            return current;
+
+        if (selected != null && !IsPrefab(selected))
+        {
+            Debug.LogWarning("Select a prefab root from Project.", stage);
+            return current;
+        }
+
+        property.objectReferenceValue = selected;
+        serializedStage.ApplyModifiedProperties();
+        return selected;
+    }
+
+    private static bool BelongsTo(
+        TrialSpawnPoint marker,
+        TrialZone zone,
+        TrialStageDefinition stage,
+        string objectiveId)
+    {
+        return marker != null &&
+               marker.Zone == zone &&
+               marker.Stage == stage &&
+               marker.ObjectiveId == objectiveId;
+    }
+
+    internal static bool IsPrefab(GameObject prefab)
+    {
+        return prefab != null &&
+               PrefabUtility.IsPartOfPrefabAsset(prefab) &&
+               prefab.transform.parent == null &&
+               prefab.GetComponent<TrialSpawnPoint>() == null;
+    }
+
+    internal static void DrawPrefabField(TrialSpawnPoint marker)
+    {
+        GameObject current = marker.Prefab;
+
+        EditorGUI.BeginChangeCheck();
+
+        GameObject selected = EditorGUILayout.ObjectField(
+            new GUIContent("Prefab", "The prefab spawned at this marker."),
+            current,
+            typeof(GameObject),
+            allowSceneObjects: false) as GameObject;
+
+        if (!EditorGUI.EndChangeCheck())
+            return;
+
+        if (selected != null && !IsPrefab(selected))
+        {
+            Debug.LogWarning("Select a prefab root from Project.", marker);
+            return;
+        }
+
+        WritePrefab(marker, selected);
+    }
+
     private static void DrawSpawnRow(TrialSpawnPoint marker)
     {
-        using SerializedObject serializedMarker = new(marker);
-        serializedMarker.Update();
+        EditorGUILayout.LabelField(marker.name, EditorStyles.miniLabel);
 
         using (new EditorGUILayout.HorizontalScope())
         {
-            EditorGUILayout.PropertyField(
-                serializedMarker.FindProperty("prefab"),
-                new GUIContent(marker.name));
-
-            serializedMarker.ApplyModifiedProperties();
+            DrawPrefabField(marker);
 
             if (GUILayout.Button("Place", GUILayout.Width(52)))
             {
@@ -184,14 +277,62 @@ public sealed class TrialZoneEditor : Editor
                 GUIUtility.ExitGUI();
             }
         }
+
+        if (marker.Prefab != null && !IsPrefab(marker.Prefab))
+        {
+            EditorGUILayout.HelpBox(
+                "This row references a scene object or marker. Choose the objective's " +
+                "Spawn Prefab and click Repair Empty/Invalid Rows.",
+                MessageType.Error);
+        }
+    }
+
+    private static void WritePrefab(TrialSpawnPoint marker, GameObject prefab)
+    {
+        using SerializedObject serializedMarker = new(marker);
+        serializedMarker.Update();
+        serializedMarker.FindProperty("prefab").objectReferenceValue = prefab;
+        serializedMarker.ApplyModifiedProperties();
+    }
+
+    private static void RepairRows(
+        TrialSpawnPoint[] markers,
+        TrialZone zone,
+        TrialStageDefinition stage,
+        string objectiveId,
+        GameObject prefab)
+    {
+        Undo.IncrementCurrentGroup();
+        int group = Undo.GetCurrentGroup();
+        Undo.SetCurrentGroupName("Repair Trial Spawn Prefabs");
+
+        foreach (TrialSpawnPoint marker in markers)
+        {
+            if (BelongsTo(marker, zone, stage, objectiveId) &&
+                !IsPrefab(marker.Prefab))
+            {
+                WritePrefab(marker, prefab);
+            }
+        }
+
+        Undo.CollapseUndoOperations(group);
     }
 
     private static void AddSpawn(
-        TrialZone zone, TrialStageDefinition stage, TrialObjectiveDefinition objective)
+        TrialZone zone,
+        TrialStageDefinition stage,
+        TrialObjectiveDefinition objective,
+        GameObject prefab)
     {
         const string undoName = "Add Trial Spawn";
 
-        GameObject markerObject = new($"Spawn {stage.StageLabel} · {objective.DisplayName}");
+        Undo.IncrementCurrentGroup();
+        int group = Undo.GetCurrentGroup();
+        Undo.SetCurrentGroupName(undoName);
+
+        GameObject markerObject =
+            new($"Spawn {stage.StageLabel} · {objective.DisplayName}");
+
         Undo.RegisterCreatedObjectUndo(markerObject, undoName);
         Undo.SetTransformParent(markerObject.transform, zone.transform, undoName);
         Undo.RecordObject(markerObject.transform, undoName);
@@ -202,6 +343,10 @@ public sealed class TrialZoneEditor : Editor
         TrialSpawnPoint marker = Undo.AddComponent<TrialSpawnPoint>(markerObject);
         Undo.RecordObject(marker, undoName);
         marker.AssignObjective(stage, objective.Id);
+
+        WritePrefab(marker, prefab);
+        Undo.CollapseUndoOperations(group);
+        SceneView.RepaintAll();
     }
 }
 
@@ -210,8 +355,9 @@ internal sealed class TrialSpawnPointEditor : Editor
 {
     public override void OnInspectorGUI()
     {
-        DrawDefaultInspector();
-        TrialZoneOutline.DrawBackButton(((TrialSpawnPoint)target).Zone);
+        TrialSpawnPoint marker = (TrialSpawnPoint)target;
+        TrialZoneEditor.DrawPrefabField(marker);
+        TrialZoneOutline.DrawBackButton(marker.Zone);
     }
 
     private void OnSceneGUI()

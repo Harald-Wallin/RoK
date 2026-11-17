@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 [DisallowMultipleComponent]
 public sealed class TrialHud : MonoBehaviour
@@ -16,6 +17,10 @@ public sealed class TrialHud : MonoBehaviour
     [SerializeField] private TMP_Text titleText;
     [SerializeField] private TMP_Text timerText;
     [SerializeField] private TMP_Text objectiveText;
+    [SerializeField] private Image difficultyImage;
+    [SerializeField] private Sprite oneSkullSprite;
+    [SerializeField] private Sprite twoSkullsSprite;
+    [SerializeField] private Sprite threeSkullsSprite;
 
     [Header("Editor / Development Build")]
     [SerializeField] private bool showDebugScoreboard = true;
@@ -71,6 +76,8 @@ public sealed class TrialHud : MonoBehaviour
         if (!visible)
             return;
 
+        RefreshDifficultySkulls(zone.DifficultySkullCount);
+
         titleText.text = string.IsNullOrWhiteSpace(zone.StageLabel)
             ? zone.TrialTitle
             : $"{zone.TrialTitle} • {zone.StageLabel}";
@@ -109,6 +116,28 @@ public sealed class TrialHud : MonoBehaviour
         objectiveText.text = objectiveLines.ToString();
     }
 
+    private void RefreshDifficultySkulls(int count)
+    {
+        if (difficultyImage == null)
+            return;
+
+        (Sprite sprite, string label) = count switch
+        {
+            1 => (oneSkullSprite, "Simple"),
+            2 => (twoSkullsSprite, "Challenging"),
+            3 => (threeSkullsSprite, "Heroic"),
+            _ => (null, string.Empty)
+        };
+
+        if (difficultyImage.sprite != sprite)
+            difficultyImage.sprite = sprite;
+
+        difficultyImage.enabled = sprite != null;
+
+        if (difficultyImage.TryGetComponent(out UIButtonTooltip tooltip))
+            tooltip.SetText(sprite != null ? label : string.Empty);
+    }
+
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
     private void DrawScores()
     {
@@ -133,7 +162,8 @@ public sealed class TrialHud : MonoBehaviour
 
             previousContribution = contribution;
 
-            double total = (double)score.Damage + score.Healing + score.Tanking;
+            double total =
+                (double)score.Damage + score.Healing + score.Tanking + score.Objectives;
 
             columnLines[0].AppendLine(placement.ToString());
             columnLines[1].AppendLine(score.Name);

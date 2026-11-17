@@ -5,11 +5,18 @@ public sealed class TrialSpawnPoint : MonoBehaviour
 {
     [SerializeField, HideInInspector] private TrialStageDefinition stage;
     [SerializeField, HideInInspector] private string objectiveId;
-    [SerializeField] private CharacterStats prefab;
+    [SerializeField] private Object prefab;
 
     public TrialStageDefinition Stage => stage;
     public string ObjectiveId => objectiveId;
-    public CharacterStats Prefab => prefab;
+
+    public GameObject Prefab => prefab switch
+    {
+        GameObject gameObject => gameObject,
+        Component component => component.gameObject,
+        _ => null
+    };
+
     public TrialZone Zone => GetComponentInParent<TrialZone>(true);
 
 #if UNITY_EDITOR

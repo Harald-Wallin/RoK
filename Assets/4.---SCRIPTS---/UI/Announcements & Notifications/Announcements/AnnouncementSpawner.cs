@@ -100,6 +100,23 @@ public class AnnouncementSpawner : MonoBehaviour
         );
     }
 
+    public void ShowTrialEntered(string trialName)
+    {
+        AnnouncementData announcement =
+            database != null ? database.trialEntered : null;
+
+        if (announcement == null)
+            return;
+
+        string color = ColorUtility.ToHtmlStringRGBA(announcement.color);
+
+        string message =
+            $"<size=60%><color=#{color}>Trial</color></size>\n" +
+            $"<color=#FFFFFFFF><noparse>{trialName}</noparse></color>";
+
+        QueueAnnouncement(announcement, message);
+    }
+
 
     public void ShowDeedCompleted(
         DeedDefinition deed,

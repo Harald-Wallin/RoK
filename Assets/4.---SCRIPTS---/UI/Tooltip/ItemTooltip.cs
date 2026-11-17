@@ -31,6 +31,16 @@ public class ItemTooltip : MonoBehaviour
     [SerializeField] private CanvasGroup canvasGroup;
     private RectTransform rectTransform;
 
+    private const float SimpleHorizontalPadding = 16f;
+
+    private bool simpleWidthActive;
+    private float regularWidth;
+    private float regularPanelSizeDeltaX;
+    private float regularTitleSizeDeltaX;
+    private ContentSizeFitter tooltipSizeFitter;
+    private ContentSizeFitter.FitMode regularHorizontalFit;
+
+
     private ITooltipProvider currentProvider;
     private RectTransform currentTarget;
     private CharacterStats currentCaster;
@@ -70,13 +80,14 @@ public class ItemTooltip : MonoBehaviour
     ITooltipProvider provider,
     RectTransform target,
     CharacterStats caster,
-    TooltipAnchorMode mode = TooltipAnchorMode.TopRight
-)
+    TooltipAnchorMode mode = TooltipAnchorMode.TopRight)
     {
-        if (provider == null || target == null) return;
+        if (provider == null || target == null)
+            return;
+
+        RestoreRegularWidth();
 
         currentProvider = provider;
-
         currentTarget = target;
         currentCaster = caster;
         currentAnchorMode = mode;
@@ -88,36 +99,60 @@ public class ItemTooltip : MonoBehaviour
     }
 
     public void ShowFixedBottomRight(
-    ITooltipProvider provider,
-    CharacterStats viewer)
+        ITooltipProvider provider,
+        CharacterStats viewer)
     {
         if (provider == null)
             return;
 
-        currentProvider =
-            provider;
+        RestoreRegularWidth();
 
-        currentTarget =
-            null;
+        currentProvider = provider;
+        currentTarget = null;
+        currentCaster = viewer;
+        currentAnchorMode = TooltipAnchorMode.FixedBottomRightScreen;
 
-        currentCaster =
-            viewer;
-
-        currentAnchorMode =
-            TooltipAnchorMode
-                .FixedBottomRightScreen;
-
-        TooltipData data =
-            provider.GetTooltipData(
-                viewer
-            );
-
-        ApplyData(
-            data
-        );
+        TooltipData data = provider.GetTooltipData(viewer);
+        ApplyData(data);
 
         SetFixedBottomRightPosition();
     }
+
+    public void ShowTalent(TalentData data, int currentPoints, RectTransform target)
+    {
+        RestoreRegularWidth();
+
+        canvasGroup.blocksRaycasts = false;
+        var player = PlayerReference.Player;
+        currentProvider = null;
+        currentTarget = null;
+        currentCaster = null;
+
+        TooltipData tooltip = data.GetTooltipData(player, currentPoints);
+
+        nameText.text = tooltip.title;
+        nameText.color = tooltip.titleColor;
+        typeText.text = "";
+
+        descriptionText.gameObject.SetActive(
+            !string.IsNullOrEmpty(tooltip.description));
+        descriptionText.text = $"<color=#ffc70f>{tooltip.description}</color>";
+
+        statsText.text = "";
+        foreach (var line in tooltip.stats)
+            statsText.text += line + "\n";
+
+        statsText.gameObject.SetActive(tooltip.stats.Count > 0);
+        sellPriceText.gameObject.SetActive(false);
+
+        if (coinIcon != null)
+            coinIcon.SetActive(false);
+
+        canvasGroup.alpha = 1f;
+        SetPosition(target, TooltipAnchorMode.TopRight);
+    }
+
+
 
     private void SetFixedBottomRightPosition()
     {
@@ -179,45 +214,7 @@ public class ItemTooltip : MonoBehaviour
         ClampToScreen();
     }
 
-    public void ShowTalent(TalentData data, int currentPoints, RectTransform target)
-    {
-
-        canvasGroup.blocksRaycasts = false;
-        var player = PlayerReference.Player;
-        currentProvider = null;
-
-        currentTarget = null;
-        currentCaster = null;
-
-        descriptionText.gameObject.SetActive(true);
-
-        TooltipData tooltip = data.GetTooltipData(player, currentPoints);
-
-        nameText.text = tooltip.title;
-        nameText.color = tooltip.titleColor;
-
-        typeText.text = "";
-
-        descriptionText.gameObject.SetActive(
-            !string.IsNullOrEmpty(tooltip.description)
-        );
-        descriptionText.text = $"<color=#ffc70f>{tooltip.description}</color>";
-
-        statsText.text = "";
-        foreach (var line in tooltip.stats)
-        {
-            statsText.text += line + "\n";
-        }
-
-        statsText.gameObject.SetActive(tooltip.stats.Count > 0);
-        sellPriceText.gameObject.SetActive(false);
-
-        if (coinIcon != null)
-            coinIcon.SetActive(false);
-
-        canvasGroup.alpha = 1f;
-        SetPosition(target, TooltipAnchorMode.TopRight);
-    }
+    
 
     void ApplyData(TooltipData data)
     {
@@ -406,6 +403,11 @@ public class ItemTooltip : MonoBehaviour
         }
     }
 
+    public bool IsShowingFor(RectTransform target)
+    {
+        return target != null && currentTarget == target;
+    }
+
     public void Hide()
     {
         currentProvider = null;
@@ -557,8 +559,8 @@ public class ItemTooltip : MonoBehaviour
         currentCaster = null;
         currentAnchorMode = TooltipAnchorMode.TopRight;
 
-        // RESET
         nameText.color = Color.white;
+        nameText.text = text;
 
         typeText.gameObject.SetActive(false);
         descriptionText.gameObject.SetActive(false);
@@ -568,13 +570,66 @@ public class ItemTooltip : MonoBehaviour
         if (coinIcon != null)
             coinIcon.SetActive(false);
 
-        // CONTENT
-        nameText.text = text;
+        FitSimpleWidth(text);
 
-        // SHOW
         canvasGroup.alpha = 1f;
-
         SetPosition(target, currentAnchorMode);
+    }
+
+    private void FitSimpleWidth(string text)
+    {
+        RectTransform titleRect = nameText.rectTransform;
+
+        if (!simpleWidthActive)
+        {
+            simpleWidthActive = true;
+            regularWidth = rectTransform.rect.width;
+            regularPanelSizeDeltaX = rectTransform.sizeDelta.x;
+            regularTitleSizeDeltaX = titleRect.sizeDelta.x;
+
+            if (TryGetComponent(out tooltipSizeFitter))
+            {
+                regularHorizontalFit = tooltipSizeFitter.horizontalFit;
+                tooltipSizeFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            }
+        }
+
+        float padding = SimpleHorizontalPadding;
+
+        if (TryGetComponent(out LayoutGroup layoutGroup))
+            padding = Mathf.Max(padding, layoutGroup.padding.horizontal);
+
+        float preferredWidth = nameText.GetPreferredValues(text).x;
+        float width = Mathf.Ceil(preferredWidth + padding);
+
+        if (regularWidth > 0f)
+            width = Mathf.Min(width, regularWidth);
+
+        rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width);
+
+        if (Mathf.Approximately(titleRect.anchorMin.x, titleRect.anchorMax.x))
+        {
+            titleRect.SetSizeWithCurrentAnchors(
+                RectTransform.Axis.Horizontal, Mathf.Max(1f, width - padding));
+        }
+    }
+
+    private void RestoreRegularWidth()
+    {
+        if (!simpleWidthActive)
+            return;
+
+        simpleWidthActive = false;
+
+        rectTransform.sizeDelta = new Vector2(
+            regularPanelSizeDeltaX, rectTransform.sizeDelta.y);
+
+        RectTransform titleRect = nameText.rectTransform;
+        titleRect.sizeDelta = new Vector2(
+            regularTitleSizeDeltaX, titleRect.sizeDelta.y);
+
+        if (tooltipSizeFitter != null)
+            tooltipSizeFitter.horizontalFit = regularHorizontalFit;
     }
 
 }

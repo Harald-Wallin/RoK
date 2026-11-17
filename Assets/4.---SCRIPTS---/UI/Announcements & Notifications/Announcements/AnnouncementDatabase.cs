@@ -18,4 +18,7 @@ public class AnnouncementDatabase : ScriptableObject
 
     [Header("Deeds")]
     public AnnouncementData deedCompleted;
+
+    [Header("Trials")]
+    public AnnouncementData trialEntered;
 }

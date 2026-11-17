@@ -279,44 +279,53 @@ public sealed class InteractionManager : MonoBehaviour
     }
 
     private bool ExecuteOption(
-        IInteractionOption option,
-        in InteractionContext context)
+    IInteractionOption option,
+    in InteractionContext context)
     {
-        if (option == null ||
-            !context.IsValid)
-        {
-            return false;
-        }
-
-        if (!context.Target
-                .IsWithinInteractionDistance(
-                    context.Player.transform))
+        if (option == null || !context.IsValid ||
+            !context.Target.IsWithinInteractionDistance(context.Player.transform) ||
+            !option.CanInteract(context))
         {
             ClearCurrentInteraction();
             return false;
         }
 
-        if (!option.CanInteract(context))
+        PlayerTimedInteraction runner =
+            context.Player.GetComponent<PlayerTimedInteraction>();
+
+        if (runner == null)
+            runner = context.Player.gameObject.AddComponent<PlayerTimedInteraction>();
+
+        InteractionContext savedContext = context;
+        InteractionTimingQuery timing =
+            InteractionTimingQuery.Resolve(savedContext, option);
+
+        return runner.TryExecute(
+            savedContext,
+            option,
+            timing,
+            () =>
+            {
+                if (this != null)
+                    CommitOption(option, savedContext);
+            });
+    }
+
+    private void CommitOption(
+        IInteractionOption option,
+        InteractionContext context)
+    {
+        if (!context.IsValid ||
+            !context.Target.isActiveAndEnabled ||
+            !context.Target.IsWithinInteractionDistance(context.Player.transform) ||
+            !option.CanInteract(context))
         {
-            ClearCurrentInteraction();
-            return false;
+            return;
         }
 
-        InteractionEvents
-    .RaiseInteractionCommitted(
-        context
-    );
-
-        option.Interact(
-            context
-        );
-
-        InteractionEvents
-            .RaiseInteractionCompleted(
-                context
-            );
-
-        return true;
+        InteractionEvents.RaiseInteractionCommitted(context);
+        option.Interact(context);
+        InteractionEvents.RaiseInteractionCompleted(context);
     }
 
     private void RemoveUnavailableOptions(
