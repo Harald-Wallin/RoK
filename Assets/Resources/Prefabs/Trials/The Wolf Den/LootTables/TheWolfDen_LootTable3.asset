@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 28ca168ea871a6041b408d3647ac4938, type: 3}
   m_Name: TheWolfDen_LootTable3
   m_EditorClassIdentifier: Assembly-CSharp::LootTable
-  mode: 0
+  mode: 1
   entries:
   - type: 1
     item: {fileID: 0}

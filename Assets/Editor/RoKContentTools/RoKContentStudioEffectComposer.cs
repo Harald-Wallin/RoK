@@ -85,24 +85,27 @@ public sealed class RoKContentStudioEffectComposer
     // =====================================================
 
     private static void DrawBuffProperties(
-        BuffDefinition buff)
+    BuffDefinition buff)
     {
-        SerializedObject serialized =
-            new SerializedObject(buff);
-
+        SerializedObject serialized = new(buff);
         serialized.Update();
 
         EditorGUILayout.LabelField(
             "Buff Configuration",
-            EditorStyles.boldLabel
-        );
+            EditorStyles.boldLabel);
 
         DrawProperty(
             serialized,
             "description",
             "Description",
-            "Valfri beskrivning av buffen."
-        );
+            "Valfri beskrivning av buffen.");
+
+        DrawProperty(
+            serialized,
+            "isDebuff",
+            "Is Debuff",
+            "Aktivera för negativa effekter på fiender. " +
+            "Används bland annat för support contribution och dispel.");
 
         EditorGUILayout.Space();
 
@@ -111,44 +114,35 @@ public sealed class RoKContentStudioEffectComposer
             "duration",
             "Duration",
             "Buffens varaktighet i sekunder. " +
-            "Effektdefinitionerna äger ingen timer."
-        );
+            "Effektdefinitionerna äger ingen timer.");
 
         DrawProperty(
             serialized,
             "maxStacks",
             "Max Stacks",
             "Maximalt antal stacks för samma buff " +
-            "från samma källa."
-        );
+            "från samma källa.");
 
         DrawProperty(
             serialized,
             "refreshDurationOnReapply",
             "Refresh On Reapply",
-            "Återställer buffens timer när den " +
-            "appliceras igen."
-        );
+            "Återställer buffens timer när den appliceras igen.");
 
         DrawProperty(
             serialized,
             "removeOnDeath",
             "Remove On Death",
-            "Tar bort buffen när karaktären dör."
-        );
+            "Tar bort buffen när karaktären dör.");
 
         DrawProperty(
             serialized,
             "removeOnEncounterReset",
             "Remove On Encounter Reset",
-            "Tar bort buffen när en NPC gör " +
-            "full encounter-reset."
-        );
+            "Tar bort buffen när en NPC gör full encounter-reset.");
 
         if (serialized.ApplyModifiedProperties())
-        {
             EditorUtility.SetDirty(buff);
-        }
     }
 
     private static void DrawProperty(

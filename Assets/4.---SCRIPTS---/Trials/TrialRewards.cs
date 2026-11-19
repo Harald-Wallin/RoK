@@ -8,8 +8,11 @@ public sealed class TrialRewards
     [Serializable]
     private sealed class FactionReward
     {
-        [SerializeField] private Faction faction;
-        [SerializeField, Min(0)] private int baseReputation;
+        [SerializeField]
+        private Faction faction;
+
+        [SerializeField, Min(0)]
+        private int baseReputation;
 
         public Faction Faction => faction;
         public int BaseReputation => baseReputation;
@@ -17,87 +20,127 @@ public sealed class TrialRewards
 
     private sealed class Receipt
     {
-        public readonly float Contribution;
+        public readonly TrialParticipantResult Result;
         public readonly int Tier;
         public readonly List<string> Paid = new();
 
         public LootGenerationResult Loot;
 
-        public Receipt(float contribution, int tier)
+        public Receipt(
+            TrialParticipantResult result,
+            int tier)
         {
-            Contribution = contribution;
+            Result = result;
             Tier = tier;
         }
     }
 
-    [Header("Progression")]
-    [SerializeField, Min(0)] private int baseExperience = 1000;
-    [SerializeField, Range(0f, 100f)] private float minimumContributionPercent = 5f;
-    [SerializeField, Min(0f)] private float failedRewardPercent = 50f;
-    [SerializeField, Min(0f)] private float completedRewardPercent = 120f;
-    [SerializeField] private List<FactionReward> factionRewards = new();
+    [Header("Progression — Same Amount For Every Eligible Player")]
+
+    [SerializeField, Min(0)]
+    private int baseExperience = 1000;
+
+    [SerializeField, Min(0f)]
+    private float failedRewardPercent = 50f;
+
+    [SerializeField, Min(0f)]
+    private float completedRewardPercent = 120f;
+
+    [SerializeField]
+    private List<FactionReward> factionRewards = new();
 
     [Header("Victory Chest")]
-    [SerializeField] private LootContainer rewardContainerPrefab;
-    [SerializeField, HideInInspector] private Transform rewardContainerPoint;
-    [SerializeField] private Sprite fullChestSprite;
-    [SerializeField] private Sprite emptyChestSprite;
 
-    [Header("Loot Tiers")]
-    [SerializeField, Range(0f, 100f)] private float tierOnePercent = 10f;
-    [SerializeField] private LootTable tierOneLoot;
-    [SerializeField, Range(0f, 100f)] private float tierTwoPercent = 30f;
-    [SerializeField] private LootTable tierTwoLoot;
-    [SerializeField, Range(0f, 100f)] private float tierThreePercent = 85f;
-    [SerializeField] private LootTable tierThreeLoot;
+    [SerializeField]
+    private LootContainer rewardContainerPrefab;
 
-    private readonly Dictionary<PlayerStats, Receipt> receipts = new();
+    [SerializeField, HideInInspector]
+    private Transform rewardContainerPoint;
+
+    [SerializeField]
+    private Sprite fullChestSprite;
+
+    [SerializeField]
+    private Sprite emptyChestSprite;
+
+    [Header("Ordinary Loot — Thresholds Come From Contribution Settings")]
+
+    [SerializeField]
+    private LootTable tierOneLoot;
+
+    [SerializeField]
+    private LootTable tierTwoLoot;
+
+    [SerializeField]
+    private LootTable tierThreeLoot;
+
+    [Header("Additional Placement Loot — Victory Only")]
+
+    [SerializeField]
+    private LootTable firstPlaceLoot;
+
+    [SerializeField]
+    private LootTable secondPlaceLoot;
+
+    [SerializeField]
+    private LootTable thirdPlaceLoot;
+
+    private readonly Dictionary<PlayerStats, Receipt>
+        receipts = new();
+
     private LootContainer localChest;
     private bool settled;
 
     internal void Settle(
         bool completed,
-        IReadOnlyList<(PlayerStats Player, float Contribution)> participants)
+        IReadOnlyList<TrialParticipantResult> participants,
+        TrialContributionSettings settings)
     {
         if (settled)
             return;
 
         settled = true;
 
-        // Freeze every result before awarding XP or firing reputation events.
-        foreach (var participant in participants)
+        foreach (TrialParticipantResult result in participants)
         {
-            PlayerStats player = participant.Player;
-
-            if (player == null || receipts.ContainsKey(player))
-                continue;
-
-            float contribution = Mathf.Clamp01(participant.Contribution);
-            int tier = completed && IsEligible(contribution)
-                ? GetTier(contribution)
-                : 0;
-
-            receipts.Add(player, new Receipt(contribution, tier));
-        }
-
-        float payoutPercent = completed ? completedRewardPercent : failedRewardPercent;
-
-        foreach (var participant in participants)
-        {
-            PlayerStats player = participant.Player;
-
-            if (!settled)
-                return;
-
-            if (player == null ||
-                !receipts.TryGetValue(player, out Receipt receipt) ||
-                !IsEligible(receipt.Contribution))
+            if (result.Player == null ||
+                receipts.ContainsKey(result.Player))
             {
                 continue;
             }
 
-            GrantProgression(player, receipt, payoutPercent);
-            RollChest(receipt);
+            int tier =
+                completed && result.Eligible
+                    ? settings.GetTier(result.AverageRatio)
+                    : 0;
+
+            Receipt receipt = new(result, tier);
+            receipts.Add(result.Player, receipt);
+
+            if (completed && result.Eligible)
+                RollChest(receipt);
+        }
+
+        float payout = completed
+            ? completedRewardPercent
+            : failedRewardPercent;
+
+        foreach (TrialParticipantResult result in participants)
+        {
+            if (!settled)
+                return;
+
+            if (result.Player != null &&
+                result.Eligible &&
+                receipts.TryGetValue(
+                    result.Player,
+                    out Receipt receipt))
+            {
+                GrantProgression(
+                    result.Player,
+                    receipt,
+                    payout);
+            }
         }
 
         if (settled)
@@ -115,59 +158,61 @@ public sealed class TrialRewards
         if (chest != null)
         {
             chest.ExpireTrialLoot();
-            UnityEngine.Object.Destroy(chest.gameObject);
+
+            UnityEngine.Object.Destroy(
+                chest.gameObject);
         }
     }
 
     internal string Describe(PlayerStats player)
     {
-        if (player == null || !receipts.TryGetValue(player, out Receipt receipt))
-            return string.Empty;
-
-        string contribution = $"{receipt.Contribution:P0} contribution";
-
-        if (!IsEligible(receipt.Contribution))
-            return $"{contribution} · Below reward minimum";
-
-        string tier = receipt.Tier switch
+        if (player == null ||
+            !receipts.TryGetValue(
+                player,
+                out Receipt receipt))
         {
-            1 => "Tier I",
-            2 => "Tier II",
-            3 => "Tier III",
-            _ => string.Empty
-        };
+            return string.Empty;
+        }
 
-        if (receipt.Loot != null)
-            contribution += $" · {tier}";
+        TrialParticipantResult result =
+            receipt.Result;
 
-        return receipt.Paid.Count > 0
-            ? $"{contribution}\n{string.Join(" · ", receipt.Paid)}"
-            : contribution;
-    }
+        string text =
+            $"{result.Points:0.#} CP";
 
-    private bool IsEligible(float contribution)
-    {
-        return contribution >= minimumContributionPercent / 100f;
-    }
+        if (!result.Eligible)
+            return $"{text} · Below participation minimum";
 
-    private int GetTier(float contribution)
-    {
-        if (contribution >= tierThreePercent / 100f)
-            return 3;
+        text +=
+            $" · {result.AverageRatio:P0} of average" +
+            $" · Place {result.Placement}";
 
-        if (contribution >= tierTwoPercent / 100f)
-            return 2;
+        if (receipt.Tier > 0)
+            text += $" · Loot tier {receipt.Tier}";
 
-        return contribution >= tierOnePercent / 100f ? 1 : 0;
+        if (receipt.Paid.Count > 0)
+        {
+            text +=
+                $"\n{string.Join(" · ", receipt.Paid)}";
+        }
+
+        return text;
     }
 
     private void GrantProgression(
-        PlayerStats player, Receipt receipt, float payoutPercent)
+        PlayerStats player,
+        Receipt receipt,
+        float payoutPercent)
     {
-        int experience = Scale(baseExperience, receipt.Contribution, payoutPercent);
+        int experience =
+            Scale(baseExperience, payoutPercent);
 
-        if (experience > 0 && player.GainExp(experience))
-            receipt.Paid.Add($"+{experience} XP");
+        if (experience > 0 &&
+            player.GainExp(experience))
+        {
+            receipt.Paid.Add(
+                $"+{experience} XP");
+        }
 
         PlayerReputationManager reputation =
             player.GetComponent<PlayerReputationManager>();
@@ -177,20 +222,33 @@ public sealed class TrialRewards
 
         foreach (FactionReward reward in factionRewards)
         {
-            if (reward == null || reward.Faction == null)
+            if (reward == null ||
+                reward.Faction == null)
+            {
                 continue;
+            }
 
             int amount = Scale(
-                reward.BaseReputation, receipt.Contribution, payoutPercent);
+                reward.BaseReputation,
+                payoutPercent);
 
-            if (amount > 0 && reputation.AddReputation(reward.Faction, amount))
-                receipt.Paid.Add($"+{amount} {reward.Faction.DisplayName} reputation");
+            if (amount > 0 &&
+                reputation.AddReputation(
+                    reward.Faction,
+                    amount))
+            {
+                receipt.Paid.Add(
+                    $"+{amount} " +
+                    $"{reward.Faction.DisplayName} reputation");
+            }
         }
     }
 
     private void RollChest(Receipt receipt)
     {
-        LootTable table = receipt.Tier switch
+        List<LootTable> tables = new();
+
+        LootTable ordinary = receipt.Tier switch
         {
             1 => tierOneLoot,
             2 => tierTwoLoot,
@@ -198,50 +256,84 @@ public sealed class TrialRewards
             _ => null
         };
 
-        if (table != null)
+        LootTable bonus =
+            receipt.Result.Placement switch
+            {
+                1 => firstPlaceLoot,
+                2 => secondPlaceLoot,
+                3 => thirdPlaceLoot,
+                _ => null
+            };
+
+        if (ordinary != null)
+            tables.Add(ordinary);
+
+        if (bonus != null)
+            tables.Add(bonus);
+
+        if (tables.Count > 0)
         {
-            receipt.Loot = LootGenerator.GenerateLootResult(
-                new List<LootTable> { table }, 1, 1);
+            receipt.Loot =
+                LootGenerator.GenerateLootResult(
+                    tables,
+                    1,
+                    1);
         }
     }
 
     private void SpawnLocalChest()
     {
-        PlayerStats player = PlayerReference.Player;
+        PlayerStats player =
+            PlayerReference.Player;
 
         if (player == null ||
-            !receipts.TryGetValue(player, out Receipt receipt) ||
+            !receipts.TryGetValue(
+                player,
+                out Receipt receipt) ||
             receipt.Loot == null)
         {
             return;
         }
 
-        if (rewardContainerPrefab == null || rewardContainerPoint == null ||
+        if (rewardContainerPrefab == null ||
+            rewardContainerPoint == null ||
             !rewardContainerPrefab.IsTrialManaged ||
             !rewardContainerPrefab.gameObject.activeSelf)
         {
             Debug.LogWarning(
-                "Trial chest needs an active Trial Managed LootContainer prefab and a RewardContainerPoint.",
+                "Trial chest needs an active Trial Managed " +
+                "LootContainer prefab and a RewardContainerPoint.",
                 player);
+
             return;
         }
 
-        localChest = UnityEngine.Object.Instantiate(
-            rewardContainerPrefab,
-            rewardContainerPoint.position,
-            rewardContainerPoint.rotation);
+        localChest =
+            UnityEngine.Object.Instantiate(
+                rewardContainerPrefab,
+                rewardContainerPoint.position,
+                rewardContainerPoint.rotation);
 
         localChest.InitializeTrialLoot(
-            player, receipt.Loot, fullChestSprite, emptyChestSprite);
+            player,
+            receipt.Loot,
+            fullChestSprite,
+            emptyChestSprite);
     }
 
-    private static int Scale(int amount, float contribution, float payoutPercent)
+    private static int Scale(
+        int amount,
+        float payoutPercent)
     {
         double scaled =
-            Math.Max(0, amount) * (double)contribution *
-            Math.Max(0f, payoutPercent) / 100d;
+            Math.Max(0, amount) *
+            Math.Max(0f, payoutPercent) /
+            100d;
 
         return (int)Math.Min(
-            int.MaxValue, Math.Round(scaled, MidpointRounding.AwayFromZero));
+            int.MaxValue,
+            Math.Round(
+                scaled,
+                MidpointRounding.AwayFromZero));
     }
 }

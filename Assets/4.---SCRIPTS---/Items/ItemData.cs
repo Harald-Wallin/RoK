@@ -30,7 +30,9 @@ public enum ItemType
     Offhand,
     Shield,
     FavourItem,
-    Food
+    Food,
+    Container,
+    Trophy
 }
 
 [CreateAssetMenu(
@@ -103,6 +105,33 @@ public class ItemData :
                TryGetWeaponDamageRange(out _);
     }
 
+    [Header("Container")]
+
+    [SerializeField]
+    private List<LootTable> containerLootTables = new();
+
+    [SerializeField, Min(0)]
+    private int containerMinRolls = 1;
+
+    [SerializeField, Min(0)]
+    private int containerMaxRolls = 1;
+
+    public bool IsContainer =>
+        itemType == ItemType.Container;
+
+    public bool IsTrophy =>
+        itemType == ItemType.Trophy;
+
+    public IReadOnlyList<LootTable> ContainerLootTables =>
+        containerLootTables != null
+            ? containerLootTables
+            : Array.Empty<LootTable>();
+
+    public int ContainerMinRolls =>
+        Mathf.Max(0, containerMinRolls);
+
+    public int ContainerMaxRolls =>
+        Mathf.Max(ContainerMinRolls, containerMaxRolls);
 
     [Header("Favour Item")]
 
@@ -542,15 +571,35 @@ public class ItemData :
 
     protected virtual void OnValidate()
     {
-        favourUse ??=
-        new ItemFavourUseSettings();
+        favourUse ??= new ItemFavourUseSettings();
+        containerLootTables ??= new List<LootTable>();
+
+        containerMinRolls =
+            Mathf.Max(0, containerMinRolls);
+
+        containerMaxRolls =
+            Mathf.Max(containerMinRolls, containerMaxRolls);
+
+        if (IsContainer)
+        {
+            equippable = false;
+            stackable = false;
+        }
+        else if (IsTrophy)
+        {
+            equippable = false;
+            rarity = ItemRarity.Extraordinary;
+
+            if (!stackable || maxStack <= 1)
+                maxStack = 999;
+
+            stackable = true;
+        }
 
         maxStack = stackable
-                ? Mathf.Max(
-                    1,
-                    maxStack
-                )
-                : 1;
+            ? Mathf.Max(1, maxStack)
+            : 1;
+
         if (itemType != ItemType.FavourItem)
         {
             requiredFavour = null;
@@ -563,28 +612,16 @@ public class ItemData :
         }
 
         foodHealingPerTick =
-    Mathf.Max(
-        1,
-        foodHealingPerTick
-    );
+            Mathf.Max(1, foodHealingPerTick);
 
         foodTickInterval =
-            Mathf.Max(
-                0.1f,
-                foodTickInterval
-            );
+            Mathf.Max(0.1f, foodTickInterval);
 
         foodChannelDuration =
-            Mathf.Max(
-                foodTickInterval,
-                foodChannelDuration
-            );
+            Mathf.Max(foodTickInterval, foodChannelDuration);
 
         maximumOwned =
-            Mathf.Max(
-                0,
-                maximumOwned
-            );
+            Mathf.Max(0, maximumOwned);
     }
 #endif
 }

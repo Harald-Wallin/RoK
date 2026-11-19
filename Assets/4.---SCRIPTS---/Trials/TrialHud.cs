@@ -149,35 +149,41 @@ public sealed class TrialHud : MonoBehaviour
 
         zone.CopyScoresTo(scoreRows);
 
-        float previousContribution = -1f;
-        int placement = 0;
-
         for (int i = 0; i < scoreRows.Count; i++)
         {
             TrialZone.Score score = scoreRows[i];
-            float contribution = zone.GetContribution(score);
+            float ratio = zone.GetContribution(score);
 
-            if (!Mathf.Approximately(contribution, previousContribution))
-                placement = i + 1;
+            columnLines[0].AppendLine(
+                ratio > 0f
+                    ? (i + 1).ToString()
+                    : "—");
 
-            previousContribution = contribution;
-
-            double total =
-                (double)score.Damage + score.Healing + score.Tanking + score.Objectives;
-
-            columnLines[0].AppendLine(placement.ToString());
             columnLines[1].AppendLine(score.Name);
-            columnLines[2].AppendLine(score.Damage.ToString());
-            columnLines[3].AppendLine(score.Healing.ToString());
-            columnLines[4].AppendLine(score.Tanking.ToString("0.0"));
-            columnLines[5].AppendLine("0");
-            columnLines[6].AppendLine($"{total:0.#} ({contribution:P0})");
+
+            columnLines[2].AppendLine(
+                score.DamagePoints.ToString("0.#"));
+
+            columnLines[3].AppendLine(
+                score.HealingPoints.ToString("0.#"));
+
+            columnLines[4].AppendLine(
+                score.TankingPoints.ToString("0.#"));
+
+            columnLines[5].AppendLine(
+                score.SupportPoints.ToString("0.#"));
+
+            columnLines[6].AppendLine(
+                $"{score.TotalPoints:0.#} ({ratio:P0})");
         }
 
         for (int i = 0; i < debugColumns.Length; i++)
         {
             if (debugColumns[i] != null)
-                debugColumns[i].text = columnLines[i].ToString();
+            {
+                debugColumns[i].text =
+                    columnLines[i].ToString();
+            }
         }
     }
 #endif

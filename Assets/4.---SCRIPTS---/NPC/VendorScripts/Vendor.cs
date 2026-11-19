@@ -10,576 +10,570 @@ public class Vendor : MonoBehaviour, IInteractionOption
         public int quantity;
         public int pricePaid;
         public float expiryTime;
+        public InventoryContainerLoot containerLoot;
     }
 
     [Header("Buyback Settings")]
     [SerializeField] private int maxBuybackSlots = 5;
     [SerializeField] private float buybackLifetime = 1200f;
 
-    private List<VendorItemRuntime> runtimeItems = new List<VendorItemRuntime>();
-    private List<BuybackEntry> buybackItems = new List<BuybackEntry>();
-
-    public List<VendorItemRuntime> GetItems()
-    {
-        return runtimeItems;
-    }
-    public List<BuybackEntry> GetBuybackItems()
-    {
-        return buybackItems;
-    }
-
     [Header("Vendor Settings")]
     [SerializeField] private Faction faction;
 
+    [Tooltip(
+        "Empty = coins. Assign an ItemType.Trophy to charge " +
+        "that trophy for purchases. Selling and buyback always use coins.")]
+    [SerializeField]
+    private ItemData paymentTrophy;
+
     [Header("Items For Sale")]
-   
-    [SerializeField] private List<VendorItem> itemsForSale = new List<VendorItem>();
+    [SerializeField]
+    private List<VendorItem> itemsForSale = new();
 
     public VendorUI vendorUI;
+
+    private bool trading;
+
+    private readonly List<VendorItemRuntime> runtimeItems = new();
+    private readonly List<BuybackEntry> buybackItems = new();
+
+    public bool UsesTrophies => paymentTrophy != null;
+    public ItemData PaymentTrophy => paymentTrophy;
+
     public InteractionCategory Category =>
-    InteractionCategory.Vendor;
+        InteractionCategory.Vendor;
 
-    public InteractionPresentation
-        GetPresentation()
-    {
-        return new InteractionPresentation(
-            Category,
-            "Trade"
-        );
-    }
+    public List<VendorItemRuntime> GetItems() =>
+        runtimeItems;
 
-    public string GetStatusText()
-    {
-        return string.Empty;
-    }
+    public List<BuybackEntry> GetBuybackItems() =>
+        buybackItems;
 
+    public Faction GetFaction() => faction;
 
-    void Start()
-    {
-        InitializeRuntimeInventory();
-    }
-    void Update()
-    {
-        RemoveExpiredBuybacks();
-        UpdateRestocks();
-    }
+    public InteractionPresentation GetPresentation() =>
+        new(Category, "Trade");
 
-    void RemoveExpiredBuybacks()
-    {
-        for (int i = buybackItems.Count - 1; i >= 0; i--)
-        {
-            if (Time.time >= buybackItems[i].expiryTime)
-            {
-                buybackItems.RemoveAt(i);
-            }
-        }
-    }
+    public string GetStatusText() =>
+        string.Empty;
 
-    void InitializeRuntimeInventory()
+    private void Start()
     {
         runtimeItems.Clear();
 
-        foreach (var item in itemsForSale)
+        foreach (VendorItem item in itemsForSale)
         {
-            runtimeItems.Add(new VendorItemRuntime(item));
+            if (item != null && item.item != null)
+                runtimeItems.Add(new VendorItemRuntime(item));
         }
     }
 
-    public bool CanInteract(
-    in InteractionContext context)
+    private void Update()
     {
-        if (!context.IsValid)
-            return false;
+        bool expired = false;
 
-        PlayerReputationManager repManager =
-            context.Player.GetComponent<
-                PlayerReputationManager>();
+        for (int i = buybackItems.Count - 1; i >= 0; i--)
+        {
+            if (Time.time < buybackItems[i].expiryTime)
+                continue;
 
-        return CanTrade(repManager);
+            buybackItems.RemoveAt(i);
+            expired = true;
+        }
+
+        if (expired &&
+            VendorUI.Instance != null &&
+            VendorUI.Instance.ActiveVendor == this)
+        {
+            VendorUI.Instance.RefreshBuybackUI();
+        }
+
+        UpdateRestocks();
+    }
+
+    public bool CanInteract(
+        in InteractionContext context)
+    {
+        return context.IsValid &&
+               CanTrade(
+                   context.Player.GetComponent<PlayerReputationManager>());
     }
 
     public void Interact(
         in InteractionContext context)
     {
-        if (!CanInteract(context))
-            return;
-
-        OpenVendor();
+        if (CanInteract(context))
+            OpenVendor();
     }
 
     public void OpenVendor()
     {
-        VendorUI targetUI =
-            vendorUI != null
-                ? vendorUI
-                : VendorUI.Instance;
+        VendorUI ui =
+            vendorUI != null ? vendorUI : VendorUI.Instance;
 
-        if (targetUI == null)
-        {
-            Debug.LogWarning(
-                $"Vendor '{name}' kunde inte öppnas eftersom " +
-                "ingen VendorUI finns tillgänglig.",
-                this);
-
+        if (ui == null)
             return;
-        }
 
-        targetUI.Open(this);
+        ui.Open(this);
+
         InteractionTarget target =
-            GetComponentInChildren<
-        InteractionTarget>();
+            GetComponentInChildren<InteractionTarget>();
 
         if (target != null)
         {
-            GlobalUIManager.Instance?
-                .RegisterInteractionWindow(
-                    targetUI,
-                    target.InteractionTransform,
-                    target.WindowCloseDistance);
+            GlobalUIManager.Instance?.RegisterInteractionWindow(
+                ui,
+                target.InteractionTransform,
+                target.WindowCloseDistance);
         }
     }
 
-    public bool CanTrade(PlayerReputationManager repManager)
+    public bool CanTrade(
+        PlayerReputationManager reputation)
     {
-        if (repManager == null)
-            return false;
-
-        NPCReactionController reaction = GetComponent<NPCReactionController>();
-
-        if (reaction != null &&
-            reaction.IsTemporarilyHostile)
-        {
-            return false;
-        }
-
-        if (IsTemporarilyHostile())
-            return false;
-
-        if (faction == null)
-            return true;
-
-        return repManager.GetReputationState(faction)
-               >= ReputationState.Indifferent;
+        return reputation != null &&
+               !IsTemporarilyHostile() &&
+               (faction == null ||
+                reputation.GetReputationState(faction) >=
+                    ReputationState.Indifferent);
     }
 
     public bool IsTemporarilyHostile()
     {
-        NPCReactionController reaction = GetComponent<NPCReactionController>();
+        NPCReactionController reaction =
+            GetComponent<NPCReactionController>();
 
         return reaction != null &&
                reaction.IsTemporarilyHostile;
     }
 
-    public void BuyItem(VendorItemRuntime entry)
-    {
-        if (entry == null || entry.data == null || entry.data.item == null)
-            return;
-
-        PlayerStats player = PlayerReference.Player;
-
-        PlayerItemOwnership ownership =
-    PlayerFavourManager.Instance?
-        .PlayerItems;
-
-        if (ownership != null &&
-            !ownership.CanReceive(
-                entry.data.item,
-                1
-            ))
-        {
-            Debug.Log(
-                $"Cannot buy '{entry.data.item.DisplayName}': " +
-                "ownership limit reached."
-            );
-
-            return;
-        }
-
-        // Kontrollera level-krav på VendorItem (VendorItem.requiredLevel)
-        if (entry.data.useLevelRequirement && entry.data.requiredLevel > player.level)
-        {
-            Debug.Log("Level too low to buy this item.");
-            return;
-        }
-
-        // Kontrollera reputation-krav om item kräver det
-        if (entry.data.useReputationRequirement)
-        {
-            PlayerReputationManager repManager = FindFirstObjectByType<PlayerReputationManager>();
-
-            if (repManager == null || faction == null)
-            {
-                Debug.Log("Cannot determine reputation for this vendor. Purchase denied.");
-                return;
-            }
-
-            var state = repManager.GetReputationState(faction);
-            if (state < entry.data.requiredReputation)
-            {
-                Debug.Log("Your reputation is too low to buy this item.");
-                return;
-            }
-        }
-
-        // 🛑 STOPPA KÖP OM STOCK = 0
-        if (entry.data.stockType == VendorStockType.Limited && entry.currentStock <= 0)
-        {
-            Debug.Log("Item out of stock.");
-            return;
-        }
-
-        int price = GetModifiedPrice(entry.data);
-
-        if (price < 0)
-        {
-            Debug.Log("Vendor refuses to trade with you.");
-            return;
-        }
-
-        if (!PlayerCurrency.Instance.TrySpendCoins(price))
-        {
-            Debug.Log("Not enough coins.");
-            return;
-        }
-
-        bool added = Inventory.Instance.AddItem(entry.data.item, 1);
-
-        if (!added)
-        {
-            Debug.Log("Inventory full.");
-            PlayerCurrency.Instance.AddCoins(price);
-            return;
-        }
-
-        // 🔻 Minska lager om item inte är infinite
-        if (entry.data.stockType == VendorStockType.Limited)
-        {
-            entry.currentStock--;
-
-            if (entry.currentStock <= 0)
-            {
-                entry.currentStock = 0;
-
-                if (entry.data.restockTime > 0)
-                    entry.restockTimer = entry.data.restockTime;
-            }
-        }
-
-        //Debug.Log($"Bought {entry.data.item.itemName} for {price} coins.");
-    }
-
     public int GetModifiedPrice(VendorItem entry)
     {
+        if (entry == null || entry.vendorPrice < 0)
+            return -1;
 
-        int basePrice = entry.vendorPrice;
+        PlayerStats player =
+            PlayerReference.Player;
 
-        PlayerReputationManager rep =
-            FindFirstObjectByType<PlayerReputationManager>();
+        PlayerReputationManager reputation =
+            player != null
+                ? player.GetComponent<PlayerReputationManager>()
+                : null;
 
-        if (rep == null || faction == null)
-            return basePrice;
+        if (reputation == null || faction == null)
+            return entry.vendorPrice;
 
-        ReputationState state = rep.GetReputationState(faction);
+        ReputationState state =
+            reputation.GetReputationState(faction);
 
-        float modifier = 1f;
+        if (state == ReputationState.Hated)
+            return -1;
 
-        switch (state)
+        float multiplier = state switch
         {
-            case ReputationState.Hated:
-                return -1;
+            ReputationState.Untrusted => 1.15f,
+            ReputationState.Favoured => 0.97f,
+            ReputationState.Renowned => 0.94f,
+            ReputationState.Praised => 0.91f,
+            ReputationState.Revered => 0.88f,
+            _ => 1f
+        };
 
-            case ReputationState.Untrusted:
-                modifier = 1.15f;
-                break;
+        return Mathf.Max(
+            0,
+            Mathf.RoundToInt(entry.vendorPrice * multiplier));
+    }
 
-            case ReputationState.Indifferent:
-                modifier = 1f;
-                break;
+    public string GetPriceText(VendorItem entry)
+    {
+        int price = GetModifiedPrice(entry);
 
-            case ReputationState.Favoured:
-                modifier = 0.97f;
-                break;
+        return price < 0
+            ? "Unavailable"
+            : UsesTrophies
+                ? $"{price} {paymentTrophy.DisplayName}"
+                : price.ToString();
+    }
 
-            case ReputationState.Renowned:
-                modifier = 0.94f;
-                break;
+    public bool CanAfford(VendorItem entry)
+    {
+        int price = GetModifiedPrice(entry);
 
-            case ReputationState.Praised:
-                modifier = 0.91f;
-                break;
+        if (price < 0)
+            return false;
 
-            case ReputationState.Revered:
-                modifier = 0.88f;
-                break;
+        if (UsesTrophies)
+        {
+            return paymentTrophy.IsTrophy &&
+                   Inventory.Instance != null &&
+                   Inventory.Instance.GetItemCount(paymentTrophy) >= price;
         }
 
-        return Mathf.RoundToInt(basePrice * modifier);
+        return price == 0 ||
+               (PlayerCurrency.Instance != null &&
+                PlayerCurrency.Instance.HasCoins(price));
+    }
+
+    public bool CanPurchase(VendorItemRuntime entry)
+    {
+        Inventory inventory = Inventory.Instance;
+        PlayerStats player = PlayerReference.Player;
+
+        if (inventory == null ||
+            player == null ||
+            entry?.data?.item == null ||
+            !runtimeItems.Contains(entry) ||
+            !CanTrade(player.GetComponent<PlayerReputationManager>()))
+        {
+            return false;
+        }
+
+        VendorItem offer = entry.data;
+        ItemData item = offer.item;
+
+        if (!item.MeetsRequirements(player) ||
+            (offer.useLevelRequirement &&
+             player.level < offer.requiredLevel) ||
+            (offer.stockType == VendorStockType.Limited &&
+             entry.currentStock <= 0))
+        {
+            return false;
+        }
+
+        if (offer.useReputationRequirement)
+        {
+            PlayerReputationManager rep =
+                player.GetComponent<PlayerReputationManager>();
+
+            if (rep == null ||
+                faction == null ||
+                rep.GetReputationState(faction) <
+                    offer.requiredReputation)
+            {
+                return false;
+            }
+        }
+
+        PlayerItemOwnership ownership =
+            PlayerFavourManager.Instance?.PlayerItems;
+
+        if (ownership != null &&
+            !ownership.CanReceive(item, 1))
+        {
+            return false;
+        }
+
+        return CanAfford(offer);
+    }
+
+    public void BuyItem(VendorItemRuntime entry)
+    {
+        if (trading)
+            return;
+
+        trading = true;
+
+        try
+        {
+            if (!CanPurchase(entry))
+                return;
+
+            Inventory inventory = Inventory.Instance;
+            VendorItem offer = entry.data;
+            ItemData item = offer.item;
+
+            int price = GetModifiedPrice(offer);
+            bool added;
+
+            if (UsesTrophies)
+            {
+                added = inventory.TryApplyTransaction(
+                    price > 0
+                        ? new[]
+                        {
+                            new InventoryItemAmount(
+                                paymentTrophy,
+                                price)
+                        }
+                        : null,
+                    new[]
+                    {
+                        new InventoryItemAmount(item, 1)
+                    });
+            }
+            else
+            {
+                PlayerCurrency currency =
+                    PlayerCurrency.Instance;
+
+                if (price > 0 &&
+                    (currency == null ||
+                     !currency.TrySpendCoins(price)))
+                {
+                    return;
+                }
+
+                added = inventory.AddItem(item, 1);
+
+                if (!added && price > 0)
+                    currency.AddCoins(price);
+            }
+
+            if (!added)
+                return;
+
+            if (offer.stockType == VendorStockType.Limited)
+            {
+                entry.currentStock =
+                    Mathf.Max(0, entry.currentStock - 1);
+
+                if (entry.currentStock == 0 &&
+                    offer.restockTime > 0f)
+                {
+                    entry.restockTimer = offer.restockTime;
+                }
+            }
+        }
+        finally
+        {
+            trading = false;
+        }
     }
 
     public bool TryBuyFromPlayer(
-    ItemData item,
-    int inventorySlot,
-    int quantity)
+        ItemData item,
+        int inventorySlot,
+        int quantity)
     {
-        if (item == null ||
-            quantity <= 0)
-        {
+        if (trading)
             return false;
-        }
 
-        Inventory inventory =
-            Inventory.Instance;
+        trading = true;
 
-        PlayerCurrency currency =
-            PlayerCurrency.Instance;
-
-        if (inventory == null ||
-            currency == null)
+        try
         {
-            Debug.LogError(
-                $"Vendor '{name}' kunde inte genomföra försäljningen " +
-                $"eftersom Inventory eller PlayerCurrency saknas.",
-                this
-            );
+            Inventory inventory = Inventory.Instance;
+            PlayerCurrency currency = PlayerCurrency.Instance;
+            PlayerStats player = PlayerReference.Player;
 
-            return false;
-        }
+            if (item == null ||
+                quantity <= 0 ||
+                inventory == null ||
+                currency == null ||
+                player == null ||
+                !CanTrade(player.GetComponent<PlayerReputationManager>()) ||
+                inventorySlot < 0 ||
+                inventorySlot >= inventory.slots.Count)
+            {
+                return false;
+            }
 
-        bool removed =
-            inventory.TryRemoveItemAt(
-                inventorySlot,
+            InventorySlot slot =
+                inventory.slots[inventorySlot];
+
+            if (slot == null ||
+                slot.IsEmpty() ||
+                !Inventory.ItemsMatch(slot.item, item) ||
+                slot.amount < quantity ||
+                (item.IsContainer && quantity != 1))
+            {
+                return false;
+            }
+
+            long total =
+                (long)Mathf.Max(0, item.SellPrice) * quantity;
+
+            if (total > int.MaxValue - currency.Coins)
+                return false;
+
+            InventoryContainerLoot state =
+                slot.EnsureContainerLoot();
+
+            if (!inventory.TryRemoveItemAt(
+                    inventorySlot,
+                    item,
+                    quantity))
+            {
+                return false;
+            }
+
+            if (total > 0)
+                currency.AddCoins((int)total);
+
+            AddBuybackItem(
                 item,
-                quantity
-            );
+                quantity,
+                (int)total,
+                state);
 
-        if (!removed)
-        {
-            return false;
+            return true;
         }
-
-        int totalPrice =
-            Mathf.Max(
-                0,
-                item.SellPrice * quantity
-            );
-
-        currency.AddCoins(
-            totalPrice
-        );
-
-        AddBuybackItem(
-            item,
-            quantity,
-            totalPrice
-        );
-
-        return true;
+        finally
+        {
+            trading = false;
+        }
     }
 
     private void AddBuybackItem(
-    ItemData item,
-    int quantity,
-    int totalPrice)
+        ItemData item,
+        int quantity,
+        int totalPrice,
+        InventoryContainerLoot container = null)
     {
-        if (item == null ||
-            quantity <= 0)
+        int unitPrice = totalPrice / quantity;
+        int remaining = quantity;
+
+        int maxStack = item.stackable && !item.IsContainer
+            ? Mathf.Max(1, item.maxStack)
+            : 1;
+
+        if (maxStack > 1)
         {
-            return;
-        }
-
-        int safeQuantity =
-            Mathf.Max(
-                1,
-                quantity
-            );
-
-        int pricePerItem =
-            Mathf.Max(
-                0,
-                totalPrice / safeQuantity
-            );
-
-        int remaining =
-            safeQuantity;
-
-        // =========================================================
-        // STACKABLE
-        // =========================================================
-
-        if (item.stackable)
-        {
-            int maxStack =
-                Mathf.Max(
-                    1,
-                    item.maxStack
-                );
-
-            /*
-             * Fyll först befintliga buyback-stacks
-             * av samma item.
-             */
-            for (int i = 0;
-                 i < buybackItems.Count &&
-                 remaining > 0;
-                 i++)
+            foreach (BuybackEntry entry in buybackItems)
             {
-                BuybackEntry entry =
-                    buybackItems[i];
+                if (remaining == 0)
+                    break;
 
-                if (entry == null ||
-                    entry.item != item ||
-                    entry.quantity >= maxStack)
+                if (entry.item != item ||
+                    entry.quantity >= maxStack ||
+                    entry.pricePaid / entry.quantity != unitPrice)
                 {
                     continue;
                 }
 
-                int availableSpace =
-                    maxStack -
-                    entry.quantity;
+                int added = Mathf.Min(
+                    remaining,
+                    maxStack - entry.quantity);
 
-                int amountToAdd =
-                    Mathf.Min(
-                        availableSpace,
-                        remaining
-                    );
+                entry.quantity += added;
+                entry.pricePaid += unitPrice * added;
+                entry.expiryTime = Time.time + buybackLifetime;
 
-                entry.quantity +=
-                    amountToAdd;
-
-                entry.pricePaid +=
-                    pricePerItem *
-                    amountToAdd;
-
-                entry.expiryTime =
-                    Time.time +
-                    buybackLifetime;
-
-                remaining -=
-                    amountToAdd;
-            }
-
-            /*
-             * Skapa nya buyback-stacks för
-             * eventuell återstående mängd.
-             */
-            while (remaining > 0)
-            {
-                int amountToAdd =
-                    Mathf.Min(
-                        maxStack,
-                        remaining
-                    );
-
-                BuybackEntry newEntry =
-                    new BuybackEntry
-                    {
-                        item =
-                            item,
-
-                        quantity =
-                            amountToAdd,
-
-                        pricePaid =
-                            pricePerItem *
-                            amountToAdd,
-
-                        expiryTime =
-                            Time.time +
-                            buybackLifetime
-                    };
-
-                buybackItems.Insert(
-                    0,
-                    newEntry
-                );
-
-                remaining -=
-                    amountToAdd;
+                remaining -= added;
             }
         }
 
-        // =========================================================
-        // NON-STACKABLE
-        // =========================================================
-
-        else
+        while (remaining > 0)
         {
-            for (int i = 0;
-                 i < safeQuantity;
-                 i++)
-            {
-                BuybackEntry newEntry =
-                    new BuybackEntry
-                    {
-                        item =
-                            item,
+            int added = Mathf.Min(
+                remaining,
+                maxStack);
 
-                        quantity =
-                            1,
+            buybackItems.Insert(
+                0,
+                new BuybackEntry
+                {
+                    item = item,
+                    quantity = added,
+                    pricePaid = unitPrice * added,
+                    expiryTime = Time.time + buybackLifetime,
+                    containerLoot = container
+                });
 
-                        pricePaid =
-                            pricePerItem,
-
-                        expiryTime =
-                            Time.time +
-                            buybackLifetime
-                    };
-
-                buybackItems.Insert(
-                    0,
-                    newEntry
-                );
-            }
+            remaining -= added;
         }
-
-        // =========================================================
-        // BUYBACK LIMIT
-        // =========================================================
-
-        int safeMaxSlots =
-            Mathf.Max(
-                1,
-                maxBuybackSlots
-            );
 
         while (buybackItems.Count >
-            safeMaxSlots)
+               Mathf.Max(1, maxBuybackSlots))
         {
             buybackItems.RemoveAt(
-                buybackItems.Count - 1
-            );
+                buybackItems.Count - 1);
         }
     }
 
-    void UpdateRestocks()
+    public bool TryBuyback(BuybackEntry entry)
     {
-        foreach (var item in runtimeItems)
+        if (trading)
+            return false;
+
+        trading = true;
+
+        try
         {
-            if (item.data.stockType == VendorStockType.Infinite)
-                continue;
+            Inventory inventory = Inventory.Instance;
+            PlayerCurrency currency = PlayerCurrency.Instance;
+            PlayerStats player = PlayerReference.Player;
 
-            if (item.currentStock > 0)
-                continue;
+            if (entry == null ||
+                entry.item == null ||
+                entry.quantity <= 0 ||
+                inventory == null ||
+                currency == null ||
+                player == null ||
+                !CanTrade(player.GetComponent<PlayerReputationManager>()) ||
+                !buybackItems.Contains(entry) ||
+                Time.time >= entry.expiryTime ||
+                entry.pricePaid < 0)
+            {
+                return false;
+            }
 
-            if (item.data.restockTime <= 0)
+            PlayerItemOwnership ownership =
+                PlayerFavourManager.Instance?.PlayerItems;
+
+            if (ownership != null &&
+                !ownership.CanReceive(
+                    entry.item,
+                    entry.quantity))
+            {
+                return false;
+            }
+
+            if (entry.pricePaid > 0 &&
+                !currency.TrySpendCoins(entry.pricePaid))
+            {
+                return false;
+            }
+
+            bool added = entry.item.IsContainer
+                ? inventory.TryRestoreContainer(
+                    entry.item,
+                    entry.containerLoot)
+                : inventory.AddItem(
+                    entry.item,
+                    entry.quantity);
+
+            if (!added)
+            {
+                if (entry.pricePaid > 0)
+                    currency.AddCoins(entry.pricePaid);
+
+                return false;
+            }
+
+            buybackItems.Remove(entry);
+            return true;
+        }
+        finally
+        {
+            trading = false;
+        }
+    }
+
+    private void UpdateRestocks()
+    {
+        foreach (VendorItemRuntime item in runtimeItems)
+        {
+            if (item.data.stockType == VendorStockType.Infinite ||
+                item.currentStock > 0 ||
+                item.data.restockTime <= 0f)
+            {
                 continue;
+            }
 
             item.restockTimer -= Time.deltaTime;
 
-            if (item.restockTimer <= 0f)
-            {
-                item.currentStock = item.data.maxStock;
-                item.restockTimer = 0f;
+            if (item.restockTimer > 0f)
+                continue;
 
-                if (VendorUI.Instance != null && VendorUI.Instance.ActiveVendor == this)
-                {
-                    VendorUI.Instance.RefreshVendorUI();
-                }
+            item.currentStock = item.data.maxStock;
+            item.restockTimer = 0f;
+
+            if (VendorUI.Instance != null &&
+                VendorUI.Instance.ActiveVendor == this)
+            {
+                VendorUI.Instance.RefreshVendorUI();
             }
         }
-    }
-    public Faction GetFaction()
-    {
-        return faction;
     }
 }

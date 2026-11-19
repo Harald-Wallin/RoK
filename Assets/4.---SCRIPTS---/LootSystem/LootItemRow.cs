@@ -160,42 +160,28 @@ public sealed class LootItemRow :
             return;
         }
 
-        int quantity =
-            source.GetItemQuantity(
-                item
-            );
+        int quantity = source.GetItemQuantity(item);
 
         if (quantity <= 0)
             return;
 
-        /*
-         * Inventory modifieras först.
-         *
-         * Loot-source töms bara om inventory faktiskt
-         * kunde ta emot hela mängden.
-         */
-        bool added =
-            Inventory.Instance.AddItem(
-                item,
-                quantity
-            );
+        if (source is IInventoryLootTransfer transfer)
+        {
+            if (transfer.TryTransferItems(item, quantity))
+                FinishTakingLoot();
 
-        if (!added)
+            return;
+        }
+
+        if (!Inventory.Instance.AddItem(item, quantity))
             return;
 
-        bool removed =
-            source.TryTakeItems(
-                item,
-                quantity
-            );
-
-        if (!removed)
+        if (!source.TryTakeItems(item, quantity))
         {
             Debug.LogError(
-                "LootItemRow: Item lades till i inventory men " +
-                "kunde inte tas bort från loot source.",
-                this
-            );
+                "LootItemRow: Item added to inventory but " +
+                "could not be removed from loot source.",
+                this);
 
             return;
         }
@@ -208,41 +194,36 @@ public sealed class LootItemRow :
         if (source == null)
             return;
 
-        PlayerCurrency playerCurrency =
+        PlayerCurrency currency =
             PlayerCurrency.Instance;
 
-        if (playerCurrency == null)
+        if (currency == null)
+            return;
+
+        if (source is IInventoryLootTransfer transfer)
         {
-            Debug.LogError(
-                "Kan inte loota coins: PlayerCurrency saknas.",
-                this
-            );
+            if (transfer.TryTransferCoins(currency))
+                FinishTakingLoot();
 
             return;
         }
 
-        int amount =
-            source.CoinAmount;
+        int amount = source.CoinAmount;
 
-        if (amount <= 0)
-            return;
-
-        if (!playerCurrency.AddCoins(
-                amount))
+        if (amount <= 0 ||
+            !currency.AddCoins(amount))
         {
             return;
         }
 
-        int taken =
-            source.TakeAllCoins();
+        int taken = source.TakeAllCoins();
 
         if (taken <= 0)
         {
             Debug.LogError(
-                "LootItemRow: Coins lades till hos spelaren men " +
-                "kunde inte tas bort från loot source.",
-                this
-            );
+                "LootItemRow: Coins added to player but " +
+                "could not be removed from loot source.",
+                this);
 
             return;
         }

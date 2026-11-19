@@ -92,8 +92,8 @@ public sealed class BuffSystem :
     // =====================================================
 
     public bool ApplyDefinition(
-        BuffDefinition definition,
-        DamageSourceContext source)
+    BuffDefinition definition,
+    DamageSourceContext source)
     {
         if (!isActiveAndEnabled ||
             definition == null ||
@@ -102,69 +102,127 @@ public sealed class BuffSystem :
             return false;
         }
 
-        // Reapply only to the matching buff
-        // from the same damage source.
-        DefinitionBuffRuntime existing =
-            GetDefinitionBuff(
-                definition,
-                source
-            );
+        float remainingBefore =
+            GetRemainingDefinitionTime(definition);
 
-        if (existing != null)
+        DefinitionBuffRuntime runtime =
+            GetDefinitionBuff(definition, source);
+
+        if (runtime != null)
         {
-            if (existing.stacks <
-                existing.MaxStacks)
+            if (runtime.stacks < runtime.MaxStacks)
             {
-                existing.stacks++;
+                runtime.stacks++;
+                runtime.OnStackChanged(stats);
 
-                existing.OnStackChanged(
-                    stats
-                );
-
-                if (!existing.HasActiveEffects)
+                if (!runtime.HasActiveEffects)
                 {
-                    RemoveBuff(existing);
+                    RemoveBuff(runtime);
                     return false;
                 }
             }
 
             if (definition.RefreshDurationOnReapply)
-            {
-                existing.ResetDuration();
-            }
+                runtime.ResetDuration();
 
-            OnBuffChanged?.Invoke(
-                existing,
-                this
-            );
-
-            return true;
+            OnBuffChanged?.Invoke(runtime, this);
         }
-
-        // Each new buff receives its own
-        // lifetime and effect handle.
-        DefinitionBuffRuntime runtime =
-            new DefinitionBuffRuntime(
-                definition,
-                source
-            );
-
-        if (!AddRuntimeBuff(runtime))
-            return false;
-
-        // Handle failed effect initialization.
-        if (!runtime.HasActiveEffects)
+        else
         {
-            RemoveBuff(runtime);
+            runtime =
+                new DefinitionBuffRuntime(
+                    definition,
+                    source);
 
-            Debug.LogError(
-                $"Failed to activate buff " +
-                $"'{definition.DisplayName}'.",
-                this
-            );
+            if (!AddRuntimeBuff(runtime))
+                return false;
 
+            if (!runtime.HasActiveEffects)
+            {
+                RemoveBuff(runtime);
+
+                Debug.LogError(
+                    $"Failed to activate buff " +
+                    $"'{definition.DisplayName}'.",
+                    this);
+
+                return false;
+            }
+        }
+
+        float added = Mathf.Max(
+            0f,
+            GetRemainingDefinitionTime(definition) -
+            remainingBefore);
+
+        if (added > 0f)
+        {
+            BuffApplicationEvents.Raise(
+                new BuffApplicationEvent(
+                    source,
+                    stats,
+                    definition,
+                    added / definition.Duration,
+                    false));
+        }
+
+        return true;
+    }
+
+    private float GetRemainingDefinitionTime(
+        BuffDefinition definition)
+    {
+        float remaining = 0f;
+
+        foreach (ActiveBuff buff in activeBuffs)
+        {
+            if (buff is DefinitionBuffRuntime runtime &&
+                runtime.Definition == definition &&
+                runtime.HasActiveEffects)
+            {
+                remaining = Mathf.Max(
+                    remaining,
+                    runtime.RemainingTime);
+            }
+        }
+
+        return remaining;
+    }
+
+    public bool TryDispelBuff(
+        ActiveBuff buff,
+        DamageSourceContext dispeller)
+    {
+        if (stats == null ||
+            dispeller.CreditOwner == null ||
+            buff is not DefinitionBuffRuntime runtime ||
+            runtime.IsFinished ||
+            !activeBuffs.Contains(buff))
+        {
             return false;
         }
+
+        bool hostile =
+            TargetRelationResolver.Resolve(
+                dispeller.CreditOwner,
+                stats.gameObject) ==
+            TargetRelation.Hostile;
+
+        // Cleanse removes harmful effects from allies.
+        // Offensive dispel removes beneficial effects from enemies.
+        if (runtime.Definition.IsDebuff ? hostile : !hostile)
+            return false;
+
+        if (!RemoveBuff(buff))
+            return false;
+
+        BuffApplicationEvents.Raise(
+            new BuffApplicationEvent(
+                dispeller,
+                stats,
+                runtime.Definition,
+                0f,
+                true));
 
         return true;
     }

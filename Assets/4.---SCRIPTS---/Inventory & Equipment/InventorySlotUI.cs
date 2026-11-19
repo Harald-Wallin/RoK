@@ -256,21 +256,41 @@ public class InventorySlotUI : MonoBehaviour,
 
     private void ShowDropConfirmation()
     {
-        InventorySlot slotData = Inventory.Instance.slots[slotIndex];
+        Inventory inventory = Inventory.Instance;
+        InventorySlot captured = inventory.slots[slotIndex];
 
-        if (slotData.IsEmpty())
+        if (captured.IsEmpty())
         {
             RefreshSlot();
             return;
         }
 
+        ItemData item = captured.item;
+        int quantity = captured.amount;
+
+        InventoryContainerLoot state =
+            captured.EnsureContainerLoot();
+
         ConfirmPopup.Instance.Show(
-            $"Drop {slotData.item.itemName}?",
+            $"Destroy {item.DisplayName}?",
             () =>
             {
-                Inventory.Instance.RemoveItemAt(slotIndex, slotData.amount);
-            }
-        );
+                int index =
+                    inventory.slots.IndexOf(captured);
+
+                if (index < 0 ||
+                    !Inventory.ItemsMatch(captured.item, item) ||
+                    (item.IsContainer &&
+                     !ReferenceEquals(captured.ContainerLoot, state)))
+                {
+                    return;
+                }
+
+                inventory.TryRemoveItemAt(
+                    index,
+                    item,
+                    quantity);
+            });
 
         StartCoroutine(WaitForPopupClose());
     }
@@ -356,135 +376,78 @@ public class InventorySlotUI : MonoBehaviour,
     public void OnPointerClick(
     PointerEventData eventData)
     {
-        if (currentItem == null)
+        if (currentItem == null ||
+            eventData.button != PointerEventData.InputButton.Right)
+        {
             return;
-
-        // =====================================================
-        // VENDOR OPEN -> SELL
-        // =====================================================
+        }
 
         if (VendorUI.Instance != null &&
             VendorUI.Instance.IsOpen)
         {
-            if (eventData.button ==
-                    PointerEventData
-                        .InputButton.Right &&
-                Input.GetKey(
-                    KeyCode.LeftShift))
-            {
-                InventorySlot slot =
-                    Inventory.Instance
-                        .slots[
-                            slotIndex
-                        ];
+            Inventory inventory = Inventory.Instance;
 
-                int quantity =
-                    slot.amount;
-
-                VendorUI.Instance.SellItem(
-                    currentItem,
-                    slotIndex,
-                    quantity
-                );
-
-                return;
-            }
-
-            if (eventData.button ==
-                    PointerEventData
-                        .InputButton.Right)
-            {
-                VendorUI.Instance.SellItem(
-                    currentItem,
-                    slotIndex,
-                    1
-                );
-
-                return;
-            }
-        }
-
-        // =====================================================
-        // ITEM USE -> FAVOUR / FUTURE CAPABILITIES
-        // =====================================================
-
-        if (eventData.button ==
-                PointerEventData
-                    .InputButton.Right)
-        {
-            if (itemUseController == null)
-            {
-                PlayerStats player =
-                    PlayerReference.Player;
-
-                if (player != null)
-                {
-                    itemUseController =
-                        player.GetComponent<
-                            PlayerItemUseController>();
-                }
-            }
-
-            if (itemUseController != null &&
-                itemUseController.TryUseItem(
-                    currentItem))
+            if (inventory == null ||
+                slotIndex < 0 ||
+                slotIndex >= inventory.slots.Count)
             {
                 return;
             }
-        }
 
-        // =====================================================
-        // FOOD -> CONSUME
-        // =====================================================
+            int quantity =
+                Input.GetKey(KeyCode.LeftShift)
+                    ? inventory.slots[slotIndex].amount
+                    : 1;
 
-        if (eventData.button ==
-                PointerEventData
-                    .InputButton.Right &&
-            currentItem.IsFood)
-        {
-            if (consumableController == null)
-            {
-                PlayerStats player =
-                    PlayerReference.Player;
-
-                if (player != null)
-                {
-                    consumableController =
-                        player.GetComponent<
-                            PlayerConsumableController>();
-                }
-            }
-
-            consumableController
-                ?.TryConsumeFoodFromSlot(
-                    slotIndex
-                );
+            VendorUI.Instance.SellItem(
+                currentItem,
+                slotIndex,
+                quantity);
 
             return;
         }
 
-        // =====================================================
-        // NORMAL -> EQUIP
-        // =====================================================
+        if (currentItem.IsContainer)
+        {
+            Inventory.Instance?.OpenContainerAt(slotIndex);
+            return;
+        }
 
-        if (eventData.button !=
-                PointerEventData
-                    .InputButton.Right ||
-            !currentItem.equippable)
+        PlayerStats player =
+            PlayerReference.Player;
+
+        if (itemUseController == null && player != null)
+        {
+            itemUseController =
+                player.GetComponent<PlayerItemUseController>();
+        }
+
+        if (itemUseController != null &&
+            itemUseController.TryUseItem(currentItem))
         {
             return;
         }
 
-        EquipmentManager manager =
-            EquipmentManager.Instance;
+        if (currentItem.IsFood)
+        {
+            if (consumableController == null && player != null)
+            {
+                consumableController =
+                    player.GetComponent<PlayerConsumableController>();
+            }
 
-        if (manager == null)
+            consumableController?.TryConsumeFoodFromSlot(
+                slotIndex);
+
             return;
+        }
 
-        manager.TryEquipItem(
-            currentItem,
-            slotIndex
-        );
+        if (currentItem.equippable)
+        {
+            EquipmentManager.Instance?.TryEquipItem(
+                currentItem,
+                slotIndex);
+        }
     }
 
 }

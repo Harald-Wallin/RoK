@@ -6,54 +6,74 @@ public class InventorySlot
     public ItemData item;
     public int amount;
 
+    public InventoryContainerLoot ContainerLoot
+    {
+        get;
+        private set;
+    }
+
     public bool IsEmpty()
     {
-        return item == null ||
-               amount <= 0;
+        return item == null || amount <= 0;
     }
 
     public void SetItem(
         ItemData newItem,
-        int newAmount = 1)
+        int newAmount = 1,
+        InventoryContainerLoot container = null)
     {
-        if (newItem == null ||
-            newAmount <= 0)
+        if (newItem == null || newAmount <= 0)
         {
             Clear();
             return;
         }
 
-        item =
-            newItem;
+        item = newItem;
 
-        if (!newItem.stackable)
+        amount = newItem.IsContainer || !newItem.stackable
+            ? 1
+            : Mathf.Clamp(
+                newAmount,
+                1,
+                Mathf.Max(1, newItem.maxStack));
+
+        ContainerLoot = newItem.IsContainer
+            ? container ?? new InventoryContainerLoot(newItem)
+            : null;
+    }
+
+    public InventoryContainerLoot EnsureContainerLoot()
+    {
+        if (IsEmpty() || !item.IsContainer)
+            return null;
+
+        return ContainerLoot ??=
+            new InventoryContainerLoot(item);
+    }
+
+    public void CopyFrom(InventorySlot source)
+    {
+        if (source == null || source.IsEmpty())
         {
-            amount = 1;
+            Clear();
             return;
         }
 
-        amount =
-            Mathf.Clamp(
-                newAmount,
-                1,
-                Mathf.Max(
-                    1,
-                    newItem.maxStack
-                )
-            );
+        SetItem(
+            source.item,
+            source.amount,
+            source.EnsureContainerLoot());
     }
 
-    public void AddAmount(
-        int value)
+    public void AddAmount(int value)
     {
         if (item == null)
         {
-            amount = 0;
+            Clear();
             return;
         }
 
-        amount +=
-            value;
+        amount += value;
 
         if (amount <= 0)
         {
@@ -61,28 +81,17 @@ public class InventorySlot
             return;
         }
 
-        if (!item.stackable)
-        {
-            amount = 1;
-            return;
-        }
-
-        amount =
-            Mathf.Min(
+        amount = item.IsContainer || !item.stackable
+            ? 1
+            : Mathf.Min(
                 amount,
-                Mathf.Max(
-                    1,
-                    item.maxStack
-                )
-            );
+                Mathf.Max(1, item.maxStack));
     }
 
     public void Clear()
     {
-        item =
-            null;
-
-        amount =
-            0;
+        item = null;
+        amount = 0;
+        ContainerLoot = null;
     }
 }

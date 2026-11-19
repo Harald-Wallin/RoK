@@ -7,42 +7,23 @@ public class Inventory : MonoBehaviour
     public static Inventory Instance;
 
     [Header("Settings")]
-
-    [SerializeField]
-    [Min(1)]
+    [SerializeField, Min(1)]
     private int size = 9;
 
     [Header("Slots")]
-
-    public List<InventorySlot> slots =
-        new List<InventorySlot>();
+    public List<InventorySlot> slots = new();
 
     [Header("Debug")]
+    [SerializeField] private bool enableDebugItems;
+    [SerializeField] private ItemData debugTestItemOne;
+    [SerializeField] private ItemData debugTestItemTwo;
+    [SerializeField] private ItemData debugTestItemThree;
+    [SerializeField] private ItemData debugTestItemFour;
+    [SerializeField] private ItemData debugTestItemFive;
+    [SerializeField] private ItemData debugTestItemSix;
 
     [SerializeField]
-    private bool enableDebugItems;
-
-    [SerializeField]
-    private ItemData debugTestItemOne;
-
-    [SerializeField]
-    private ItemData debugTestItemTwo;
-
-    [SerializeField]
-    private ItemData debugTestItemThree;
-
-    [SerializeField]
-    private ItemData debugTestItemFour;
-
-    [SerializeField]
-    private ItemData debugTestItemFive;
-
-    [SerializeField]
-    private ItemData debugTestItemSix;
-
-    [SerializeField]
-    private KeyCode debugAddItemKey =
-        KeyCode.F8;
+    private KeyCode debugAddItemKey = KeyCode.F8;
 
     public event Action OnInventoryChanged;
 
@@ -64,81 +45,38 @@ public class Inventory : MonoBehaviour
     private void OnDestroy()
     {
         if (Instance == this)
-        {
             Instance = null;
-        }
     }
 
     private void Initialize()
     {
-        /*
-         * Bevarar serialiserade slots om de redan har rätt
-         * storlek. Detta blir även bättre för framtida save/load.
-         */
-        if (slots == null)
-        {
-            slots =
-                new List<InventorySlot>();
-        }
+        slots ??= new List<InventorySlot>();
 
         while (slots.Count < size)
-        {
-            slots.Add(
-                new InventorySlot()
-            );
-        }
+            slots.Add(new InventorySlot());
 
         while (slots.Count > size)
-        {
-            slots.RemoveAt(
-                slots.Count - 1
-            );
-        }
+            slots.RemoveAt(slots.Count - 1);
 
-        for (int i = 0;
-             i < slots.Count;
-             i++)
+        for (int i = 0; i < slots.Count; i++)
         {
-            if (slots[i] == null)
-            {
-                slots[i] =
-                    new InventorySlot();
-            }
-
-            NormalizeSlot(
-                slots[i]
-            );
+            slots[i] ??= new InventorySlot();
+            NormalizeSlot(slots[i]);
         }
     }
 
     private List<InventorySlot> CloneSlots()
     {
-        List<InventorySlot> clonedSlots =
-            new List<InventorySlot>(
-                slots.Count
-            );
+        List<InventorySlot> result = new(slots.Count);
 
-        foreach (InventorySlot source
-                 in slots)
+        foreach (InventorySlot source in slots)
         {
-            InventorySlot clone =
-                new InventorySlot();
-
-            if (source != null &&
-                !source.IsEmpty())
-            {
-                clone.SetItem(
-                    source.item,
-                    source.amount
-                );
-            }
-
-            clonedSlots.Add(
-                clone
-            );
+            InventorySlot clone = new();
+            clone.CopyFrom(source);
+            result.Add(clone);
         }
 
-        return clonedSlots;
+        return result;
     }
 
     private static bool TryRemoveFromSlots(
@@ -148,57 +86,40 @@ public class Inventory : MonoBehaviour
         if (removals == null)
             return true;
 
-        foreach (InventoryItemAmount removal
-                 in removals)
+        foreach (InventoryItemAmount removal in removals)
         {
             if (!removal.IsValid)
                 continue;
 
-            int available =
-                GetItemCountFromSlots(
+            if (GetItemCountFromSlots(
                     targetSlots,
-                    removal.Item
-                );
-
-            if (available <
-                removal.Amount)
+                    removal.Item) < removal.Amount)
             {
                 return false;
             }
 
-            int remaining =
-                removal.Amount;
+            int remaining = removal.Amount;
 
-            foreach (InventorySlot slot
-                     in targetSlots)
+            foreach (InventorySlot slot in targetSlots)
             {
                 if (remaining <= 0)
                     break;
 
                 if (slot == null ||
                     slot.IsEmpty() ||
-                    !ItemsMatch(
-                        slot.item,
-                        removal.Item))
+                    !ItemsMatch(slot.item, removal.Item))
                 {
                     continue;
                 }
 
-                int removed =
-                    Mathf.Min(
-                        slot.amount,
-                        remaining
-                    );
+                int removed = Mathf.Min(
+                    slot.amount,
+                    remaining);
 
-                slot.amount -=
-                    removed;
+                slot.amount -= removed;
+                remaining -= removed;
 
-                remaining -=
-                    removed;
-
-                NormalizeSlot(
-                    slot
-                );
+                NormalizeSlot(slot);
             }
 
             if (remaining > 0)
@@ -215,112 +136,71 @@ public class Inventory : MonoBehaviour
         if (additions == null)
             return true;
 
-        foreach (InventoryItemAmount addition
-                 in additions)
+        foreach (InventoryItemAmount addition in additions)
         {
             if (!addition.IsValid)
                 continue;
 
-            int remaining =
-                addition.Amount;
-
-            ItemData item =
-                addition.Item;
+            int remaining = addition.Amount;
+            ItemData item = addition.Item;
 
             if (item.stackable)
             {
-                int maxStack =
-                    GetSafeMaxStack(
-                        item
-                    );
+                int maxStack = GetSafeMaxStack(item);
 
-                /*
-                 * Fyll befintliga stackar först.
-                 */
-                foreach (InventorySlot slot
-                         in targetSlots)
+                foreach (InventorySlot slot in targetSlots)
                 {
                     if (remaining <= 0)
                         break;
 
                     if (slot == null ||
                         slot.IsEmpty() ||
-                        !ItemsMatch(
-                            slot.item,
-                            item))
+                        !ItemsMatch(slot.item, item))
                     {
                         continue;
                     }
 
                     int availableSpace =
-                        maxStack -
-                        slot.amount;
+                        maxStack - slot.amount;
 
                     if (availableSpace <= 0)
                         continue;
 
-                    int added =
-                        Mathf.Min(
-                            availableSpace,
-                            remaining
-                        );
+                    int added = Mathf.Min(
+                        availableSpace,
+                        remaining);
 
-                    slot.amount +=
-                        added;
-
-                    remaining -=
-                        added;
+                    slot.amount += added;
+                    remaining -= added;
                 }
 
-                /*
-                 * Skapa därefter nya stackar.
-                 */
-                foreach (InventorySlot slot
-                         in targetSlots)
+                foreach (InventorySlot slot in targetSlots)
                 {
                     if (remaining <= 0)
                         break;
 
-                    if (slot == null ||
-                        !slot.IsEmpty())
-                    {
+                    if (slot == null || !slot.IsEmpty())
                         continue;
-                    }
 
-                    int added =
-                        Mathf.Min(
-                            maxStack,
-                            remaining
-                        );
+                    int added = Mathf.Min(
+                        maxStack,
+                        remaining);
 
-                    slot.SetItem(
-                        item,
-                        added
-                    );
-
-                    remaining -=
-                        added;
+                    slot.SetItem(item, added);
+                    remaining -= added;
                 }
             }
             else
             {
-                foreach (InventorySlot slot
-                         in targetSlots)
+                foreach (InventorySlot slot in targetSlots)
                 {
                     if (remaining <= 0)
                         break;
 
-                    if (slot == null ||
-                        !slot.IsEmpty())
-                    {
+                    if (slot == null || !slot.IsEmpty())
                         continue;
-                    }
 
-                    slot.SetItem(
-                        item,
-                        1
-                    );
-
+                    slot.SetItem(item, 1);
                     remaining--;
                 }
             }
@@ -336,31 +216,21 @@ public class Inventory : MonoBehaviour
         IReadOnlyList<InventorySlot> targetSlots,
         ItemData item)
     {
-        if (targetSlots == null ||
-            item == null)
-        {
+        if (targetSlots == null || item == null)
             return 0;
-        }
 
         int total = 0;
 
-        foreach (InventorySlot slot
-                 in targetSlots)
+        foreach (InventorySlot slot in targetSlots)
         {
             if (slot == null ||
                 slot.IsEmpty() ||
-                !ItemsMatch(
-                    slot.item,
-                    item))
+                !ItemsMatch(slot.item, item))
             {
                 continue;
             }
 
-            total +=
-                Mathf.Max(
-                    0,
-                    slot.amount
-                );
+            total += Mathf.Max(0, slot.amount);
         }
 
         return total;
@@ -370,41 +240,16 @@ public class Inventory : MonoBehaviour
         IReadOnlyList<InventorySlot> simulatedSlots)
     {
         if (simulatedSlots == null ||
-            simulatedSlots.Count !=
-            slots.Count)
+            simulatedSlots.Count != slots.Count)
         {
-            Debug.LogError(
-                "Inventory-transaktionen skapade ett ogiltigt antal slots.",
-                this
-            );
-
-            return;
+            throw new InvalidOperationException(
+                "Invalid inventory transaction size.");
         }
 
-        for (int i = 0;
-             i < slots.Count;
-             i++)
+        for (int i = 0; i < slots.Count; i++)
         {
-            if (slots[i] == null)
-            {
-                slots[i] =
-                    new InventorySlot();
-            }
-
-            InventorySlot simulated =
-                simulatedSlots[i];
-
-            if (simulated == null ||
-                simulated.IsEmpty())
-            {
-                slots[i].Clear();
-                continue;
-            }
-
-            slots[i].SetItem(
-                simulated.item,
-                simulated.amount
-            );
+            slots[i] ??= new InventorySlot();
+            slots[i].CopyFrom(simulatedSlots[i]);
         }
     }
 
@@ -414,8 +259,7 @@ public class Inventory : MonoBehaviour
         if (entries == null)
             return false;
 
-        foreach (InventoryItemAmount entry
-                 in entries)
+        foreach (InventoryItemAmount entry in entries)
         {
             if (entry.IsValid)
                 return true;
@@ -429,192 +273,111 @@ public class Inventory : MonoBehaviour
         OnInventoryChanged?.Invoke();
     }
 
-    /// <summary>
-    /// Lägger till hela mängden eller ingenting alls.
-    /// Metoden skapar aldrig stackar över item.maxStack.
-    /// </summary>
     public bool AddItem(
         ItemData item,
         int amount = 1)
     {
-        if (item == null ||
-            amount <= 0)
-        {
+        if (item == null || amount <= 0)
             return false;
-        }
 
-        if (!CanAddItem(
-                item,
-                amount))
+        if (!CanAddItem(item, amount))
         {
-            NotificationSpawner.Instance
-                ?.Show(
-                    NotificationSpawner.Instance
-                        .Database
-                        .inventoryFull
-                );
+            NotificationSpawner.Instance?.Show(
+                NotificationSpawner.Instance.Database.inventoryFull);
 
             return false;
         }
 
-        int remaining =
-            amount;
+        int remaining = amount;
 
         if (item.stackable)
         {
-            int maxStack =
-                GetSafeMaxStack(
-                    item
-                );
+            int maxStack = GetSafeMaxStack(item);
 
-            /*
-             * Fyll först befintliga stackar.
-             */
             for (int i = 0;
-                 i < slots.Count &&
-                 remaining > 0;
+                 i < slots.Count && remaining > 0;
                  i++)
             {
-                InventorySlot slot =
-                    slots[i];
+                InventorySlot slot = slots[i];
 
                 if (slot == null ||
                     slot.IsEmpty() ||
-                    !ItemsMatch(
-                        slot.item,
-                        item))
+                    !ItemsMatch(slot.item, item))
                 {
                     continue;
                 }
 
-                int availableSpace =
-                    maxStack -
-                    slot.amount;
+                int space = maxStack - slot.amount;
 
-                if (availableSpace <= 0)
+                if (space <= 0)
                     continue;
 
-                int added =
-                    Mathf.Min(
-                        availableSpace,
-                        remaining
-                    );
+                int added = Mathf.Min(space, remaining);
 
-                slot.amount +=
-                    added;
-
-                remaining -=
-                    added;
+                slot.amount += added;
+                remaining -= added;
             }
 
-            /*
-             * Skapa därefter nya stackar.
-             */
             for (int i = 0;
-                 i < slots.Count &&
-                 remaining > 0;
+                 i < slots.Count && remaining > 0;
                  i++)
             {
-                InventorySlot slot =
-                    slots[i];
+                InventorySlot slot = slots[i];
 
-                if (slot == null ||
-                    !slot.IsEmpty())
-                {
+                if (slot == null || !slot.IsEmpty())
                     continue;
-                }
 
-                int added =
-                    Mathf.Min(
-                        maxStack,
-                        remaining
-                    );
+                int added = Mathf.Min(maxStack, remaining);
 
-                slot.SetItem(
-                    item,
-                    added
-                );
-
-                remaining -=
-                    added;
+                slot.SetItem(item, added);
+                remaining -= added;
             }
         }
         else
         {
-            /*
-             * Icke-stackbara items behöver en separat slot
-             * per exemplar.
-             */
             for (int i = 0;
-                 i < slots.Count &&
-                 remaining > 0;
+                 i < slots.Count && remaining > 0;
                  i++)
             {
-                InventorySlot slot =
-                    slots[i];
+                InventorySlot slot = slots[i];
 
-                if (slot == null ||
-                    !slot.IsEmpty())
-                {
+                if (slot == null || !slot.IsEmpty())
                     continue;
-                }
 
-                slot.SetItem(
-                    item,
-                    1
-                );
-
+                slot.SetItem(item, 1);
                 remaining--;
             }
         }
 
         if (remaining > 0)
         {
-            /*
-             * Ska inte kunna inträffa eftersom CanAddItem
-             * validerade hela operationen.
-             */
             Debug.LogError(
-                $"Inventory kunde inte lägga till hela mängden av " +
-                $"'{item.DisplayName}' trots godkänd kapacitetskontroll.",
-                this
-            );
+                $"Inventory could not add all of '{item.DisplayName}'.",
+                this);
 
             return false;
         }
 
         NotifyChanged();
-
         return true;
     }
 
     public bool CanApplyTransaction(
-    IReadOnlyList<InventoryItemAmount> removals,
-    IReadOnlyList<InventoryItemAmount> additions,
-    bool notifyIfInventoryFull = false)
+        IReadOnlyList<InventoryItemAmount> removals,
+        IReadOnlyList<InventoryItemAmount> additions,
+        bool notifyIfInventoryFull = false)
     {
-        List<InventorySlot> simulatedSlots =
-            CloneSlots();
+        List<InventorySlot> simulated = CloneSlots();
 
-        if (!TryRemoveFromSlots(
-                simulatedSlots,
-                removals))
-        {
+        if (!TryRemoveFromSlots(simulated, removals))
             return false;
-        }
 
-        if (!TryAddToSlots(
-                simulatedSlots,
-                additions))
+        if (!TryAddToSlots(simulated, additions))
         {
             if (notifyIfInventoryFull)
             {
-                NotificationSpawner.Instance
-                    ?.Show(
-                        NotificationSpawner.Instance
-                            .Database
-                            .inventoryFull
-                    );
+                NotificationSpawner.Instance?.Show(
+                    NotificationSpawner.Instance.Database.inventoryFull);
             }
 
             return false;
@@ -623,176 +386,104 @@ public class Inventory : MonoBehaviour
         return true;
     }
 
-    /// <summary>
-    /// Utför borttagningar och tillägg som en enda atomär
-    /// inventory-transaktion.
-    ///
-    /// Operationen simuleras först på en kopia av inventoryt.
-    /// Om något inte går att genomföra ändras ingenting.
-    ///
-    /// Borttagningar utförs före tillägg, vilket innebär att
-    /// completion-items kan frigöra plats för rewards.
-    /// </summary>
     public bool TryApplyTransaction(
         IReadOnlyList<InventoryItemAmount> removals,
         IReadOnlyList<InventoryItemAmount> additions,
         bool notifyIfInventoryFull = true)
     {
-        List<InventorySlot> simulatedSlots =
-            CloneSlots();
+        List<InventorySlot> simulated = CloneSlots();
 
-        if (!TryRemoveFromSlots(
-                simulatedSlots,
-                removals))
-        {
+        if (!TryRemoveFromSlots(simulated, removals))
             return false;
-        }
 
-        if (!TryAddToSlots(
-                simulatedSlots,
-                additions))
+        if (!TryAddToSlots(simulated, additions))
         {
             if (notifyIfInventoryFull)
             {
-                NotificationSpawner.Instance
-                    ?.Show(
-                        NotificationSpawner.Instance
-                            .Database
-                            .inventoryFull
-                    );
+                NotificationSpawner.Instance?.Show(
+                    NotificationSpawner.Instance.Database.inventoryFull);
             }
 
             return false;
         }
 
-        bool hasChanges =
-            HasValidEntries(removals) ||
-            HasValidEntries(additions);
-
-        if (!hasChanges)
+        if (!HasValidEntries(removals) &&
+            !HasValidEntries(additions))
+        {
             return true;
+        }
 
-        CommitSimulatedSlots(
-            simulatedSlots
-        );
-
+        CommitSimulatedSlots(simulated);
         NotifyChanged();
 
         return true;
     }
 
-    /// <summary>
-    /// Kontrollerar om hela mängden får plats utan att modifiera
-    /// inventoryt.
-    /// </summary>
     public bool CanAddItem(
         ItemData item,
         int amount = 1)
     {
-        if (item == null ||
-            amount <= 0)
-        {
+        if (item == null || amount <= 0)
             return false;
-        }
 
         int capacity = 0;
 
         if (item.stackable)
         {
-            int maxStack =
-                GetSafeMaxStack(
-                    item
-                );
+            int maxStack = GetSafeMaxStack(item);
 
-            foreach (InventorySlot slot
-                     in slots)
+            foreach (InventorySlot slot in slots)
             {
                 if (slot == null)
                     continue;
 
                 if (slot.IsEmpty())
                 {
-                    capacity +=
-                        maxStack;
-
-                    continue;
+                    capacity += maxStack;
                 }
-
-                if (!ItemsMatch(
-                        slot.item,
-                        item))
+                else if (ItemsMatch(slot.item, item))
                 {
-                    continue;
-                }
-
-                capacity +=
-                    Mathf.Max(
+                    capacity += Mathf.Max(
                         0,
-                        maxStack -
-                        slot.amount
-                    );
+                        maxStack - slot.amount);
+                }
             }
         }
         else
         {
-            foreach (InventorySlot slot
-                     in slots)
+            foreach (InventorySlot slot in slots)
             {
-                if (slot != null &&
-                    slot.IsEmpty())
-                {
+                if (slot != null && slot.IsEmpty())
                     capacity++;
-                }
             }
         }
 
-        return capacity >=
-               amount;
+        return capacity >= amount;
     }
 
-    /// <summary>
-    /// Tar bort upp till amount från den första matchande stacken.
-    /// Behålls för kompatibilitet med befintliga anrop.
-    /// </summary>
     public void RemoveItem(
         ItemData item,
         int amount = 1)
     {
-        if (item == null ||
-            amount <= 0)
-        {
+        if (item == null || amount <= 0)
             return;
-        }
 
-        foreach (InventorySlot slot
-                 in slots)
+        foreach (InventorySlot slot in slots)
         {
             if (slot == null ||
                 slot.IsEmpty() ||
-                !ItemsMatch(
-                    slot.item,
-                    item))
+                !ItemsMatch(slot.item, item))
             {
                 continue;
             }
 
-            int removed =
-                Mathf.Min(
-                    slot.amount,
-                    amount
-                );
+            int removed = Mathf.Min(slot.amount, amount);
+            slot.amount -= removed;
 
-            slot.amount -=
-                removed;
-
-            NormalizeSlot(
-                slot
-            );
+            NormalizeSlot(slot);
 
             if (removed > 0)
-            {
                 NotifyChanged();
-            }
 
             return;
         }
@@ -809,178 +500,83 @@ public class Inventory : MonoBehaviour
             return;
         }
 
-        InventorySlot slot =
-            slots[slotIndex];
+        InventorySlot slot = slots[slotIndex];
 
-        if (slot == null ||
-            slot.IsEmpty())
-        {
+        if (slot == null || slot.IsEmpty())
             return;
-        }
 
-        int removed =
-            Mathf.Min(
-                slot.amount,
-                amount
-            );
+        int removed = Mathf.Min(slot.amount, amount);
+        slot.amount -= removed;
 
-        slot.amount -=
-            removed;
-
-        NormalizeSlot(
-            slot
-        );
+        NormalizeSlot(slot);
 
         if (removed > 0)
-        {
             NotifyChanged();
-        }
     }
 
-    /// <summary>
-    /// Försöker ta bort exakt den begärda mängden av ett
-    /// förväntat item från en specifik inventory-slot.
-    ///
-    /// Operationen är all-or-nothing.
-    /// Om slot, item eller mängd inte stämmer ändras ingenting.
-    /// </summary>
     public bool TryRemoveItemAt(
         int slotIndex,
         ItemData expectedItem,
         int amount = 1)
     {
         if (expectedItem == null ||
-            amount <= 0)
-        {
-            return false;
-        }
-
-        if (slotIndex < 0 ||
+            amount <= 0 ||
+            slotIndex < 0 ||
             slotIndex >= slots.Count)
         {
             return false;
         }
 
-        InventorySlot slot =
-            slots[slotIndex];
+        InventorySlot slot = slots[slotIndex];
 
         if (slot == null ||
-            slot.IsEmpty())
+            slot.IsEmpty() ||
+            !ItemsMatch(slot.item, expectedItem) ||
+            slot.amount < amount)
         {
             return false;
         }
 
-        if (!ItemsMatch(
-                slot.item,
-                expectedItem))
-        {
-            return false;
-        }
-
-        if (slot.amount < amount)
-        {
-            return false;
-        }
-
-        slot.amount -=
-            amount;
-
-        NormalizeSlot(
-            slot
-        );
-
+        slot.amount -= amount;
+        NormalizeSlot(slot);
         NotifyChanged();
 
         return true;
     }
 
-    public void SwapSlots(
-        int indexA,
-        int indexB)
+    public void SwapSlots(int indexA, int indexB)
     {
-        if (indexA < 0 ||
-            indexA >= slots.Count)
+        if (indexA < 0 || indexA >= slots.Count ||
+            indexB < 0 || indexB >= slots.Count ||
+            indexA == indexB)
         {
             return;
         }
 
-        if (indexB < 0 ||
-            indexB >= slots.Count)
-        {
-            return;
-        }
-
-        if (indexA == indexB)
-            return;
-
-        InventorySlot temp =
-            slots[indexA];
-
-        slots[indexA] =
-            slots[indexB];
-
-        slots[indexB] =
-            temp;
+        InventorySlot temporary = slots[indexA];
+        slots[indexA] = slots[indexB];
+        slots[indexB] = temporary;
 
         NotifyChanged();
     }
 
-    public int GetItemCount(
-        ItemData item)
+    public int GetItemCount(ItemData item)
     {
-        if (item == null)
-            return 0;
-
-        int total = 0;
-
-        foreach (InventorySlot slot
-                 in slots)
-        {
-            if (slot == null ||
-                slot.IsEmpty())
-            {
-                continue;
-            }
-
-            if (!ItemsMatch(
-                    slot.item,
-                    item))
-            {
-                continue;
-            }
-
-            total +=
-                Mathf.Max(
-                    0,
-                    slot.amount
-                );
-        }
-
-        return total;
+        return GetItemCountFromSlots(slots, item);
     }
 
-    public int GetItemCount(
-        string itemId)
+    public int GetItemCount(string itemId)
     {
-        if (string.IsNullOrWhiteSpace(
-                itemId))
-        {
+        if (string.IsNullOrWhiteSpace(itemId))
             return 0;
-        }
 
         int total = 0;
 
-        foreach (InventorySlot slot
-                 in slots)
+        foreach (InventorySlot slot in slots)
         {
             if (slot == null ||
                 slot.IsEmpty() ||
-                slot.item == null)
-            {
-                continue;
-            }
-
-            if (!string.Equals(
+                !string.Equals(
                     slot.item.Id,
                     itemId,
                     StringComparison.Ordinal))
@@ -988,83 +584,51 @@ public class Inventory : MonoBehaviour
                 continue;
             }
 
-            total +=
-                Mathf.Max(
-                    0,
-                    slot.amount
-                );
+            total += Mathf.Max(0, slot.amount);
         }
 
         return total;
     }
 
-    /// <summary>
-    /// Tar bort hela den begärda mängden eller ingenting alls.
-    /// </summary>
     public bool RemoveItemAmount(
         ItemData item,
         int amount)
     {
         if (item == null ||
-            amount <= 0)
+            amount <= 0 ||
+            GetItemCount(item) < amount)
         {
             return false;
         }
 
-        if (GetItemCount(item) <
-            amount)
-        {
-            return false;
-        }
+        int remaining = amount;
 
-        int remaining =
-            amount;
-
-        foreach (InventorySlot slot
-                 in slots)
+        foreach (InventorySlot slot in slots)
         {
             if (remaining <= 0)
                 break;
 
             if (slot == null ||
                 slot.IsEmpty() ||
-                !ItemsMatch(
-                    slot.item,
-                    item))
+                !ItemsMatch(slot.item, item))
             {
                 continue;
             }
 
-            int removed =
-                Mathf.Min(
-                    slot.amount,
-                    remaining
-                );
+            int removed = Mathf.Min(
+                slot.amount,
+                remaining);
 
-            slot.amount -=
-                removed;
+            slot.amount -= removed;
+            remaining -= removed;
 
-            remaining -=
-                removed;
-
-            NormalizeSlot(
-                slot
-            );
+            NormalizeSlot(slot);
         }
 
         if (remaining > 0)
-        {
-            Debug.LogError(
-                $"Inventory misslyckades med att ta bort hela mängden " +
-                $"av '{item.DisplayName}' efter godkänd antal-kontroll.",
-                this
-            );
-
             return false;
-        }
 
         NotifyChanged();
-
         return true;
     }
 
@@ -1072,33 +636,23 @@ public class Inventory : MonoBehaviour
         ItemData item,
         int amount = 1)
     {
-        if (item == null ||
-            amount <= 0)
-        {
-            return false;
-        }
-
-        return GetItemCount(item) >=
-               amount;
+        return item != null &&
+               amount > 0 &&
+               GetItemCount(item) >= amount;
     }
 
     public static bool ItemsMatch(
         ItemData first,
         ItemData second)
     {
-        if (first == null ||
-            second == null)
-        {
+        if (first == null || second == null)
             return false;
-        }
 
         if (first == second)
             return true;
 
-        if (string.IsNullOrWhiteSpace(
-                first.Id) ||
-            string.IsNullOrWhiteSpace(
-                second.Id))
+        if (string.IsNullOrWhiteSpace(first.Id) ||
+            string.IsNullOrWhiteSpace(second.Id))
         {
             return false;
         }
@@ -1106,108 +660,191 @@ public class Inventory : MonoBehaviour
         return string.Equals(
             first.Id,
             second.Id,
-            StringComparison.Ordinal
-        );
+            StringComparison.Ordinal);
     }
 
-    private static int GetSafeMaxStack(
-        ItemData item)
+    private static int GetSafeMaxStack(ItemData item)
     {
-        if (item == null ||
-            !item.stackable)
-        {
-            return 1;
-        }
-
-        return Mathf.Max(
-            1,
-            item.maxStack
-        );
+        return item == null ||
+               item.IsContainer ||
+               !item.stackable
+            ? 1
+            : Mathf.Max(1, item.maxStack);
     }
 
-    private static void NormalizeSlot(
-        InventorySlot slot)
+    private static void NormalizeSlot(InventorySlot slot)
     {
         if (slot == null)
             return;
 
-        if (slot.item == null ||
-            slot.amount <= 0)
+        if (slot.item == null || slot.amount <= 0)
         {
             slot.Clear();
             return;
         }
 
-        if (!slot.item.stackable)
+        if (slot.item.IsContainer)
         {
             slot.amount = 1;
+            slot.EnsureContainerLoot();
             return;
         }
 
-        slot.amount =
-            Mathf.Clamp(
+        slot.amount = !slot.item.stackable
+            ? 1
+            : Mathf.Clamp(
                 slot.amount,
                 1,
-                GetSafeMaxStack(
-                    slot.item
-                )
-            );
+                GetSafeMaxStack(slot.item));
+    }
+
+    public bool OpenContainerAt(int slotIndex)
+    {
+        if (slotIndex < 0 || slotIndex >= slots.Count)
+            return false;
+
+        InventorySlot slot = slots[slotIndex];
+
+        if (slot == null ||
+            slot.IsEmpty() ||
+            !slot.item.IsContainer)
+        {
+            return false;
+        }
+
+        slot.EnsureContainerLoot().Open(this);
+        return true;
+    }
+
+    internal bool TryLootContainerItem(
+        InventoryContainerLoot source,
+        ItemData item,
+        int quantity)
+    {
+        if (source == null ||
+            item == null ||
+            quantity <= 0 ||
+            source.GetItemQuantity(item) < quantity)
+        {
+            return false;
+        }
+
+        int index = source.FindSlotIndex();
+
+        if (index < 0 ||
+            !ReferenceEquals(
+                slots[index].ContainerLoot,
+                source))
+        {
+            return false;
+        }
+
+        List<InventorySlot> simulated = CloneSlots();
+
+        if (source.RemovesContainerWhenTaking(item, quantity))
+            simulated[index].Clear();
+
+        if (!TryAddToSlots(
+                simulated,
+                new[] { new InventoryItemAmount(item, quantity) }))
+        {
+            NotificationSpawner.Instance?.Show(
+                NotificationSpawner.Instance.Database.inventoryFull);
+
+            return false;
+        }
+
+        if (!source.RemoveContents(item, quantity))
+            return false;
+
+        CommitSimulatedSlots(simulated);
+        NotifyChanged();
+
+        return true;
+    }
+
+    internal void RemoveEmptyContainer(
+        InventoryContainerLoot source)
+    {
+        if (source == null || !source.ContentsEmpty)
+            return;
+
+        int index = source.FindSlotIndex();
+
+        if (index < 0 ||
+            !ReferenceEquals(
+                slots[index].ContainerLoot,
+                source))
+        {
+            return;
+        }
+
+        slots[index].Clear();
+        NotifyChanged();
+    }
+
+    public bool TryRestoreContainer(
+        ItemData item,
+        InventoryContainerLoot state)
+    {
+        if (item == null ||
+            !item.IsContainer ||
+            (state != null &&
+                (state.IsOwned ||
+                 !ItemsMatch(item, state.Definition))))
+        {
+            return false;
+        }
+
+        foreach (InventorySlot slot in slots)
+        {
+            if (state != null &&
+                ReferenceEquals(slot?.ContainerLoot, state))
+            {
+                return false;
+            }
+        }
+
+        foreach (InventorySlot slot in slots)
+        {
+            if (slot == null || !slot.IsEmpty())
+                continue;
+
+            slot.SetItem(item, 1, state);
+            NotifyChanged();
+
+            return true;
+        }
+
+        return false;
     }
 
     private void Update()
     {
         if (!enableDebugItems ||
-            !Input.GetKeyDown(
-                debugAddItemKey))
+            !Input.GetKeyDown(debugAddItemKey))
         {
             return;
         }
 
-        AddDebugItem(
-            debugTestItemOne
-        );
-
-        AddDebugItem(
-            debugTestItemTwo
-        );
-
-        AddDebugItem(
-            debugTestItemThree
-        );
-
-        AddDebugItem(
-            debugTestItemFour
-        );
-
-        AddDebugItem(
-            debugTestItemFive
-        );
-
-        AddDebugItem(
-            debugTestItemSix
-        );
+        AddDebugItem(debugTestItemOne);
+        AddDebugItem(debugTestItemTwo);
+        AddDebugItem(debugTestItemThree);
+        AddDebugItem(debugTestItemFour);
+        AddDebugItem(debugTestItemFive);
+        AddDebugItem(debugTestItemSix);
     }
 
-    private void AddDebugItem(
-        ItemData item)
+    private void AddDebugItem(ItemData item)
     {
         if (item != null)
-        {
-            AddItem(
-                item,
-                1
-            );
-        }
+            AddItem(item, 1);
     }
 
 #if UNITY_EDITOR
     private void OnValidate()
     {
-        size =
-            Mathf.Max(
-                1,
-                size
-            );
+        size = Mathf.Max(1, size);
     }
 #endif
 }

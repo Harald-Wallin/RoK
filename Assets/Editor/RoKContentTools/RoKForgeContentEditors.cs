@@ -75,144 +75,217 @@ internal static class RoKForgeEditorFields
     }
 }
 
-// Item-specific presentation and rules.
 public static class RoKForgeItemEditor
 {
-    public static void Draw(ItemData item, bool twoColumns)
+    public static void Draw(
+        ItemData item,
+        bool twoColumns)
     {
         RoKForgeEditorFields.Draw(
-            item, twoColumns, DrawLeft, DrawRight);
+            item,
+            twoColumns,
+            DrawLeft,
+            DrawRight);
     }
-
 
     private static void DrawLeft(SerializedObject so)
     {
         RoKForgeEditorFields.Group(
-            so, "GENERAL", "description", "worldSprite");
+            so,
+            "GENERAL",
+            "description",
+            "worldSprite");
 
-        using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+        using (new EditorGUILayout.VerticalScope(
+                   EditorStyles.helpBox))
         {
-            EditorGUILayout.LabelField("ITEM PROFILE", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField(
+                "ITEM PROFILE",
+                EditorStyles.boldLabel);
 
-            SerializedProperty type = so.FindProperty("itemType");
+            SerializedProperty type =
+                so.FindProperty("itemType");
 
             EditorGUI.BeginChangeCheck();
             EditorGUILayout.PropertyField(type);
             bool changed = EditorGUI.EndChangeCheck();
 
-            ItemType selectedType = (ItemType)type.enumValueIndex;
-            bool isDraft = !AssetDatabase.Contains(so.targetObject);
+            ItemType selected =
+                (ItemType)type.enumValueIndex;
 
-            if (changed && isDraft)
-                ApplyTypeDefaults(so, selectedType);
+            bool draft =
+                !AssetDatabase.Contains(so.targetObject);
 
-            RoKForgeEditorFields.Field(so, "rarity");
-
-            if (!isDraft && GUILayout.Button(new GUIContent(
-                    "Apply Type Defaults",
-                    "Updates Equippable, Stackable and Max Stack. Other settings are preserved.")))
+            if (changed &&
+                (draft ||
+                 selected is ItemType.Container or ItemType.Trophy))
             {
-                ApplyTypeDefaults(so, selectedType);
+                ApplyTypeDefaults(so, selected);
             }
 
-            if (selectedType == ItemType.None)
+            if (selected == ItemType.Trophy)
+            {
+                so.FindProperty("rarity").enumValueIndex =
+                    (int)ItemRarity.Extraordinary;
+            }
+
+            using (new EditorGUI.DisabledScope(
+                       selected == ItemType.Trophy))
+            {
+                RoKForgeEditorFields.Field(so, "rarity");
+            }
+
+            if (!draft &&
+                GUILayout.Button("Apply Type Defaults"))
+            {
+                ApplyTypeDefaults(so, selected);
+            }
+
+            if (selected == ItemType.None)
             {
                 EditorGUILayout.HelpBox(
-                    "Select an Item Type before using this item.",
+                    "Select an Item Type.",
                     MessageType.Warning);
             }
         }
 
-        SerializedProperty itemType = so.FindProperty("itemType");
+        ItemType selectedType =
+            (ItemType)so.FindProperty("itemType").enumValueIndex;
 
-        if ((ItemType)itemType.enumValueIndex == ItemType.Weapon)
+        bool container =
+            selectedType == ItemType.Container;
+
+        bool trophy =
+            selectedType == ItemType.Trophy;
+
+        if (selectedType == ItemType.Weapon)
             DrawWeaponProfile(so);
 
-        RoKForgeEditorFields.Group(
-            so, "INVENTORY", "stackable", "maximumOwned");
+        using (new EditorGUI.DisabledScope(container || trophy))
+        {
+            RoKForgeEditorFields.Group(
+                so,
+                "INVENTORY",
+                "stackable");
+        }
+
+        RoKForgeEditorFields.Field(
+            so,
+            "maximumOwned");
 
         if (RoKForgeEditorFields.Enabled(so, "stackable"))
-            RoKForgeEditorFields.Group(so, "STACKING", "maxStack");
+        {
+            RoKForgeEditorFields.Group(
+                so,
+                "STACKING",
+                "maxStack");
+        }
 
-        RoKForgeEditorFields.Group(
-            so, "EQUIPMENT", "equippable");
+        using (new EditorGUI.DisabledScope(container || trophy))
+        {
+            RoKForgeEditorFields.Group(
+                so,
+                "EQUIPMENT",
+                "equippable");
+        }
 
         if (!RoKForgeEditorFields.Enabled(so, "equippable"))
             return;
 
         RoKForgeEditorFields.Group(
-            so, "DIRECTIONAL SPRITES",
-            "frontSprite", "backSprite",
-            "leftSprite", "rightSprite");
+            so,
+            "DIRECTIONAL SPRITES",
+            "frontSprite",
+            "backSprite",
+            "leftSprite",
+            "rightSprite");
 
         RoKForgeEditorFields.Group(
-            so, "HIDE CHARACTER PARTS",
-            "hideHair", "hideBeard", "hideHead",
-            "hideArms", "hideTorso", "hideFeet");
+            so,
+            "HIDE CHARACTER PARTS",
+            "hideHair",
+            "hideBeard",
+            "hideHead",
+            "hideArms",
+            "hideTorso",
+            "hideFeet");
     }
 
-    private static void DrawWeaponProfile(SerializedObject so)
+    private static void DrawWeaponProfile(
+        SerializedObject so)
     {
-        using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+        using (new EditorGUILayout.VerticalScope(
+                   EditorStyles.helpBox))
         {
-            EditorGUILayout.LabelField("WEAPON", EditorStyles.boldLabel);
-            RoKForgeEditorFields.Field(so, "weaponFamily");
+            EditorGUILayout.LabelField(
+                "WEAPON",
+                EditorStyles.boldLabel);
 
-            SerializedProperty property = so.FindProperty("weaponDamageRange");
-            Vector2Int range = property.vector2IntValue;
+            RoKForgeEditorFields.Field(
+                so,
+                "weaponFamily");
+
+            SerializedProperty property =
+                so.FindProperty("weaponDamageRange");
+
+            Vector2Int range =
+                property.vector2IntValue;
 
             using (new EditorGUILayout.HorizontalScope())
             {
-                EditorGUILayout.PrefixLabel(new GUIContent(
-                    "Weapon Damage",
-                    "Minimum and maximum damage. 0–0 uses the existing stat modifiers."));
+                EditorGUILayout.PrefixLabel(
+                    new GUIContent(
+                        "Weapon Damage",
+                        "Minimum and maximum damage. " +
+                        "0–0 uses the existing stat modifiers."));
 
                 EditorGUI.BeginChangeCheck();
 
-                int minimum = EditorGUILayout.IntField(range.x);
-                GUILayout.Label("–", GUILayout.Width(12));
-                int maximum = EditorGUILayout.IntField(range.y);
+                int minimum =
+                    EditorGUILayout.IntField(range.x);
+
+                GUILayout.Label(
+                    "–",
+                    GUILayout.Width(12));
+
+                int maximum =
+                    EditorGUILayout.IntField(range.y);
 
                 if (EditorGUI.EndChangeCheck())
                 {
                     minimum = Mathf.Max(0, minimum);
-                    maximum = Mathf.Max(minimum, maximum);
-                    property.vector2IntValue = new Vector2Int(minimum, maximum);
+
+                    property.vector2IntValue =
+                        new Vector2Int(
+                            minimum,
+                            Mathf.Max(minimum, maximum));
                 }
             }
         }
     }
 
-
     private static void ApplyTypeDefaults(
         SerializedObject so,
         ItemType type)
     {
-        bool equippable = type switch
-        {
-            ItemType.Weapon or
-            ItemType.Helmet or
-            ItemType.Chest or
-            ItemType.Back or
-            ItemType.Shoulders or
-            ItemType.Legs or
-            ItemType.Feet or
-            ItemType.Neck or
-            ItemType.Ring or
-            ItemType.Offhand or
-            ItemType.Shield => true,
+        bool equippable =
+            type is ItemType.Weapon or
+                ItemType.Helmet or
+                ItemType.Chest or
+                ItemType.Back or
+                ItemType.Shoulders or
+                ItemType.Legs or
+                ItemType.Feet or
+                ItemType.Neck or
+                ItemType.Ring or
+                ItemType.Offhand or
+                ItemType.Shield;
 
-            _ => false
-        };
-
-        bool stackable = type switch
-        {
-            ItemType.Food or
-            ItemType.Reagent or
-            ItemType.Trash => true,
-
-            _ => false
-        };
+        bool stackable =
+            type is ItemType.Food or
+                ItemType.Reagent or
+                ItemType.Trash or
+                ItemType.Trophy;
 
         so.FindProperty("equippable").boolValue =
             equippable;
@@ -221,76 +294,106 @@ public static class RoKForgeItemEditor
             stackable;
 
         so.FindProperty("maxStack").intValue =
-            stackable ? 20 : 1;
+            type == ItemType.Trophy
+                ? 999
+                : stackable ? 20 : 1;
+
+        if (type == ItemType.Trophy)
+        {
+            so.FindProperty("rarity").enumValueIndex =
+                (int)ItemRarity.Extraordinary;
+        }
     }
 
-
-    private static void DrawRight(SerializedObject so)
+    private static void DrawRight(
+        SerializedObject so)
     {
         RoKForgeEditorFields.Group(
-            so, "STAT MODIFIERS", "statModifiers");
+            so,
+            "STAT MODIFIERS",
+            "statModifiers");
 
         RoKForgeEditorFields.Group(
-            so, "REQUIREMENTS", "useLevelRequirement");
+            so,
+            "REQUIREMENTS",
+            "useLevelRequirement");
 
         if (RoKForgeEditorFields.Enabled(
-            so, "useLevelRequirement"))
+                so,
+                "useLevelRequirement"))
         {
             RoKForgeEditorFields.Group(
-                so, "LEVEL", "requiredLevel");
+                so,
+                "LEVEL",
+                "requiredLevel");
         }
 
         RoKForgeEditorFields.Field(
-            so, "useReputationRequirement");
+            so,
+            "useReputationRequirement");
 
         if (RoKForgeEditorFields.Enabled(
-            so, "useReputationRequirement"))
+                so,
+                "useReputationRequirement"))
         {
             RoKForgeEditorFields.Group(
-                so, "REPUTATION",
-                "reputationFaction", "requiredReputation");
+                so,
+                "REPUTATION",
+                "reputationFaction",
+                "requiredReputation");
         }
 
         RoKForgeEditorFields.Group(
-            so, "ECONOMY", "buyPrice", "sellMultiplier");
+            so,
+            "ECONOMY",
+            "buyPrice",
+            "sellMultiplier");
 
-        SerializedProperty type = so.FindProperty("itemType");
+        ItemType type =
+            (ItemType)so.FindProperty("itemType").enumValueIndex;
 
-        if (type != null &&
-            type.enumValueIndex == (int)ItemType.Food)
+        if (type == ItemType.Container)
         {
             RoKForgeEditorFields.Group(
-                so, "FOOD",
+                so,
+                "CONTAINER LOOT",
+                "containerLootTables",
+                "containerMinRolls",
+                "containerMaxRolls");
+        }
+
+        if (type == ItemType.Food)
+        {
+            RoKForgeEditorFields.Group(
+                so,
+                "FOOD",
                 "foodHealingPerTick",
                 "foodTickInterval",
                 "foodChannelDuration",
                 "allowFoodAtFullHealth");
         }
 
-
-        if (type != null &&
-            type.enumValueIndex == (int)ItemType.FavourItem)
+        if (type == ItemType.FavourItem)
         {
             RoKForgeEditorFields.Group(
-                so, "FAVOUR LOOT", "requiredFavour");
+                so,
+                "FAVOUR LOOT",
+                "requiredFavour");
 
-            SerializedProperty required =
-                so.FindProperty("requiredFavour");
-
-            if (required != null &&
-                required.objectReferenceValue == null)
+            if (so.FindProperty(
+                    "requiredFavour").objectReferenceValue == null)
             {
                 EditorGUILayout.HelpBox(
                     "A FavourItem requires a linked FavourData " +
                     "to qualify for Favour loot.",
-                    MessageType.Warning
-                );
+                    MessageType.Warning);
             }
         }
 
-
         RoKForgeEditorFields.Group(
-            so, "FAVOUR INTERACTION", "favourUse");
+            so,
+            "FAVOUR INTERACTION",
+            "favourUse");
     }
 }
 

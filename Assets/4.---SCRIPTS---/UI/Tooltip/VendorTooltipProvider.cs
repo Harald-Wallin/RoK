@@ -1,24 +1,29 @@
-using UnityEngine;
-
 public class VendorTooltipProvider : ITooltipProvider
 {
-    private ItemData item;
-    private VendorItem vendorItem;
-    private int price;
+    private readonly ItemData item;
+    private readonly int price;
+    private readonly string currencyName;
 
-    public VendorTooltipProvider(ItemData item, VendorItem vendorItem, int price)
+    public VendorTooltipProvider(
+        ItemData item,
+        VendorItem vendorItem,
+        int price,
+        string currencyName = "coins")
     {
         this.item = item;
-        this.vendorItem = vendorItem;
         this.price = price;
+        this.currencyName = currencyName;
     }
 
-    public TooltipData GetTooltipData(CharacterStats caster)
+    public TooltipData GetTooltipData(
+        CharacterStats caster)
     {
-        TooltipData data = item.GetTooltipData(caster);
+        TooltipData data =
+            item.GetTooltipData(caster);
 
-        // Override price
-        data.footer = $"Price: {price}";
+        data.footer =
+            $"Price: {price} {currencyName}";
+
         data.showFooter = true;
 
         return data;

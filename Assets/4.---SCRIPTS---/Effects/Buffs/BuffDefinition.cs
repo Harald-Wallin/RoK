@@ -19,6 +19,13 @@ public sealed class BuffDefinition :
     [SerializeField]
     private Sprite icon;
 
+    [Header("Classification")]
+
+    [SerializeField]
+    private bool isDebuff;
+
+    public bool IsDebuff => isDebuff;
+
     [Header("Lifetime")]
     [SerializeField, Min(0.01f)]
     private float duration = 30f;
