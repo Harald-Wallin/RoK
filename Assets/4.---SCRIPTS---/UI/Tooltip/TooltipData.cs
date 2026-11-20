@@ -10,13 +10,13 @@ public interface ITooltipProvider
 public class TooltipData
 {
     public string title;
-
     public Color titleColor = Color.white;
 
     public string itemFavourSource;
     public string itemFavourRequirement;
 
     public string subtitle;
+    public string weaponDamage;
     public string description;
 
     public List<string> stats = new();
@@ -27,6 +27,7 @@ public class TooltipData
     public bool showFooter;
 
     public Sprite footerIcon;
+    public ScriptableObject footerCurrencyDefinition;
     public bool showFooterIcon = true;
 
     public string usageHint;

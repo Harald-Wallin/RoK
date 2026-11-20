@@ -360,8 +360,8 @@ public class ItemData :
             WeaponFamilyDefinition family =
                 WeaponFamily;
 
-            string familyName = family != null
-                ? family.name
+            data.subtitle = family != null
+                ? family.ItemTypeDisplayName
                 : ItemTypeDisplayName;
 
             string damage =
@@ -370,8 +370,8 @@ public class ItemData :
                     : $"{legacyWeaponDamage:0.##}–" +
                       $"{legacyWeaponDamage:0.##}";
 
-            data.subtitle =
-                $"<color=#FFFFFF>{familyName} • dmg: {damage}</color>";
+            data.weaponDamage =
+                $"dmg: {damage}";
         }
 
         AddRequirementLines(

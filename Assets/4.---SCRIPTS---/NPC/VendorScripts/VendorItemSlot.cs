@@ -45,10 +45,7 @@ public class VendorItemSlot : MonoBehaviour,
             : null;
 
         if (priceCurrencyIcon != null)
-        {
             priceCurrencyIcon.preserveAspect = true;
-            priceCurrencyIcon.raycastTarget = false;
-        }
     }
 
     public void Initialize(
@@ -93,7 +90,8 @@ public class VendorItemSlot : MonoBehaviour,
 
         SetPrice(
             entry.pricePaid,
-            GetCurrencyIcon(true));
+            GetCurrencyIcon(true),
+            GetCurrencyDefinition(true));
 
         if (stackText != null)
         {
@@ -175,9 +173,31 @@ public class VendorItemSlot : MonoBehaviour,
             : originalCurrencySprite;
     }
 
+    private ScriptableObject GetCurrencyDefinition(
+        bool forceCoins = false)
+    {
+        Vendor vendor = isBuybackSlot
+            ? buybackVendor
+            : vendorUI != null
+                ? vendorUI.ActiveVendor
+                : null;
+
+        if (!forceCoins &&
+            vendor != null &&
+            vendor.UsesTrophies)
+        {
+            return vendor.PaymentTrophy;
+        }
+
+        return PlayerCurrency.Instance != null
+            ? PlayerCurrency.Instance.CurrencyDefinition
+            : null;
+    }
+
     private void SetPrice(
         int amount,
-        Sprite currencySprite)
+        Sprite currencySprite,
+        ScriptableObject currencyDefinition)
     {
         if (priceText != null)
         {
@@ -192,6 +212,10 @@ public class VendorItemSlot : MonoBehaviour,
         {
             priceCurrencyIcon.sprite =
                 currencySprite;
+
+            CurrencyTooltipTarget.Bind(
+                priceCurrencyIcon,
+                currencyDefinition);
 
             priceCurrencyIcon.gameObject.SetActive(
                 amount >= 0 &&
@@ -213,7 +237,8 @@ public class VendorItemSlot : MonoBehaviour,
 
         SetPrice(
             vendor.GetModifiedPrice(entry.data),
-            GetCurrencyIcon());
+            GetCurrencyIcon(),
+            GetCurrencyDefinition());
 
         bool meetsRequirements =
             vendor.MeetsPurchaseRequirements(entry.data);
@@ -349,7 +374,8 @@ public class VendorItemSlot : MonoBehaviour,
                 offer,
                 price,
                 currencySprite,
-                currencySprite != null),
+                currencySprite != null,
+                GetCurrencyDefinition(isBuybackSlot)),
             icon.rectTransform,
             PlayerReference.Player);
     }

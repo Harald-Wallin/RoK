@@ -40,6 +40,17 @@ public sealed class WeaponFamilyDefinition : ScriptableObject
     public string DisplayName =>
         string.IsNullOrWhiteSpace(displayName) ? name : displayName.Trim();
 
+    [Tooltip(
+    "Item category name, for example Sword. " +
+    "Display Name can remain Swords for the mastery window.")]
+    [SerializeField]
+    private string itemTypeDisplayName;
+
+    public string ItemTypeDisplayName =>
+        string.IsNullOrWhiteSpace(itemTypeDisplayName)
+            ? DisplayName
+            : itemTypeDisplayName.Trim();
+
     [Header("Mastery Levels")]
 
     [SerializeField]

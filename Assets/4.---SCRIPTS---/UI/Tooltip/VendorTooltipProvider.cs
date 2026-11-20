@@ -6,18 +6,21 @@ public class VendorTooltipProvider : ITooltipProvider
     private readonly int price;
     private readonly Sprite currencyIcon;
     private readonly bool showCurrencyIcon;
+    private readonly ScriptableObject currencyDefinition;
 
     public VendorTooltipProvider(
         ItemData item,
         VendorItem vendorItem,
         int price,
         Sprite currencyIcon = null,
-        bool showCurrencyIcon = true)
+        bool showCurrencyIcon = true,
+        ScriptableObject currencyDefinition = null)
     {
         this.item = item;
         this.price = price;
         this.currencyIcon = currencyIcon;
         this.showCurrencyIcon = showCurrencyIcon;
+        this.currencyDefinition = currencyDefinition;
     }
 
     public TooltipData GetTooltipData(
@@ -31,6 +34,9 @@ public class VendorTooltipProvider : ITooltipProvider
             : "Unavailable";
 
         data.footerIcon = currencyIcon;
+
+        data.footerCurrencyDefinition =
+            currencyDefinition;
 
         data.showFooterIcon =
             price >= 0 && showCurrencyIcon;

@@ -16,6 +16,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: b104e796029c9384da757264bbfa8347, type: 2}
   maxTargetLevelsBelowPlayer: 3
   displayName: Swords
+  itemTypeDisplayName: Sword
   experiencePerLevel: 050000000a0000000f00000014000000190000001e000000
   masteryTree: {fileID: 11400000, guid: b2d52d53fc8527c42b878b322b117c02, type: 2}
   techniqueDeeds:

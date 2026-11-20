@@ -1,5 +1,6 @@
 using TMPro;
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 
 public class ItemTooltip : MonoBehaviour
@@ -20,13 +21,23 @@ public class ItemTooltip : MonoBehaviour
 
     [SerializeField] private TextMeshProUGUI nameText;
     [SerializeField] private TextMeshProUGUI typeText;
+    [SerializeField] private TextMeshProUGUI weaponDamageText;
     [SerializeField] private TextMeshProUGUI descriptionText;
     [SerializeField] private TextMeshProUGUI statsText;
     [SerializeField] private TextMeshProUGUI sellPriceText;
-    [SerializeField] private GameObject coinIcon;
+    [SerializeField] private TextMeshProUGUI usageHintText;
 
+    [SerializeField] private GameObject typeRow;
+    [SerializeField] private GameObject priceRow;
+
+    [FormerlySerializedAs("coinIcon")]
     [SerializeField]
-    private TextMeshProUGUI usageHintText;
+    private GameObject currencyIcon;
+
+    [Header("Hover")]
+
+    [SerializeField, Min(0f)]
+    private float hoverGraceSeconds = 0.2f;
 
     [Header("Canvas Group")]
 
@@ -37,6 +48,10 @@ public class ItemTooltip : MonoBehaviour
 
     private Sprite originalFooterIcon;
     private bool footerIconCaptured;
+
+    private bool canHoverCurrency;
+    private bool hideRequested;
+    private float hideAt;
 
     private const float SimpleHorizontalPadding = 16f;
 
@@ -60,12 +75,44 @@ public class ItemTooltip : MonoBehaviour
 
         typeText.richText = true;
 
-        Hide();
-        canvasGroup.blocksRaycasts = false;
+        foreach (Graphic graphic in
+                 GetComponentsInChildren<Graphic>(true))
+        {
+            graphic.raycastTarget = false;
+        }
+
+        HideImmediate();
     }
 
     private void Update()
     {
+        if (currentProvider != null &&
+            currentAnchorMode !=
+                TooltipAnchorMode.FixedBottomRightScreen &&
+            (currentTarget == null ||
+             !currentTarget.gameObject.activeInHierarchy))
+        {
+            HideImmediate();
+            return;
+        }
+
+        if (hideRequested)
+        {
+            if (!canHoverCurrency || currentProvider == null)
+            {
+                HideImmediate();
+            }
+            else if (IsPointerInsideTooltip())
+            {
+                hideAt =
+                    Time.unscaledTime + hoverGraceSeconds;
+            }
+            else if (Time.unscaledTime >= hideAt)
+            {
+                HideImmediate();
+            }
+        }
+
         if (canvasGroup.alpha > 0f &&
             currentProvider != null)
         {
@@ -88,9 +135,14 @@ public class ItemTooltip : MonoBehaviour
         CharacterStats caster,
         TooltipAnchorMode mode = TooltipAnchorMode.TopRight)
     {
-        if (provider == null || target == null)
+        if (provider == null ||
+            target == null ||
+            KeepCurrentTooltip(target))
+        {
             return;
+        }
 
+        hideRequested = false;
         RestoreRegularWidth();
 
         currentProvider = provider;
@@ -106,9 +158,13 @@ public class ItemTooltip : MonoBehaviour
         ITooltipProvider provider,
         CharacterStats viewer)
     {
-        if (provider == null)
+        if (provider == null ||
+            KeepCurrentTooltip(null))
+        {
             return;
+        }
 
+        hideRequested = false;
         RestoreRegularWidth();
 
         currentProvider = provider;
@@ -132,8 +188,6 @@ public class ItemTooltip : MonoBehaviour
 
         RestoreRegularWidth();
         ResetSections();
-
-        canvasGroup.blocksRaycasts = false;
 
         currentProvider = null;
         currentTarget = null;
@@ -166,11 +220,9 @@ public class ItemTooltip : MonoBehaviour
     {
         if (data == null)
         {
-            Hide();
+            HideImmediate();
             return;
         }
-
-        ResetSections();
 
         nameText.text = data.title;
         nameText.color = data.titleColor;
@@ -197,13 +249,28 @@ public class ItemTooltip : MonoBehaviour
         typeText.text = subtitle;
         typeText.gameObject.SetActive(subtitle.Length > 0);
 
-        if (!string.IsNullOrEmpty(data.description))
-        {
-            descriptionText.text =
-                $"<color=#ffc70f>{data.description}</color>";
+        bool hasDamage =
+            !string.IsNullOrWhiteSpace(data.weaponDamage);
 
-            descriptionText.gameObject.SetActive(true);
+        if (weaponDamageText != null)
+        {
+            weaponDamageText.text =
+                data.weaponDamage ?? string.Empty;
+
+            weaponDamageText.gameObject.SetActive(hasDamage);
         }
+
+        if (typeRow != null)
+        {
+            typeRow.SetActive(
+                subtitle.Length > 0 || hasDamage);
+        }
+
+        descriptionText.text =
+            $"<color=#ffc70f>{data.description}</color>";
+
+        descriptionText.gameObject.SetActive(
+            !string.IsNullOrEmpty(data.description));
 
         string body =
             string.Join("\n", data.stats);
@@ -237,6 +304,8 @@ public class ItemTooltip : MonoBehaviour
         }
 
         canvasGroup.alpha = 1f;
+        canvasGroup.blocksRaycasts = canHoverCurrency;
+        canvasGroup.interactable = canHoverCurrency;
 
         if (currentAnchorMode ==
             TooltipAnchorMode.FixedBottomRightScreen)
@@ -253,13 +322,29 @@ public class ItemTooltip : MonoBehaviour
 
     private void ResetSections()
     {
+        hideRequested = false;
+        canHoverCurrency = false;
+
+        canvasGroup.blocksRaycasts = false;
+        canvasGroup.interactable = false;
+
         typeText.gameObject.SetActive(false);
+
+        if (weaponDamageText != null)
+            weaponDamageText.gameObject.SetActive(false);
+
+        if (typeRow != null)
+            typeRow.SetActive(false);
+
         descriptionText.gameObject.SetActive(false);
         statsText.gameObject.SetActive(false);
         sellPriceText.gameObject.SetActive(false);
 
-        if (coinIcon != null)
-            coinIcon.SetActive(false);
+        if (currencyIcon != null)
+            currencyIcon.SetActive(false);
+
+        if (priceRow != null)
+            priceRow.SetActive(false);
 
         if (usageHintText != null)
             usageHintText.gameObject.SetActive(false);
@@ -271,22 +356,31 @@ public class ItemTooltip : MonoBehaviour
             data.showFooter &&
             !string.IsNullOrWhiteSpace(data.footer);
 
+        if (priceRow != null)
+            priceRow.SetActive(visible);
+
         sellPriceText.gameObject.SetActive(visible);
 
         if (visible)
             sellPriceText.text = data.footer;
 
-        if (coinIcon == null)
+        canHoverCurrency = false;
+
+        if (currencyIcon == null)
             return;
 
-        Image image = coinIcon.GetComponent<Image>();
-
-        if (image == null)
-            image = coinIcon.GetComponentInChildren<Image>(true);
+        Image image =
+            currencyIcon.GetComponent<Image>();
 
         if (image == null)
         {
-            coinIcon.SetActive(false);
+            image =
+                currencyIcon.GetComponentInChildren<Image>(true);
+        }
+
+        if (image == null)
+        {
+            currencyIcon.SetActive(false);
             return;
         }
 
@@ -296,27 +390,39 @@ public class ItemTooltip : MonoBehaviour
             footerIconCaptured = true;
         }
 
-        Sprite coins =
-            PlayerCurrency.Instance != null &&
-            PlayerCurrency.Instance.CurrencyDefinition != null
-                ? PlayerCurrency.Instance.CurrencyDefinition.Icon
+        CurrencyData coins =
+            PlayerCurrency.Instance != null
+                ? PlayerCurrency.Instance.CurrencyDefinition
                 : null;
 
         Sprite sprite = data.footerIcon != null
             ? data.footerIcon
-            : coins != null
-                ? coins
+            : coins != null && coins.Icon != null
+                ? coins.Icon
                 : originalFooterIcon;
+
+        ScriptableObject definition =
+            data.footerCurrencyDefinition != null
+                ? data.footerCurrencyDefinition
+                : coins;
+
+        bool showIcon =
+            visible &&
+            data.showFooterIcon &&
+            sprite != null;
 
         image.sprite = sprite;
         image.preserveAspect = true;
-        image.raycastTarget = false;
         image.enabled = true;
 
-        coinIcon.SetActive(
-            visible &&
-            data.showFooterIcon &&
-            sprite != null);
+        canHoverCurrency =
+            showIcon && definition != null;
+
+        CurrencyTooltipTarget.Bind(
+            image,
+            canHoverCurrency ? definition : null);
+
+        currencyIcon.SetActive(showIcon);
     }
 
     public bool IsShowingFor(RectTransform target)
@@ -327,18 +433,63 @@ public class ItemTooltip : MonoBehaviour
 
     public void Hide()
     {
+        if (currentProvider == null ||
+            !canHoverCurrency ||
+            canvasGroup.alpha <= 0f)
+        {
+            HideImmediate();
+            return;
+        }
+
+        hideRequested = true;
+
+        hideAt =
+            Time.unscaledTime + hoverGraceSeconds;
+    }
+
+    public void HideImmediate()
+    {
         currentProvider = null;
         currentTarget = null;
         currentCaster = null;
 
         canvasGroup.alpha = 0f;
-        canvasGroup.blocksRaycasts = false;
-        canvasGroup.interactable = false;
+
+        ResetSections();
+    }
+
+    private bool KeepCurrentTooltip(
+        RectTransform nextTarget)
+    {
+        return hideRequested &&
+               canHoverCurrency &&
+               nextTarget != currentTarget &&
+               IsPointerInsideTooltip();
+    }
+
+    private bool IsPointerInsideTooltip()
+    {
+        Canvas canvas =
+            GetComponentInParent<Canvas>();
+
+        if (canvas == null)
+            return false;
+
+        Camera camera =
+            canvas.renderMode == RenderMode.ScreenSpaceOverlay
+                ? null
+                : canvas.worldCamera;
+
+        return RectTransformUtility.RectangleContainsScreenPoint(
+            rectTransform,
+            Input.mousePosition,
+            camera);
     }
 
     private void SetFixedBottomRightPosition()
     {
-        Canvas canvas = GetComponentInParent<Canvas>();
+        Canvas canvas =
+            GetComponentInParent<Canvas>();
 
         if (canvas == null)
             return;
@@ -357,19 +508,15 @@ public class ItemTooltip : MonoBehaviour
         const float horizontalMargin = 24f;
         const float verticalMargin = 24f;
 
-        Rect canvasBounds = canvasRect.rect;
-        Vector2 tooltipSize = rectTransform.rect.size;
+        Rect bounds = canvasRect.rect;
+        Vector2 size = rectTransform.rect.size;
         Vector2 pivot = rectTransform.pivot;
 
-        float rightEdge =
-            canvasBounds.xMax - horizontalMargin;
-
-        float bottomEdge =
-            canvasBounds.yMin + verticalMargin;
-
         rectTransform.anchoredPosition = new Vector2(
-            rightEdge - (1f - pivot.x) * tooltipSize.x,
-            bottomEdge + pivot.y * tooltipSize.y);
+            bounds.xMax - horizontalMargin -
+                (1f - pivot.x) * size.x,
+            bounds.yMin + verticalMargin +
+                pivot.y * size.y);
 
         ClampToScreen();
     }
@@ -381,12 +528,13 @@ public class ItemTooltip : MonoBehaviour
         if (target == null)
             return;
 
-        Canvas canvas = GetComponentInParent<Canvas>();
+        Canvas canvas =
+            GetComponentInParent<Canvas>();
 
         RectTransform canvasRect =
             canvas.transform as RectTransform;
 
-        Camera cam =
+        Camera camera =
             canvas.renderMode == RenderMode.ScreenSpaceOverlay
                 ? null
                 : canvas.worldCamera;
@@ -399,123 +547,105 @@ public class ItemTooltip : MonoBehaviour
         Vector3[] corners = new Vector3[4];
         target.GetWorldCorners(corners);
 
-        Vector2 targetTopRightScreen =
+        Vector2 topRightScreen =
             RectTransformUtility.WorldToScreenPoint(
-                cam,
+                camera,
                 corners[2]);
 
-        Vector2 targetBottomLeftScreen =
+        Vector2 bottomLeftScreen =
             RectTransformUtility.WorldToScreenPoint(
-                cam,
+                camera,
                 corners[0]);
 
         RectTransformUtility.ScreenPointToLocalPointInRectangle(
             canvasRect,
-            targetTopRightScreen,
-            cam,
-            out Vector2 targetTopRightLocal);
+            topRightScreen,
+            camera,
+            out Vector2 topRight);
 
         RectTransformUtility.ScreenPointToLocalPointInRectangle(
             canvasRect,
-            targetBottomLeftScreen,
-            cam,
-            out Vector2 targetBottomLeftLocal);
+            bottomLeftScreen,
+            camera,
+            out Vector2 bottomLeft);
 
-        Vector2 tooltipSize = rectTransform.rect.size;
+        Vector2 size = rectTransform.rect.size;
         Vector2 pivot = rectTransform.pivot;
 
         Vector2 bottomLeftOffset = new(
-            -pivot.x * tooltipSize.x,
-            -pivot.y * tooltipSize.y);
+            -pivot.x * size.x,
+            -pivot.y * size.y);
 
         Vector2 topRightOffset = new(
-            (1f - pivot.x) * tooltipSize.x,
-            (1f - pivot.y) * tooltipSize.y);
+            (1f - pivot.x) * size.x,
+            (1f - pivot.y) * size.y);
 
-        Vector2 desiredAnchoredPos;
-        float padding = 6f;
+        const float padding = 6f;
+
+        Vector2 desired;
 
         switch (mode)
         {
             case TooltipAnchorMode.TopRight:
-                desiredAnchoredPos =
-                    targetTopRightLocal -
-                    bottomLeftOffset +
+                desired =
+                    topRight - bottomLeftOffset +
                     new Vector2(padding, padding);
                 break;
 
             case TooltipAnchorMode.BottomLeft:
-                desiredAnchoredPos =
-                    targetBottomLeftLocal -
-                    topRightOffset +
+                desired =
+                    bottomLeft - topRightOffset +
                     new Vector2(-padding, -padding);
                 break;
 
             case TooltipAnchorMode.BottomRight:
-                Vector2 targetBottomRightScreen =
+                Vector2 bottomRightScreen =
                     RectTransformUtility.WorldToScreenPoint(
-                        cam,
+                        camera,
                         corners[3]);
 
                 RectTransformUtility.ScreenPointToLocalPointInRectangle(
                     canvasRect,
-                    targetBottomRightScreen,
-                    cam,
-                    out Vector2 targetBottomRightLocal);
+                    bottomRightScreen,
+                    camera,
+                    out Vector2 bottomRight);
 
-                desiredAnchoredPos =
-                    targetBottomRightLocal -
-                    bottomLeftOffset +
+                desired =
+                    bottomRight - bottomLeftOffset +
                     new Vector2(padding, -padding);
                 break;
 
             case TooltipAnchorMode.TopLeft:
-                Vector2 targetTopLeftScreen =
+                Vector2 topLeftScreen =
                     RectTransformUtility.WorldToScreenPoint(
-                        cam,
+                        camera,
                         corners[1]);
 
                 RectTransformUtility.ScreenPointToLocalPointInRectangle(
                     canvasRect,
-                    targetTopLeftScreen,
-                    cam,
-                    out Vector2 targetTopLeftLocal);
+                    topLeftScreen,
+                    camera,
+                    out Vector2 topLeft);
 
-                desiredAnchoredPos =
-                    targetTopLeftLocal -
-                    bottomLeftOffset +
+                desired =
+                    topLeft - bottomLeftOffset +
                     new Vector2(-padding, padding);
                 break;
 
             case TooltipAnchorMode.FixedBottomLeft:
-                Vector2 targetBLScreen =
-                    RectTransformUtility.WorldToScreenPoint(
-                        cam,
-                        corners[0]);
-
-                RectTransformUtility.ScreenPointToLocalPointInRectangle(
-                    canvasRect,
-                    targetBLScreen,
-                    cam,
-                    out Vector2 targetBLLocal);
-
-                desiredAnchoredPos =
-                    targetBLLocal -
-                    topRightOffset +
+                desired =
+                    bottomLeft - topRightOffset +
                     new Vector2(-padding, -padding);
                 break;
 
             default:
-                desiredAnchoredPos =
-                    targetTopRightLocal -
-                    bottomLeftOffset +
+                desired =
+                    topRight - bottomLeftOffset +
                     new Vector2(padding, padding);
                 break;
         }
 
-        rectTransform.anchoredPosition =
-            desiredAnchoredPos;
-
+        rectTransform.anchoredPosition = desired;
         ClampToScreen();
     }
 
@@ -525,34 +655,33 @@ public class ItemTooltip : MonoBehaviour
             GetComponentInParent<Canvas>().transform
                 as RectTransform;
 
-        Vector2 pos = rectTransform.anchoredPosition;
+        Vector2 position = rectTransform.anchoredPosition;
         Vector2 size = rectTransform.rect.size;
         Vector2 pivot = rectTransform.pivot;
 
-        Vector2 tooltipMin = pos + new Vector2(
+        Vector2 min = position + new Vector2(
             -pivot.x * size.x,
             -pivot.y * size.y);
 
-        Vector2 tooltipMax =
-            tooltipMin + size;
+        Vector2 max = min + size;
+        Rect bounds = canvasRect.rect;
 
-        Rect canvasR = canvasRect.rect;
         Vector2 correction = Vector2.zero;
 
-        if (tooltipMin.x < canvasR.xMin)
-            correction.x = canvasR.xMin - tooltipMin.x;
+        if (min.x < bounds.xMin)
+            correction.x = bounds.xMin - min.x;
 
-        if (tooltipMax.x > canvasR.xMax)
-            correction.x = canvasR.xMax - tooltipMax.x;
+        if (max.x > bounds.xMax)
+            correction.x = bounds.xMax - max.x;
 
-        if (tooltipMin.y < canvasR.yMin)
-            correction.y = canvasR.yMin - tooltipMin.y;
+        if (min.y < bounds.yMin)
+            correction.y = bounds.yMin - min.y;
 
-        if (tooltipMax.y > canvasR.yMax)
-            correction.y = canvasR.yMax - tooltipMax.y;
+        if (max.y > bounds.yMax)
+            correction.y = bounds.yMax - max.y;
 
         rectTransform.anchoredPosition =
-            pos + correction;
+            position + correction;
     }
 
     public void ShowSimple(
@@ -585,9 +714,7 @@ public class ItemTooltip : MonoBehaviour
         if (!simpleWidthActive)
         {
             simpleWidthActive = true;
-
-            regularWidth =
-                rectTransform.rect.width;
+            regularWidth = rectTransform.rect.width;
 
             regularPanelSizeDeltaX =
                 rectTransform.sizeDelta.x;
