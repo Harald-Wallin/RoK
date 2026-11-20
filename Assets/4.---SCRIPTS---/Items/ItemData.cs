@@ -308,27 +308,36 @@ public class ItemData :
         public string warningDialog;
     }
 
-    public TooltipData GetTooltipData(CharacterStats caster)
+    public TooltipData GetTooltipData(
+    CharacterStats caster)
     {
-        TooltipData data = new TooltipData
+        TooltipData data = new()
         {
             title = DisplayName,
             titleColor = ItemRarityColors.GetColor(rarity),
             subtitle = ItemTypeDisplayName,
             description = description,
-            footer = $"Sellprice: {SellPrice}",
-            showFooter = true
+            footer = SellPrice.ToString(),
+            showFooter = true,
+            usageHint = IsContainer
+                ? "Right click to open"
+                : null
         };
 
-        bool isWeapon = itemType == ItemType.Weapon;
+        bool isWeapon =
+            itemType == ItemType.Weapon;
+
         float legacyWeaponDamage = 0f;
 
         if (statModifiers != null)
         {
             foreach (ItemStatModifier modifier in statModifiers)
             {
-                if (modifier == null || Mathf.Approximately(modifier.value, 0f))
+                if (modifier == null ||
+                    Mathf.Approximately(modifier.value, 0f))
+                {
                     continue;
+                }
 
                 if (isWeapon &&
                     modifier.stat == StatType.WeaponDamage &&
@@ -338,24 +347,36 @@ public class ItemData :
                     continue;
                 }
 
-                data.stats.Add(StatFormatting.FormatModifier(
-                    modifier.stat, modifier.modifierType, modifier.value));
+                data.stats.Add(
+                    StatFormatting.FormatModifier(
+                        modifier.stat,
+                        modifier.modifierType,
+                        modifier.value));
             }
         }
 
         if (isWeapon)
         {
-            WeaponFamilyDefinition family = WeaponFamily;
-            string familyName = family != null ? family.name : ItemTypeDisplayName;
+            WeaponFamilyDefinition family =
+                WeaponFamily;
 
-            string damage = TryGetWeaponDamageRange(out Vector2Int range)
-                ? $"{range.x}–{range.y}"
-                : $"{legacyWeaponDamage:0.##}–{legacyWeaponDamage:0.##}";
+            string familyName = family != null
+                ? family.name
+                : ItemTypeDisplayName;
 
-            data.subtitle = $"<color=#FFFFFF>{familyName} • dmg: {damage}</color>";
+            string damage =
+                TryGetWeaponDamageRange(out Vector2Int range)
+                    ? $"{range.x}–{range.y}"
+                    : $"{legacyWeaponDamage:0.##}–" +
+                      $"{legacyWeaponDamage:0.##}";
+
+            data.subtitle =
+                $"<color=#FFFFFF>{familyName} • dmg: {damage}</color>";
         }
 
-        AddRequirementLines(data, PlayerReference.Player);
+        AddRequirementLines(
+            data,
+            PlayerReference.Player);
 
         if (IsFood)
         {
@@ -363,10 +384,14 @@ public class ItemData :
                 $"Restores {FoodHealingPerTick} health " +
                 $"every {FoodTickInterval:0.#} seconds.");
 
-            data.stats.Add($"Eating time: {FoodChannelDuration:0.#} seconds.");
+            data.stats.Add(
+                $"Eating time: {FoodChannelDuration:0.#} seconds.");
         }
 
-        FavourPresentationUtility.AppendForItem(data, this);
+        FavourPresentationUtility.AppendForItem(
+            data,
+            this);
+
         return data;
     }
 

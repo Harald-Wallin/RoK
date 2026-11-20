@@ -31,6 +31,7 @@ public sealed class LootContents
     public void Clear()
     {
         items.Clear();
+        generatedItems.Clear();
         coinAmount = 0;
     }
 

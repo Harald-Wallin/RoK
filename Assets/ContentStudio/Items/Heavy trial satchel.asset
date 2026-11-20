@@ -32,8 +32,7 @@ MonoBehaviour:
   itemType: 17
   weaponFamily: {fileID: 0}
   weaponDamageRange: {x: 0, y: 0}
-  containerLootTables:
-  - {fileID: 11400000, guid: 9fc04a989a06c6342a37b5eb4ea24d01, type: 2}
+  containerLootTables: []
   containerMinRolls: 1
   containerMaxRolls: 1
   requiredFavour: {fileID: 0}

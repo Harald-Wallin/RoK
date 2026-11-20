@@ -13,11 +13,11 @@ MonoBehaviour:
   m_Name: WellCraftedShieldVendor 1
   m_EditorClassIdentifier: Assembly-CSharp::VendorItem
   item: {fileID: 11400000, guid: 4f795946253d76541a27b76788dd1068, type: 2}
-  vendorPrice: 10
+  vendorPrice: 8
   stockType: 0
-  useLevelRequirement: 0
-  requiredLevel: 1
-  useReputationRequirement: 0
-  requiredReputation: 2
+  useLevelRequirement: 1
+  requiredLevel: 10
+  useReputationRequirement: 1
+  requiredReputation: 5
   maxStock: 1
   restockTime: 0

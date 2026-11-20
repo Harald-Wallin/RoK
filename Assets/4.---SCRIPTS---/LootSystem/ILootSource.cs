@@ -10,8 +10,7 @@ public interface ILootSource
 
     bool HasLoot { get; }
 
-    int GetItemQuantity(
-        ItemData item);
+    int GetItemQuantity(ItemData item);
 
     bool TryTakeItems(
         ItemData item,
@@ -20,4 +19,9 @@ public interface ILootSource
     int TakeAllCoins();
 
     void RefreshLootVisuals();
+}
+
+public interface IGeneratedLootSource : ILootSource
+{
+    IReadOnlyList<GeneratedLootItem> GeneratedLootItems { get; }
 }

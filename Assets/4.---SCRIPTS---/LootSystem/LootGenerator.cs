@@ -69,6 +69,32 @@ public sealed class LootGenerationResult
         }
     }
 
+    public void AddContainer(
+    ItemData item,
+    LootGenerationResult initialContents)
+    {
+        if (item == null ||
+            !item.IsContainer ||
+            initialContents == null)
+        {
+            throw new System.ArgumentException(
+                "A container item and its contents are required.");
+        }
+
+        InventoryContainerLoot state =
+            new(item, initialContents);
+
+        generatedItems.Add(
+            new GeneratedLootItem(
+                item,
+                default,
+                string.Empty,
+                0,
+                state));
+
+        items.Add(item);
+    }
+
     public void AddCoins(
         int amount)
     {

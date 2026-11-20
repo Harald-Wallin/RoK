@@ -188,11 +188,9 @@ public class Vendor : MonoBehaviour, IInteractionOption
     {
         int price = GetModifiedPrice(entry);
 
-        return price < 0
-            ? "Unavailable"
-            : UsesTrophies
-                ? $"{price} {paymentTrophy.DisplayName}"
-                : price.ToString();
+        return price >= 0
+            ? price.ToString()
+            : "Unavailable";
     }
 
     public bool CanAfford(VendorItem entry)
@@ -214,56 +212,72 @@ public class Vendor : MonoBehaviour, IInteractionOption
                 PlayerCurrency.Instance.HasCoins(price));
     }
 
-    public bool CanPurchase(VendorItemRuntime entry)
+    public bool CanPurchase(
+    VendorItemRuntime entry)
     {
-        Inventory inventory = Inventory.Instance;
-        PlayerStats player = PlayerReference.Player;
+        PlayerStats player =
+            PlayerReference.Player;
 
-        if (inventory == null ||
+        if (Inventory.Instance == null ||
             player == null ||
             entry?.data?.item == null ||
             !runtimeItems.Contains(entry) ||
-            !CanTrade(player.GetComponent<PlayerReputationManager>()))
-        {
-            return false;
-        }
-
-        VendorItem offer = entry.data;
-        ItemData item = offer.item;
-
-        if (!item.MeetsRequirements(player) ||
-            (offer.useLevelRequirement &&
-             player.level < offer.requiredLevel) ||
-            (offer.stockType == VendorStockType.Limited &&
+            !MeetsPurchaseRequirements(entry.data) ||
+            !CanTrade(
+                player.GetComponent<PlayerReputationManager>()) ||
+            (entry.data.stockType == VendorStockType.Limited &&
              entry.currentStock <= 0))
         {
             return false;
-        }
-
-        if (offer.useReputationRequirement)
-        {
-            PlayerReputationManager rep =
-                player.GetComponent<PlayerReputationManager>();
-
-            if (rep == null ||
-                faction == null ||
-                rep.GetReputationState(faction) <
-                    offer.requiredReputation)
-            {
-                return false;
-            }
         }
 
         PlayerItemOwnership ownership =
             PlayerFavourManager.Instance?.PlayerItems;
 
         if (ownership != null &&
-            !ownership.CanReceive(item, 1))
+            !ownership.CanReceive(entry.data.item, 1))
         {
             return false;
         }
 
-        return CanAfford(offer);
+        return CanAfford(entry.data);
+    }
+
+    public bool MeetsPurchaseRequirements(
+    VendorItem offer)
+    {
+        PlayerStats player =
+            PlayerReference.Player;
+
+        if (player == null ||
+            offer == null ||
+            offer.item == null ||
+            !offer.item.MeetsRequirements(player))
+        {
+            return false;
+        }
+
+        if (offer.useLevelRequirement &&
+            player.level < offer.requiredLevel)
+        {
+            return false;
+        }
+
+        if (offer.useReputationRequirement)
+        {
+            PlayerReputationManager reputation =
+                player.GetComponent<PlayerReputationManager>();
+
+            if (reputation == null ||
+                faction == null ||
+                reputation.GetReputationState(faction) <
+                    offer.requiredReputation)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public void BuyItem(VendorItemRuntime entry)

@@ -8,7 +8,7 @@ public interface IInventoryLootTransfer
 }
 
 public sealed class InventoryContainerLoot :
-    ILootSource,
+    IGeneratedLootSource,
     IInventoryLootTransfer
 {
     private readonly ItemData definition;
@@ -23,10 +23,28 @@ public sealed class InventoryContainerLoot :
         this.definition = definition;
     }
 
+    public InventoryContainerLoot(
+        ItemData definition,
+        LootGenerationResult initialContents)
+        : this(definition)
+    {
+        if (initialContents == null)
+        {
+            throw new System.ArgumentNullException(
+                nameof(initialContents));
+        }
+
+        contents.Apply(initialContents);
+        rolled = true;
+    }
+
     public ItemData Definition => definition;
 
     public string LootTitle =>
         definition.DisplayName;
+
+    public IReadOnlyList<GeneratedLootItem> GeneratedLootItems =>
+        contents.GeneratedItems;
 
     public IReadOnlyList<ItemData> LootItems =>
         contents.Items;
@@ -178,6 +196,7 @@ public sealed class InventoryContainerLoot :
             return 0;
 
         int amount = contents.TakeAllCoins();
+
         RefreshLootVisuals();
 
         return amount;

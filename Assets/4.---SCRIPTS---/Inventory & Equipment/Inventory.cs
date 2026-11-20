@@ -698,6 +698,107 @@ public class Inventory : MonoBehaviour
                 GetSafeMaxStack(slot.item));
     }
 
+    public bool TryReceiveLootItems(
+    ItemData item,
+    int quantity,
+    IReadOnlyList<GeneratedLootItem> generatedItems)
+    {
+        if (item == null || quantity <= 0)
+            return false;
+
+        List<InventorySlot> simulated = CloneSlots();
+
+        if (!TryAddLootToSlots(
+                simulated,
+                item,
+                quantity,
+                generatedItems))
+        {
+            NotificationSpawner.Instance?.Show(
+                NotificationSpawner.Instance.Database.inventoryFull);
+
+            return false;
+        }
+
+        CommitSimulatedSlots(simulated);
+        NotifyChanged();
+
+        return true;
+    }
+
+    private static bool TryAddLootToSlots(
+        List<InventorySlot> targetSlots,
+        ItemData item,
+        int quantity,
+        IReadOnlyList<GeneratedLootItem> generatedItems)
+    {
+        if (!item.IsContainer)
+        {
+            return TryAddToSlots(
+                targetSlots,
+                new[]
+                {
+                    new InventoryItemAmount(item, quantity)
+                });
+        }
+
+        List<InventoryContainerLoot> states = new();
+
+        if (generatedItems != null)
+        {
+            for (int i = generatedItems.Count - 1;
+                 i >= 0 && states.Count < quantity;
+                 i--)
+            {
+                GeneratedLootItem generated =
+                    generatedItems[i];
+
+                if (generated != null &&
+                    ItemsMatch(generated.Item, item))
+                {
+                    states.Add(generated.ContainerLoot);
+                }
+            }
+        }
+
+        while (states.Count < quantity)
+            states.Add(null);
+
+        foreach (InventoryContainerLoot state in states)
+        {
+            if (state != null)
+            {
+                if (state.IsOwned ||
+                    !ItemsMatch(state.Definition, item))
+                {
+                    return false;
+                }
+
+                foreach (InventorySlot slot in targetSlots)
+                {
+                    if (slot != null &&
+                        !slot.IsEmpty() &&
+                        ReferenceEquals(slot.ContainerLoot, state))
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            InventorySlot empty = targetSlots.Find(
+                candidate =>
+                    candidate != null &&
+                    candidate.IsEmpty());
+
+            if (empty == null)
+                return false;
+
+            empty.SetItem(item, 1, state);
+        }
+
+        return true;
+    }
+
     public bool OpenContainerAt(int slotIndex)
     {
         if (slotIndex < 0 || slotIndex >= slots.Count)
@@ -717,9 +818,9 @@ public class Inventory : MonoBehaviour
     }
 
     internal bool TryLootContainerItem(
-        InventoryContainerLoot source,
-        ItemData item,
-        int quantity)
+    InventoryContainerLoot source,
+    ItemData item,
+    int quantity)
     {
         if (source == null ||
             item == null ||
@@ -744,9 +845,11 @@ public class Inventory : MonoBehaviour
         if (source.RemovesContainerWhenTaking(item, quantity))
             simulated[index].Clear();
 
-        if (!TryAddToSlots(
+        if (!TryAddLootToSlots(
                 simulated,
-                new[] { new InventoryItemAmount(item, quantity) }))
+                item,
+                quantity,
+                source.GeneratedLootItems))
         {
             NotificationSpawner.Instance?.Show(
                 NotificationSpawner.Instance.Database.inventoryFull);

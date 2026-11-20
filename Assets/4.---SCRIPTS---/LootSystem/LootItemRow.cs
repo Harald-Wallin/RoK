@@ -173,7 +173,18 @@ public sealed class LootItemRow :
             return;
         }
 
-        if (!Inventory.Instance.AddItem(item, quantity))
+        bool added =
+            item.IsContainer &&
+            source is IGeneratedLootSource detailed
+                ? Inventory.Instance.TryReceiveLootItems(
+                    item,
+                    quantity,
+                    detailed.GeneratedLootItems)
+                : Inventory.Instance.AddItem(
+                    item,
+                    quantity);
+
+        if (!added)
             return;
 
         if (!source.TryTakeItems(item, quantity))

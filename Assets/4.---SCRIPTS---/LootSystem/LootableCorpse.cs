@@ -1,9 +1,10 @@
 using System.Collections.Generic;
 using UnityEngine;
+using static ILootSource;
 
 public sealed class LootableCorpse :
     MonoBehaviour,
-    ILootSource
+    IGeneratedLootSource
 {
     [Header("Identity")]
 
@@ -58,6 +59,11 @@ public sealed class LootableCorpse :
             corpseName)
             ? corpseName
             : gameObject.name;
+
+
+
+    public IReadOnlyList<GeneratedLootItem> GeneratedLootItems =>
+    contents.GeneratedItems;
 
     public IReadOnlyList<ItemData> LootItems =>
         contents.Items;

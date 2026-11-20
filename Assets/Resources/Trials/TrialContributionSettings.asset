@@ -24,3 +24,6 @@ MonoBehaviour:
   tierOnePercent: 10
   tierTwoPercent: 50
   tierThreePercent: 80
+  firstPlaceContainer: {fileID: 11400000, guid: f6217909094b01e4d8099c4ef25dc66b, type: 2}
+  secondPlaceContainer: {fileID: 11400000, guid: 80b2a1fdd07d9f1488f4fdd8e145881d, type: 2}
+  thirdPlaceContainer: {fileID: 11400000, guid: 6ae574f5c6d1b7e4c9d82ada686273f0, type: 2}

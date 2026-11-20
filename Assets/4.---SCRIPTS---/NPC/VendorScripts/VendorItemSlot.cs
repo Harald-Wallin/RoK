@@ -15,6 +15,9 @@ public class VendorItemSlot : MonoBehaviour,
     [SerializeField] public TMP_Text nameText;
     [SerializeField] public TMP_Text priceText;
 
+    [SerializeField]
+    private Image priceCurrencyIcon;
+
     [SerializeField] private TMP_Text stackText;
     [SerializeField] private TMP_Text stockText;
     [SerializeField] private TMP_Text timerText;
@@ -27,14 +30,25 @@ public class VendorItemSlot : MonoBehaviour,
     private Vendor buybackVendor;
 
     private bool isBuybackSlot;
+
     private Color originalButtonColor;
+    private Sprite originalCurrencySprite;
 
     private void Awake()
     {
-        originalButtonColor =
-            buttonImage != null
-                ? buttonImage.color
-                : Color.white;
+        originalButtonColor = buttonImage != null
+            ? buttonImage.color
+            : Color.white;
+
+        originalCurrencySprite = priceCurrencyIcon != null
+            ? priceCurrencyIcon.sprite
+            : null;
+
+        if (priceCurrencyIcon != null)
+        {
+            priceCurrencyIcon.preserveAspect = true;
+            priceCurrencyIcon.raycastTarget = false;
+        }
     }
 
     public void Initialize(
@@ -43,6 +57,7 @@ public class VendorItemSlot : MonoBehaviour,
     {
         entry = newEntry;
         vendorUI = ui;
+
         isBuybackSlot = false;
         buybackEntry = null;
 
@@ -76,12 +91,15 @@ public class VendorItemSlot : MonoBehaviour,
 
         SetItemVisuals(entry.item);
 
-        if (priceText != null)
-            priceText.text = entry.pricePaid.ToString();
+        SetPrice(
+            entry.pricePaid,
+            GetCurrencyIcon(true));
 
         if (stackText != null)
         {
-            stackText.text = entry.quantity.ToString();
+            stackText.text =
+                entry.quantity.ToString();
+
             stackText.gameObject.SetActive(
                 entry.quantity > 1);
         }
@@ -131,12 +149,61 @@ public class VendorItemSlot : MonoBehaviour,
             RefreshOffer();
     }
 
-    private void RefreshOffer()
+    private Sprite GetCurrencyIcon(
+        bool forceCoins = false)
     {
-        Vendor vendor =
-            vendorUI != null
+        Vendor vendor = isBuybackSlot
+            ? buybackVendor
+            : vendorUI != null
                 ? vendorUI.ActiveVendor
                 : null;
+
+        if (!forceCoins &&
+            vendor != null &&
+            vendor.UsesTrophies)
+        {
+            return vendor.PaymentTrophy.icon;
+        }
+
+        CurrencyData currency =
+            PlayerCurrency.Instance != null
+                ? PlayerCurrency.Instance.CurrencyDefinition
+                : null;
+
+        return currency != null && currency.Icon != null
+            ? currency.Icon
+            : originalCurrencySprite;
+    }
+
+    private void SetPrice(
+        int amount,
+        Sprite currencySprite)
+    {
+        if (priceText != null)
+        {
+            priceText.text = amount >= 0
+                ? amount.ToString()
+                : "Unavailable";
+
+            priceText.color = Color.white;
+        }
+
+        if (priceCurrencyIcon != null)
+        {
+            priceCurrencyIcon.sprite =
+                currencySprite;
+
+            priceCurrencyIcon.gameObject.SetActive(
+                amount >= 0 &&
+                currencySprite != null);
+        }
+    }
+
+    private void RefreshOffer()
+    {
+        Vendor vendor = vendorUI != null
+            ? vendorUI.ActiveVendor
+            : null;
 
         if (vendor == null ||
             entry?.data?.item == null)
@@ -144,25 +211,23 @@ public class VendorItemSlot : MonoBehaviour,
             return;
         }
 
-        if (priceText != null)
-        {
-            priceText.text =
-                vendor.GetPriceText(entry.data);
-        }
+        SetPrice(
+            vendor.GetModifiedPrice(entry.data),
+            GetCurrencyIcon());
 
-        bool available =
-            vendor.CanPurchase(entry);
+        bool meetsRequirements =
+            vendor.MeetsPurchaseRequirements(entry.data);
 
         if (icon != null)
         {
-            icon.color = available
+            icon.color = meetsRequirements
                 ? Color.white
                 : new Color(1f, 0.4f, 0.4f, 1f);
         }
 
         if (nameText != null)
         {
-            nameText.color = available
+            nameText.color = meetsRequirements
                 ? ItemRarityColors.GetColor(
                     entry.data.item.rarity)
                 : new Color(1f, 0.7f, 0.7f, 1f);
@@ -170,7 +235,7 @@ public class VendorItemSlot : MonoBehaviour,
 
         if (priceText != null)
         {
-            priceText.color = available
+            priceText.color = meetsRequirements
                 ? Color.white
                 : new Color(1f, 0.7f, 0.7f, 1f);
         }
@@ -240,14 +305,15 @@ public class VendorItemSlot : MonoBehaviour,
     public void OnPointerEnter(
         PointerEventData eventData)
     {
-        if (ItemTooltip.Instance == null || icon == null)
+        if (ItemTooltip.Instance == null ||
+            icon == null)
+        {
             return;
+        }
 
         ItemData item;
         VendorItem offer = null;
-
         int price;
-        string currency = "coins";
 
         if (isBuybackSlot)
         {
@@ -259,10 +325,9 @@ public class VendorItemSlot : MonoBehaviour,
         }
         else
         {
-            Vendor vendor =
-                vendorUI != null
-                    ? vendorUI.ActiveVendor
-                    : null;
+            Vendor vendor = vendorUI != null
+                ? vendorUI.ActiveVendor
+                : null;
 
             if (vendor == null ||
                 entry?.data?.item == null)
@@ -272,19 +337,19 @@ public class VendorItemSlot : MonoBehaviour,
 
             offer = entry.data;
             item = offer.item;
-
             price = vendor.GetModifiedPrice(offer);
-
-            if (vendor.UsesTrophies)
-                currency = vendor.PaymentTrophy.DisplayName;
         }
+
+        Sprite currencySprite =
+            GetCurrencyIcon(isBuybackSlot);
 
         ItemTooltip.Instance.Show(
             new VendorTooltipProvider(
                 item,
                 offer,
                 price,
-                currency),
+                currencySprite,
+                currencySprite != null),
             icon.rectTransform,
             PlayerReference.Player);
     }

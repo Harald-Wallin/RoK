@@ -92,9 +92,9 @@ public sealed class TrialRewards
     private bool settled;
 
     internal void Settle(
-        bool completed,
-        IReadOnlyList<TrialParticipantResult> participants,
-        TrialContributionSettings settings)
+    bool completed,
+    IReadOnlyList<TrialParticipantResult> participants,
+    TrialContributionSettings settings)
     {
         if (settled)
             return;
@@ -118,7 +118,7 @@ public sealed class TrialRewards
             receipts.Add(result.Player, receipt);
 
             if (completed && result.Eligible)
-                RollChest(receipt);
+                RollChest(receipt, settings);
         }
 
         float payout = completed
@@ -244,10 +244,10 @@ public sealed class TrialRewards
         }
     }
 
-    private void RollChest(Receipt receipt)
+    private void RollChest(
+    Receipt receipt,
+    TrialContributionSettings settings)
     {
-        List<LootTable> tables = new();
-
         LootTable ordinary = receipt.Tier switch
         {
             1 => tierOneLoot,
@@ -256,29 +256,53 @@ public sealed class TrialRewards
             _ => null
         };
 
-        LootTable bonus =
-            receipt.Result.Placement switch
-            {
-                1 => firstPlaceLoot,
-                2 => secondPlaceLoot,
-                3 => thirdPlaceLoot,
-                _ => null
-            };
-
-        if (ordinary != null)
-            tables.Add(ordinary);
-
-        if (bonus != null)
-            tables.Add(bonus);
-
-        if (tables.Count > 0)
-        {
-            receipt.Loot =
-                LootGenerator.GenerateLootResult(
-                    tables,
+        LootGenerationResult result =
+            ordinary != null
+                ? LootGenerator.GenerateLootResult(
+                    new List<LootTable> { ordinary },
                     1,
-                    1);
+                    1)
+                : new LootGenerationResult();
+
+        bool hasReward = ordinary != null;
+
+        int placement =
+            receipt.Result.Placement;
+
+        LootTable contentsTable = placement switch
+        {
+            1 => firstPlaceLoot,
+            2 => secondPlaceLoot,
+            3 => thirdPlaceLoot,
+            _ => null
+        };
+
+        if (contentsTable != null)
+        {
+            ItemData container =
+                settings.GetPlacementContainer(placement);
+
+            if (container == null)
+            {
+                Debug.LogError(
+                    $"Trial placement {placement} needs a " +
+                    "Container item in TrialContributionSettings.",
+                    settings);
+            }
+            else
+            {
+                LootGenerationResult contents =
+                    LootGenerator.GenerateLootResult(
+                        new List<LootTable> { contentsTable },
+                        1,
+                        1);
+
+                result.AddContainer(container, contents);
+                hasReward = true;
+            }
         }
+
+        receipt.Loot = hasReward ? result : null;
     }
 
     private void SpawnLocalChest()

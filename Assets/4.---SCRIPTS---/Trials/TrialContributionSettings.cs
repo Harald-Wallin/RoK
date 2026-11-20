@@ -119,6 +119,32 @@ public sealed class TrialContributionSettings : ScriptableObject
         return ratio >= two ? 2 : 1;
     }
 
+    [Header("Placement Reward Containers — Shared By All Trials")]
+
+    [SerializeField]
+    private ItemData firstPlaceContainer;
+
+    [SerializeField]
+    private ItemData secondPlaceContainer;
+
+    [SerializeField]
+    private ItemData thirdPlaceContainer;
+
+    public ItemData GetPlacementContainer(int placement)
+    {
+        ItemData item = placement switch
+        {
+            1 => firstPlaceContainer,
+            2 => secondPlaceContainer,
+            3 => thirdPlaceContainer,
+            _ => null
+        };
+
+        return item != null && item.IsContainer
+            ? item
+            : null;
+    }
+
     private static double HealthPoints(
         int applied,
         int maximumHealth,

@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using static ILootSource;
 
 public enum LootContainerLifecycleMode
 {
@@ -12,7 +13,7 @@ public enum LootContainerLifecycleMode
 [DisallowMultipleComponent]
 public sealed class LootContainer :
     MonoBehaviour,
-    ILootSource,
+    IGeneratedLootSource,
     IInteractionOption
 {
     [System.Serializable]
@@ -248,6 +249,9 @@ public sealed class LootContainer :
             containerName)
             ? containerName
             : gameObject.name;
+
+    public IReadOnlyList<GeneratedLootItem> GeneratedLootItems =>
+        contents.GeneratedItems;
 
 
     public IReadOnlyList<ItemData> LootItems =>
